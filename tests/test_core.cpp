@@ -298,7 +298,7 @@ private slots:
 
         const QString url = QString::fromStdString(magnet) + QStringLiteral("&x.pe=127.0.0.1:%1").arg(seeder.listen_port());
 
-        BtEngine eng(stateDir.path(), 0);
+        BtEngine eng(stateDir.path(), 0, true);
         eng.setSeedRatio(0); // stop right after completion
         QSignalSpy meta(&eng, &DownloadEngine::meta), stopped(&eng, &DownloadEngine::stopped);
         QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
@@ -352,7 +352,7 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(seeder.listen_port() != 0, 5000);
 
         const QString saveDir = dlDir.filePath("out");
-        BtEngine eng(stateDir.path(), 0);
+        BtEngine eng(stateDir.path(), 0, true);
         eng.setSeedRatio(0);
         QSignalSpy stats(&eng, &DownloadEngine::stats), stopped(&eng, &DownloadEngine::stopped);
         QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);

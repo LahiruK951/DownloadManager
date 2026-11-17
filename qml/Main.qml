@@ -112,6 +112,8 @@ ApplicationWindow {
                 SplitView.minimumHeight: 120
                 onRequestDelete: (d) => deleteDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
+                onRequestAdd: addDialog.openWith(App.clipboardUrls())
+                onRequestOpenTorrent: torrentFileDialog.open()
             }
 
             BottomPanel {
@@ -153,6 +155,8 @@ ApplicationWindow {
         else if (v === "schedule") { App.select(App.downloads.idAt(2)); scheduleDialog.openFor(App.selected) }
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
+        else if (v === "compact") App.compactView = true
+        else if (v === "narrow") { win.width = 820; win.height = 560 }
     }
 
     AddDownloadDialog { id: addDialog }

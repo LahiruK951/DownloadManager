@@ -29,7 +29,7 @@ QByteArray toBytes(const std::vector<char>& v) { return QByteArray(v.data(), qsi
 constexpr lt::resume_data_flags_t kResumeFlags = lt::torrent_handle::save_info_dict;
 } // namespace
 
-BtEngine::BtEngine(const QString& stateDir, int listenPort, QObject* parent)
+BtEngine::BtEngine(const QString& stateDir, int listenPort, bool offline, QObject* parent)
     : DownloadEngine(parent), m_stateDir(stateDir)
 {
     QDir().mkpath(stateDir);
@@ -45,13 +45,14 @@ BtEngine::BtEngine(const QString& stateDir, int listenPort, QObject* parent)
     }
     lt::settings_pack& sp = params.settings;
     const QString port = QString::number(listenPort);
-    sp.set_str(lt::settings_pack::listen_interfaces, ss(QStringLiteral("0.0.0.0:%1,[::]:%1").arg(port)));
+    sp.set_str(lt::settings_pack::listen_interfaces,
+               ss(offline ? QStringLiteral("127.0.0.1:%1").arg(port) : QStringLiteral("0.0.0.0:%1,[::]:%1").arg(port)));
     sp.set_int(lt::settings_pack::alert_mask,
                lt::alert_category::status | lt::alert_category::error | lt::alert_category::storage);
-    sp.set_bool(lt::settings_pack::enable_dht, true);
-    sp.set_bool(lt::settings_pack::enable_lsd, true);
-    sp.set_bool(lt::settings_pack::enable_upnp, true);
-    sp.set_bool(lt::settings_pack::enable_natpmp, true);
+    sp.set_bool(lt::settings_pack::enable_dht, !offline);
+    sp.set_bool(lt::settings_pack::enable_lsd, !offline);
+    sp.set_bool(lt::settings_pack::enable_upnp, !offline);
+    sp.set_bool(lt::settings_pack::enable_natpmp, !offline);
     sp.set_str(lt::settings_pack::user_agent, "FluxDM/" FLUXDM_VERSION);
     sp.set_str(lt::settings_pack::peer_fingerprint, lt::generate_fingerprint("FX", 0, 1, 0));
     sp.set_str(lt::settings_pack::dht_bootstrap_nodes,

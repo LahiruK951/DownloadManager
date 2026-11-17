@@ -96,7 +96,9 @@ int main(int argc, char* argv[])
             btPort = QRandomGenerator::global()->bounded(20000, 60000);
             db.setSetting(QStringLiteral("BtListenPort"), btPort);
         }
-        mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), btPort));
+        // Dev profiles (screenshots) stay off the network: loopback only, no DHT.
+        const bool offline = qEnvironmentVariableIsSet("FLUXDM_DATA_DIR");
+        mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), offline ? 0 : btPort, offline));
 #endif
         const bool demo = qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO");
         if (demo)

@@ -21,7 +21,8 @@ class QNetworkReply;
 class BtEngine : public DownloadEngine {
     Q_OBJECT
 public:
-    explicit BtEngine(const QString& stateDir, int listenPort = 0, QObject* parent = nullptr);
+    // offline: listen on loopback only, no DHT/LSD/UPnP (tests, dev profiles)
+    explicit BtEngine(const QString& stateDir, int listenPort = 0, bool offline = false, QObject* parent = nullptr);
     ~BtEngine() override;
 
     QString moduleUid() const override { return QStringLiteral("downloadsbt"); }

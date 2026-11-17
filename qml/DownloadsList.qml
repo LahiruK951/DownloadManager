@@ -1,10 +1,13 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Item {
     id: root
     signal requestDelete(var download)
     signal requestSchedule(var download)
+    signal requestAdd()
+    signal requestOpenTorrent()
 
     ListView {
         id: list
@@ -39,35 +42,60 @@ Item {
         }
     }
 
-    Column {
+    ColumnLayout {
         anchors.centerIn: parent
         visible: list.count === 0
         spacing: 10
-        width: Math.min(parent.width - 40, 420)
+        width: Math.min(parent.width - 40, 440)
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: Theme.icons.down
-            font.family: Theme.iconFont
-            font.pixelSize: 44
-            color: Theme.textDisabled
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 6
+            implicitWidth: 76
+            implicitHeight: 76
+            radius: 22
+            color: Theme.accentSoft
+            Text {
+                anchors.centerIn: parent
+                text: App.search !== "" ? Theme.icons.search : Theme.icons.down
+                font.family: Theme.iconFont
+                font.pixelSize: 32
+                color: Theme.accent
+            }
         }
         Text {
-            width: parent.width
+            Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: App.search !== "" ? qsTr("Nothing matches your search")
+            text: App.search !== "" ? qsTr("Nothing matches “%1”").arg(App.search)
                  : App.filter === "all" ? qsTr("No downloads yet") : qsTr("Nothing here")
             color: Theme.text
-            font.pixelSize: 16
+            font.pixelSize: 18
+            font.weight: Font.DemiBold
         }
         Text {
-            width: parent.width
+            Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
-            visible: App.filter === "all" && App.search === ""
-            text: qsTr("Click + or press Ctrl+V to paste a link. You can also drag links onto this window.")
+            text: App.search !== "" ? qsTr("Try another name or part of the link.")
+                 : App.filter === "all" ? qsTr("Paste a link with Ctrl+V, drop links onto this window, or add a magnet link or .torrent file.")
+                 : qsTr("No downloads in this category.")
             color: Theme.textDim
-            font.pixelSize: 13
+            font.pixelSize: Theme.fontBody
+        }
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 8
+            spacing: 8
+            visible: App.filter === "all" && App.search === ""
+            FButton { kind: "primary"; glyph: Theme.icons.add; text: qsTr("Add download"); onClicked: root.requestAdd() }
+            FButton { visible: App.torrentSupport; glyph: Theme.icons.link; text: qsTr("Open torrent file…"); onClicked: root.requestOpenTorrent() }
+        }
+        FButton {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 8
+            visible: App.filter !== "all" || App.search !== ""
+            text: qsTr("Show all downloads")
+            onClicked: { App.search = ""; App.filter = "all" }
         }
     }
 }

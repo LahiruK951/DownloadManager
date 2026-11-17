@@ -28,9 +28,9 @@ foreach ($theme in $Themes) {
         $png = Join-Path $out "$view-$theme.png"
         Remove-Item $png -ErrorAction SilentlyContinue
         $env:FLUXDM_DATA_DIR = $profile
-        $env:FLUXDM_DEV_DEMO = "1"
+        if ($view -eq "empty") { Remove-Item env:FLUXDM_DEV_DEMO -ErrorAction SilentlyContinue } else { $env:FLUXDM_DEV_DEMO = "1" }
         $env:FLUXDM_THEME = $theme
-        $env:FLUXDM_DEV_OPEN = if ($view -eq "main") { "" } else { $view }
+        $env:FLUXDM_DEV_OPEN = if ($view -eq "main" -or $view -eq "empty") { "" } else { $view }
         $env:FLUXDM_DEV_GRAB = $png
         $env:QT_QPA_PLATFORM = "offscreen"
         $env:QT_QUICK_BACKEND = "software"
