@@ -518,6 +518,25 @@ private slots:
         qunsetenv("FLUXDM_DATA_DIR");
     }
 
+    void perDownloadSpeedLimit()
+    {
+        RangeServer srv;
+        srv.data = makeData(2 * 1024 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng; // no global limit
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(31, srv.url("/capped.bin"), dir.path(), 4);
+        p.speedLimit = 1024 * 1024; // 1 MiB/s for this download only
+        QElapsedTimer t;
+        t.start();
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == srv.data);
+        QVERIFY2(t.elapsed() >= 1300, qPrintable(QStringLiteral("took only %1 ms").arg(t.elapsed())));
+    }
+
     void m3u8Parsing()
     {
         const QUrl base("https://cdn.example.com/show/master.m3u8");

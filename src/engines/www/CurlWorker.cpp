@@ -73,6 +73,15 @@ void CurlWorker::setSpeedLimit(qint64 bytesPerSec)
     });
 }
 
+void CurlWorker::setTaskSpeedLimit(qint64 id, qint64 bytesPerSec)
+{
+    post([this, id, bytesPerSec] {
+        auto it = m_tasks.find(id);
+        if (it != m_tasks.end())
+            it->second->setSpeedLimit(bytesPerSec);
+    });
+}
+
 void CurlWorker::setMaxConnections(int perDownload)
 {
     post([this, perDownload] {
@@ -95,13 +104,18 @@ QHash<qint64, QByteArray> CurlWorker::shutdownAndWait()
 void CurlWorker::unpauseSome()
 {
     std::vector<Segment*> paused;
-    for (auto& [id, t] : m_tasks)
+    for (auto& [id, t] : m_tasks) {
+        if (t->taskThrottled())
+            continue; // this download is over its own cap; its turn comes after the next refill
         for (auto& s : t->segments())
             if (s->h && s->paused)
                 paused.push_back(s.get());
+    }
     const size_t n = paused.size();
     for (size_t i = 0; i < n && !throttled(); ++i) {
         Segment* s = paused[(m_rr + i) % n]; // round-robin for fairness
+        if (s->task->taskThrottled())
+            continue;
         s->paused = false;
         curl_easy_pause(s->h, CURLPAUSE_CONT);
     }
@@ -126,6 +140,8 @@ void CurlWorker::run()
             break;
 
         const qint64 now = nowMs();
+        for (auto& [id, t] : m_tasks)
+            t->refillBucket(now - lastRefill);
         if (m_limit > 0) {
             m_bucket += double(m_limit) * double(now - lastRefill) / 1000.0;
             m_bucket = std::min(m_bucket, std::max(double(m_limit) / 4.0, 16384.0));
@@ -170,7 +186,8 @@ void CurlWorker::run()
         for (auto it = m_tasks.begin(); it != m_tasks.end();)
             it = it->second->isDead() ? m_tasks.erase(it) : std::next(it);
 
-        curl_multi_poll(m_multi, nullptr, 0, m_limit > 0 ? 20 : 100, nullptr);
+        const bool limited = m_limit > 0 || std::any_of(m_tasks.begin(), m_tasks.end(), [](const auto& kv) { return kv.second->hasSpeedLimit(); });
+        curl_multi_poll(m_multi, nullptr, 0, limited ? 20 : 100, nullptr);
     }
 
     for (auto& [id, t] : m_tasks) {

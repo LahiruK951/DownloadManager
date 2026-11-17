@@ -9,6 +9,7 @@ Rectangle {
     signal requestDelete(var download)
     signal requestSchedule(var download)
     signal requestDeleteSelection()
+    signal requestSpeedLimit(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -55,6 +56,7 @@ Rectangle {
             else if (d.connections > 0) parts.push(d.connections + " " + (d.connections === 1 ? qsTr("connection") : qsTr("connections")))
         }
         if (d.scheduled && !d.waitingForSchedule) parts.push(d.scheduleText)
+        if (d.speedLimit > 0) parts.push(qsTr("max %1").arg(App.fmtSpeed(d.speedLimit * 1024)))
         return parts.join("  ·  ")
     }
     readonly property var pill: {
@@ -286,6 +288,12 @@ Rectangle {
             text: row.d.scheduled ? qsTr("Edit schedule…") : qsTr("Schedule…")
             visible: !row.d.completed
             onTriggered: row.requestSchedule(row.d)
+        }
+        FMenuItem {
+            glyph: Theme.icons.bolt
+            text: row.d.speedLimit > 0 ? qsTr("Speed limit (%1)…").arg(App.fmtSpeed(row.d.speedLimit * 1024)) : qsTr("Speed limit…")
+            visible: !row.d.completed
+            onTriggered: row.requestSpeedLimit(row.d)
         }
         FMenuItem { glyph: Theme.icons.refresh; text: row.d.fileMissing ? qsTr("Download again") : qsTr("Restart"); onTriggered: App.restart(row.d.id) }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }

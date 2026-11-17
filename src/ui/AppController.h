@@ -166,6 +166,7 @@ public:
     Q_INVOKABLE void restart(qint64 id);
     Q_INVOKABLE void remove(qint64 id, bool deleteFiles);
     Q_INVOKABLE void setPriority(qint64 id, int priority);
+    Q_INVOKABLE void setDownloadSpeedLimit(qint64 id, int kbps);
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
     Q_INVOKABLE void openFile(qint64 id);

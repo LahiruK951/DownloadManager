@@ -180,6 +180,8 @@ Rectangle {
                             text: panel.d ? App.fmtSpeed(panel.d.speed) + "  ·  " + App.fmtEta(panel.d.eta) + " " + qsTr("left")
                                             + "  ·  " + panel.d.connections + " " + qsTr("connections") : ""
                         }
+                        InfoLabel { text: qsTr("Speed limit"); visible: panel.d && panel.d.speedLimit > 0 }
+                        InfoValue { visible: panel.d && panel.d.speedLimit > 0; text: panel.d ? App.fmtSpeed(panel.d.speedLimit * 1024) : "" }
                         InfoLabel { text: qsTr("Resume support") }
                         InfoValue {
                             text: !panel.d ? "" : panel.d.resumable === 1 ? qsTr("Yes")

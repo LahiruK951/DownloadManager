@@ -34,6 +34,7 @@ public:
     void setUploadLimit(qint64 bytesPerSec) override;
     void setSeedRatio(double ratio) override;
     void setFileWanted(qint64 id, int index, bool wanted) override;
+    void setTaskSpeedLimit(qint64 id, qint64 bytesPerSec) override;
     QHash<qint64, QByteArray> shutdown() override;
 
     int listenPort() const;
@@ -45,6 +46,7 @@ private:
         libtorrent::torrent_handle h;
         QString destDir;
         bool seedOnly = false;
+        qint64 speedLimit = 0;
         bool metaEmitted = false;
         bool finishedEmitted = false;   // libtorrent says finished, flush requested
         bool finishReported = false;    // data flushed, finished() emitted

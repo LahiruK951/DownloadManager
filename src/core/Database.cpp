@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QDebug>
@@ -59,6 +60,17 @@ bool Database::open(const QString& dir, QString* error)
             return false;
         }
 
+    // Schema migrations: columns added after the first release.
+    {
+        QSet<QString> cols;
+        QSqlQuery info(m_db);
+        if (info.exec(QStringLiteral("PRAGMA table_info(downloads)")))
+            while (info.next())
+                cols.insert(info.value(1).toString());
+        if (!cols.contains(QStringLiteral("speedLimit")))
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN speedLimit INTEGER DEFAULT 0"));
+    }
+
     QSqlQuery q(m_db);
     if (q.exec(QStringLiteral("SELECT Name, Value FROM Settings")))
         while (q.next())
@@ -91,7 +103,7 @@ QList<DownloadRecord> Database::loadDownloads()
     if (!q.exec(QStringLiteral(
             "SELECT id, moduleUid, url, referrer, cookies, userAgent, destinationPath, preferredFileTitle, title,"
             " filePath, creationTime, finishedTime, resumeData, lastResult, state, totalBytes, receivedBytes,"
-            " resumeSupport, priority FROM downloads ORDER BY id DESC"))) {
+            " resumeSupport, priority, speedLimit FROM downloads ORDER BY id DESC"))) {
         qWarning() << q.lastError().text();
         return out;
     }
@@ -118,6 +130,7 @@ QList<DownloadRecord> Database::loadDownloads()
         r.received = q.value(16).toLongLong();
         r.resumable = q.value(17).toInt();
         r.priority = q.value(18).toInt();
+        r.speedLimitKBps = q.value(19).toInt();
         out.append(r);
     }
 
@@ -146,8 +159,8 @@ void Database::save(const DownloadRecord& r)
     q.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO downloads (id, moduleUid, url, referrer, cookies, userAgent, destinationPath,"
         " preferredFileTitle, title, filePath, creationTime, finishedTime, resumeData, lastResult, state,"
-        " totalBytes, receivedBytes, resumeSupport, priority)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     q.addBindValue(r.id);
     q.addBindValue(r.moduleUid);
     q.addBindValue(r.url);
@@ -167,6 +180,7 @@ void Database::save(const DownloadRecord& r)
     q.addBindValue(r.received);
     q.addBindValue(r.resumable);
     q.addBindValue(r.priority);
+    q.addBindValue(r.speedLimitKBps);
     if (!q.exec())
         qWarning() << "save download:" << q.lastError().text();
 

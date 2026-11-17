@@ -73,7 +73,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -116,6 +116,7 @@ ApplicationWindow {
                 SplitView.minimumHeight: 120
                 onRequestDelete: (d) => deleteDialog.openFor(d)
                 onRequestDeleteSelection: deleteDialog.openForSelection()
+                onRequestSpeedLimit: (d) => speedLimitDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -162,6 +163,7 @@ ApplicationWindow {
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
         else if (v === "compact") App.compactView = true
+        else if (v === "speedlimit") { App.select(App.downloads.idAt(0)); speedLimitDialog.openFor(App.selected) }
         else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("export:")) toast.show(App.exportDownloads(App.toUrl(v.substring(7))))
@@ -175,6 +177,7 @@ ApplicationWindow {
     DeleteDialog { id: deleteDialog }
     AboutDialog { id: aboutDialog }
     ScheduleDialog { id: scheduleDialog }
+    SpeedLimitDialog { id: speedLimitDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog

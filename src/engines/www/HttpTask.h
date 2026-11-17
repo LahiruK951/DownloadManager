@@ -53,6 +53,19 @@ public:
     bool isDead() const { return m_dead; }
     bool takeDirty() { const bool d = m_dirty; m_dirty = false; return d; }
     void setMaxConnections(int n) { m_p.maxConnections = n < 1 ? 1 : n; }
+    // Per-download speed cap (token bucket refilled by the worker loop).
+    void setSpeedLimit(qint64 bps) { m_limit = bps < 0 ? 0 : bps; m_bucket = 0; }
+    bool taskThrottled() const { return m_limit > 0 && m_bucket <= 0; }
+    bool hasSpeedLimit() const { return m_limit > 0; }
+    void refillBucket(qint64 dtMs)
+    {
+        if (m_limit <= 0)
+            return;
+        m_bucket += double(m_limit) * double(dtMs) / 1000.0;
+        const double cap = qMax(double(m_limit) / 4.0, 16384.0);
+        if (m_bucket > cap)
+            m_bucket = cap;
+    }
     std::vector<std::unique_ptr<Segment>>& segments() { return m_segs; }
 
     static size_t writeCb(char* ptr, size_t size, size_t nmemb, void* userdata);
@@ -92,6 +105,8 @@ private:
     int m_restarts = 0;
 
     qint64 m_tickBytes = 0;
+    qint64 m_limit = 0;
+    double m_bucket = 0;
     double m_speed = 0;
     bool m_speedInit = false;
 };

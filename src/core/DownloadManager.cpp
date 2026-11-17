@@ -272,6 +272,7 @@ void DownloadManager::startDownload(Download* d)
     p.proxy = systemProxyFor(d->rec.url);
     p.resumeData = d->rec.resumeData;
     p.maxConnections = limits(m_effectiveMode).maxConnections;
+    p.speedLimit = qint64(d->rec.speedLimitKBps) * 1024;
     d->setState(Download::Starting);
     d->addLog(tr("Starting"));
     persist(d);
@@ -386,6 +387,18 @@ void DownloadManager::setSchedule(Download* d, bool enabled, const ScheduleWindo
     d->notify();
     persist(d);
     schedule();
+}
+
+void DownloadManager::setSpeedLimit(Download* d, int kbps)
+{
+    if (!d)
+        return;
+    d->rec.speedLimitKBps = qMax(0, kbps);
+    d->addLog(kbps > 0 ? tr("Speed limited to %1 KB/s").arg(kbps) : tr("Speed limit removed"));
+    d->notify();
+    persist(d);
+    if (DownloadEngine* e = engineByUid(d->rec.moduleUid))
+        e->setTaskSpeedLimit(d->id(), qint64(d->rec.speedLimitKBps) * 1024);
 }
 
 void DownloadManager::setFileWanted(Download* d, int index, bool wanted)

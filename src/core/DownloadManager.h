@@ -35,6 +35,7 @@ public:
     void setPriority(Download* d, int priority);
     void setSchedule(Download* d, bool enabled, const ScheduleWindow& w);
     void setFileWanted(Download* d, int index, bool wanted);
+    void setSpeedLimit(Download* d, int kbps);
     void stopSeeding(Download* d);
     void pauseAll();
     void resumeAll();

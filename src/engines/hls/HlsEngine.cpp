@@ -231,8 +231,10 @@ void HlsEngine::pump(qint64 id)
     const int conc = qMin(m_maxConn, 6);
     while (t->inFlight.size() < conc && t->nextToRequest < count && t->ready.size() < kReadyWindow) {
         // Traffic-mode speed limit: pace requests so the average stays under the cap.
-        if (m_limit > 0) {
-            const qint64 perTask = qMax<qint64>(16 * 1024, m_limit / qMax<qint64>(1, qint64(m_tasks.size())));
+        if (m_limit > 0 || t->p.speedLimit > 0) {
+            qint64 perTask = m_limit > 0 ? qMax<qint64>(16 * 1024, m_limit / qMax<qint64>(1, qint64(m_tasks.size()))) : LLONG_MAX;
+            if (t->p.speedLimit > 0)
+                perTask = qMin(perTask, t->p.speedLimit);
             const double allowed = double(perTask) * (double(t->pace.elapsed()) / 1000.0 + 1.0);
             if (double(t->pacedBytes) > allowed) {
                 QTimer::singleShot(200, this, [this, id] { pump(id); });
@@ -456,4 +458,14 @@ QHash<qint64, QByteArray> HlsEngine::shutdown()
     m_tasks.clear();
     m_timer.stop();
     return out;
+}
+
+void HlsEngine::setTaskSpeedLimit(qint64 id, qint64 bytesPerSec)
+{
+    if (Task* t = task(id)) {
+        t->p.speedLimit = bytesPerSec;
+        t->pacedBytes = 0;
+        t->pace.restart();
+        pump(id);
+    }
 }

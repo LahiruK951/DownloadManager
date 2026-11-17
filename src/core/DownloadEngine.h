@@ -21,6 +21,7 @@ public:
     virtual void setUploadLimit(qint64 /*bytesPerSec*/) {}
     virtual void setSeedRatio(double /*ratio*/) {}
     virtual void setFileWanted(qint64 /*id*/, int /*index*/, bool /*wanted*/) {}
+    virtual void setTaskSpeedLimit(qint64 /*id*/, qint64 /*bytesPerSec*/) {}
     // Stops everything synchronously and returns final resume data per task.
     virtual QHash<qint64, QByteArray> shutdown() = 0;
 

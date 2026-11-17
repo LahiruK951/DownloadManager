@@ -95,6 +95,7 @@ void BtEngine::start(const TaskParams& p)
     t.id = p.id;
     t.destDir = p.destDir;
     t.seedOnly = p.seedOnly;
+    t.speedLimit = p.speedLimit;
     t.lastResume = p.resumeData;
 
     lt::error_code ec;
@@ -185,8 +186,20 @@ void BtEngine::addTorrent(Task& t, lt::add_torrent_params atp)
         failTask(t, msg);
         return;
     }
+    if (t.speedLimit > 0)
+        t.h.set_download_limit(int(qMin<qint64>(t.speedLimit, INT_MAX)));
     if (t.h.torrent_file())
         emitMeta(t);
+}
+
+void BtEngine::setTaskSpeedLimit(qint64 id, qint64 bytesPerSec)
+{
+    auto it = m_tasks.find(id);
+    if (it == m_tasks.end())
+        return;
+    it->second.speedLimit = bytesPerSec;
+    if (it->second.h.is_valid())
+        it->second.h.set_download_limit(bytesPerSec > 0 ? int(qMin<qint64>(bytesPerSec, INT_MAX)) : 0);
 }
 
 void BtEngine::stop(qint64 id)

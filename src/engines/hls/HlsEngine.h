@@ -30,6 +30,7 @@ public:
     void stop(qint64 id) override;
     void setSpeedLimit(qint64 bytesPerSec) override { m_limit = bytesPerSec; }
     void setMaxConnections(int perDownload) override { m_maxConn = qBound(1, perDownload, 6); }
+    void setTaskSpeedLimit(qint64 id, qint64 bytesPerSec) override;
     QHash<qint64, QByteArray> shutdown() override;
 
     static QString outputBaseName(const QUrl& playlistUrl);

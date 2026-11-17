@@ -27,6 +27,7 @@ public:
     void stopTask(qint64 id);
     void setSpeedLimit(qint64 bytesPerSec);
     void setMaxConnections(int perDownload);
+    void setTaskSpeedLimit(qint64 id, qint64 bytesPerSec);
     QHash<qint64, QByteArray> shutdownAndWait();
 
     // --- worker-thread only (used by HttpTask)

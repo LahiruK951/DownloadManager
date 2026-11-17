@@ -27,6 +27,7 @@ struct DownloadRecord {
     qint64 received = 0;
     int resumable = -1;         // resumeSupport: -1 unknown, 0 no, 1 yes
     int priority = 1;           // 0 low, 1 normal, 2 high
+    int speedLimitKBps = 0;     // per-download cap, 0 = none
     bool scheduled = false;     // downloadsScheduleRecords row present
     ScheduleWindow schedule;
 };

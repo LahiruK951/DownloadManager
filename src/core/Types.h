@@ -18,6 +18,7 @@ struct TaskParams {
     QByteArray resumeData; // engine-specific opaque blob
     int maxConnections = 8;
     bool seedOnly = false; // BitTorrent: data is complete, just seed
+    qint64 speedLimit = 0; // per-download cap in bytes/s, 0 = none
 };
 
 // Periodic progress snapshot posted from an engine to the GUI thread.

@@ -32,6 +32,7 @@ HttpTask::HttpTask(CurlWorker* worker, const TaskParams& params)
     : m_w(worker), m_p(params)
 {
     setMaxConnections(m_p.maxConnections);
+    setSpeedLimit(m_p.speedLimit);
 }
 
 HttpTask::~HttpTask()
@@ -261,7 +262,7 @@ size_t HttpTask::writeCb(char* ptr, size_t size, size_t nmemb, void* userdata)
             return 0; // abort; reason is in s->fatal
         s->validated = true;
     }
-    if (t->m_w->throttled()) {
+    if (t->m_w->throttled() || t->taskThrottled()) {
         s->paused = true;
         return CURL_WRITEFUNC_PAUSE; // curl re-delivers this chunk after unpause
     }
@@ -283,6 +284,8 @@ size_t HttpTask::writeCb(char* ptr, size_t size, size_t nmemb, void* userdata)
     t->m_tickBytes += take;
     t->m_dirty = true;
     t->m_w->consume(take);
+    if (t->m_limit > 0)
+        t->m_bucket -= double(take);
     if (take < qint64(n)) { // range was shortened by a split: our part is done
         s->reachedEnd = true;
         return 0;

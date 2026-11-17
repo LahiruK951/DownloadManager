@@ -8,6 +8,7 @@ Item {
     signal requestSchedule(var download)
     signal requestAdd()
     signal requestDeleteSelection()
+    signal requestSpeedLimit(var download)
     signal requestOpenTorrent()
 
     ListView {
@@ -24,6 +25,7 @@ Item {
             onRequestDelete: (d) => root.requestDelete(d)
             onRequestSchedule: (d) => root.requestSchedule(d)
             onRequestDeleteSelection: root.requestDeleteSelection()
+            onRequestSpeedLimit: (d) => root.requestSpeedLimit(d)
         }
 
         focus: true

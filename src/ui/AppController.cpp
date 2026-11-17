@@ -390,6 +390,7 @@ void AppController::togglePause(qint64 id)
 void AppController::restart(qint64 id) { m_mgr->restart(byId(id)); }
 void AppController::remove(qint64 id, bool deleteFiles) { m_mgr->remove(byId(id), deleteFiles); }
 void AppController::setPriority(qint64 id, int priority) { m_mgr->setPriority(byId(id), priority); }
+void AppController::setDownloadSpeedLimit(qint64 id, int kbps) { m_mgr->setSpeedLimit(byId(id), kbps); }
 void AppController::pauseAll() { m_mgr->pauseAll(); }
 void AppController::resumeAll() { m_mgr->resumeAll(); }
 
