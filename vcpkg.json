@@ -1,0 +1,11 @@
+{
+  "name": "fluxdm",
+  "version-string": "0.1.0",
+  "dependencies": [
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": [ "ssl", "sspi" ]
+    }
+  ]
+}
