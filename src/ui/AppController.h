@@ -124,6 +124,10 @@ public:
     Q_INVOKABLE double seedRatio() const;
     Q_INVOKABLE void setSeedRatio(double r);
     Q_INVOKABLE int autoRetryLimit() const;
+    Q_INVOKABLE QString categoryFolder(const QString& category) const;     // "" = use the default folder
+    Q_INVOKABLE void setCategoryFolder(const QString& category, const QString& folder);
+    Q_INVOKABLE QString folderFor(const QString& links) const;             // best folder for the first link
+    Q_INVOKABLE QString categoryOf(const QString& links) const;
     Q_INVOKABLE void setAutoRetryLimit(int n);
     Q_INVOKABLE bool torrentAssociated() const;
     Q_INVOKABLE void setTorrentAssociated(bool on);

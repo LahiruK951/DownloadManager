@@ -10,6 +10,9 @@ FDialog {
 
     readonly property int linkCount: App.countLinks(urlsField.text)
     readonly property bool torrent: App.isTorrentLink(urlsField.text)
+    property bool folderTouched: false
+    readonly property string autoFolder: App.folderFor(urlsField.text)
+    onAutoFolderChanged: if (!folderTouched && visible) folderField.editText = autoFolder
 
     function openWith(text) {
         urlsField.text = text || ""
@@ -22,7 +25,8 @@ FDialog {
         schedEditor.fromMin = s.from
         schedEditor.toMin = s.to
         open()
-        folderField.editText = App.defaultFolder
+        folderField.editText = App.folderFor(text || "")
+        folderTouched = false
         urlsField.area.forceActiveFocus()
         urlsField.area.cursorPosition = urlsField.area.length
     }
@@ -77,6 +81,8 @@ FDialog {
                 Layout.fillWidth: true
                 editable: true
                 model: App.folderHistory
+                onActivated: dlg.folderTouched = true
+                onAccepted: dlg.folderTouched = true
             }
             FButton { text: qsTr("Browse…"); onClicked: folderDlg.open() }
         }
@@ -143,6 +149,6 @@ FDialog {
     FolderDialog {
         id: folderDlg
         currentFolder: App.toUrl(folderField.editText)
-        onAccepted: folderField.editText = App.urlToLocal(selectedFolder)
+        onAccepted: { folderField.editText = App.urlToLocal(selectedFolder); dlg.folderTouched = true }
     }
 }

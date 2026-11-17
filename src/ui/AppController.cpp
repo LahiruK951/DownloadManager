@@ -482,7 +482,7 @@ void AppController::handleExternalArgs(const QStringList& args)
         return;
     }
     if (silent)
-        addDownloads(urls.join(QLatin1Char('\n')), defaultFolder(), {}, true);
+        addDownloads(urls.join(QLatin1Char('\n')), folderFor(urls.first()), {}, true);
     else
         emit addDialogRequested(urls.join(QLatin1Char('\n')));
 }
@@ -658,7 +658,7 @@ QString AppController::handleBrowserRequest(const QVariantMap& r)
     m_browserMeta.insert(url, meta);
 
     if (browserAddSilently() || r.value(QStringLiteral("silent")).toBool()) {
-        const QString err = addDownloads(url, defaultFolder(), suggestedName(url), true);
+        const QString err = addDownloads(url, folderFor(url), suggestedName(url), true);
         return err;
     }
     emit addDialogRequested(url);
@@ -737,3 +737,38 @@ QString AppController::setBrowserIntegrated(bool on)
 }
 int AppController::autoRetryLimit() const { return m_mgr->autoRetryLimit(); }
 void AppController::setAutoRetryLimit(int n) { m_mgr->setAutoRetryLimit(n); }
+// ------------------------------------------------------------------ folders by file type (FDM: tag default folders)
+
+QString AppController::categoryFolder(const QString& category) const
+{
+    return m_ui.value(QStringLiteral("categoryFolders/") + category).toString();
+}
+
+void AppController::setCategoryFolder(const QString& category, const QString& folder)
+{
+    const QString f = QDir::toNativeSeparators(folder.trimmed());
+    if (f.isEmpty())
+        m_ui.remove(QStringLiteral("categoryFolders/") + category);
+    else
+        m_ui.setValue(QStringLiteral("categoryFolders/") + category, f);
+    emit settingsChanged();
+}
+
+QString AppController::categoryOf(const QString& links) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    const QStringList l = BatchLinks::expandAll(links.split(ws, Qt::SkipEmptyParts), 1);
+    if (l.isEmpty())
+        return {};
+    const QString url = l.first();
+    QString name = suggestedName(url);
+    if (name.isEmpty())
+        name = FileNamer::fromUrl(QUrl(url));
+    return FileNamer::category(name);
+}
+
+QString AppController::folderFor(const QString& links) const
+{
+    const QString folder = categoryFolder(categoryOf(links));
+    return folder.isEmpty() ? defaultFolder() : folder;
+}

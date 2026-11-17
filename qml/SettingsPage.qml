@@ -9,6 +9,7 @@ Popup {
     property int section: 0
     property var tum: []
     property var rules: []
+    property int folderRev: 0
     readonly property var modeNames: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
@@ -253,6 +254,45 @@ Popup {
                     }
                 }
 
+                SettingsCard {
+                    visible: page.section === 1
+                    title: qsTr("Folders by file type")
+                    description: qsTr("New downloads of each type go to its folder; everything else uses the default folder.")
+                    Layout.fillWidth: true
+                    Repeater {
+                        model: [
+                            { key: "Video", label: qsTr("Video"), glyph: Theme.categoryGlyph("Video") },
+                            { key: "Music", label: qsTr("Music"), glyph: Theme.categoryGlyph("Music") },
+                            { key: "Archive", label: qsTr("Archives"), glyph: Theme.categoryGlyph("Archive") },
+                            { key: "Docs", label: qsTr("Documents"), glyph: Theme.categoryGlyph("Docs") },
+                            { key: "Programs", label: qsTr("Programs"), glyph: Theme.categoryGlyph("Programs") },
+                            { key: "Pictures", label: qsTr("Pictures"), glyph: Theme.categoryGlyph("Pictures") }
+                        ]
+                        delegate: SettingRow {
+                            required property var modelData
+                            required property int index
+                            readonly property string folder: (page.folderRev, App.categoryFolder(modelData.key))
+                            title: modelData.label
+                            description: folder !== "" ? folder : qsTr("Default folder")
+                            divider: index < 5
+                            Row {
+                                spacing: 4
+                                FButton {
+                                    text: qsTr("Choose…")
+                                    onClicked: { categoryDlg.category = modelData.key; categoryDlg.open() }
+                                }
+                                IconButton {
+                                    visible: folder !== ""
+                                    glyph: Theme.icons.close
+                                    glyphSize: 10
+                                    size: Theme.controlHeight
+                                    tip: qsTr("Use the default folder")
+                                    onClicked: { App.setCategoryFolder(modelData.key, ""); page.folderRev++ }
+                                }
+                            }
+                        }
+                    }
+                }
                 // ---------------- Traffic modes
                 GridLayout {
                     visible: page.section === 2
@@ -548,6 +588,12 @@ Popup {
                 Item { implicitHeight: 24 }
             }
         }
+    }
+
+    FolderDialog {
+        id: categoryDlg
+        property string category: ""
+        onAccepted: { App.setCategoryFolder(category, App.urlToLocal(selectedFolder)); page.folderRev++ }
     }
 
     FolderDialog {
