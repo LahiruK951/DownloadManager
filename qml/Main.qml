@@ -144,7 +144,9 @@ ApplicationWindow {
             App.select(App.downloads.idAt(0))
             App.bottomPanelOpen = true
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
-        } else if (v === "settings") settingsDialog.open()
+        } else if (v.startsWith("settings")) {
+            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt"].indexOf(v))
+        }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "menu") topBar.openMenu()
         else if (v === "delete") { App.select(App.downloads.idAt(5)); deleteDialog.openFor(App.selected) }
@@ -154,7 +156,7 @@ ApplicationWindow {
     }
 
     AddDownloadDialog { id: addDialog }
-    SettingsDialog { id: settingsDialog }
+    SettingsPage { id: settingsDialog }
     DeleteDialog { id: deleteDialog }
     AboutDialog { id: aboutDialog }
     ScheduleDialog { id: scheduleDialog }

@@ -12,6 +12,8 @@ inline void seed(DownloadManager& mgr, const QString& dir)
 {
     if (!mgr.downloads().isEmpty())
         return;
+    mgr.setTrafficRules({TrafficRule{true, ScheduleWindow{0x1F, 9 * 60, 18 * 60}, 0},
+                         TrafficRule{false, ScheduleWindow{0x60, 0, 0}, 1}});
     auto add = [&](const QString& url, bool start = true) { return mgr.add(url, dir, {}, start); };
     auto pausedAt = [&](const QString& url, double frac, qint64 size) {
         Download* d = add(url, false);

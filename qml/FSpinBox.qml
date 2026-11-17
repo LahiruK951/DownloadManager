@@ -3,6 +3,9 @@ import QtQuick.Controls
 
 SpinBox {
     id: sp
+    property string zeroText: ""   // e.g. "Unlimited" shown instead of 0
+    textFromValue: (v) => (v === 0 && zeroText !== "") ? zeroText : String(v)
+    valueFromText: (t) => (t === zeroText && zeroText !== "") ? 0 : (parseInt(t) || 0)
     implicitWidth: 128
     implicitHeight: Theme.controlHeight
     editable: true

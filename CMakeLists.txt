@@ -71,7 +71,11 @@ set(FLUXDM_QML_FILES
     qml/BottomPanel.qml
     qml/StatusBar.qml
     qml/AddDownloadDialog.qml
-    qml/SettingsDialog.qml
+    qml/SettingsPage.qml
+    qml/SettingsCard.qml
+    qml/SettingRow.qml
+    qml/FSegmented.qml
+    qml/FToggle.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml
