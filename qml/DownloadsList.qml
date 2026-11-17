@@ -7,6 +7,7 @@ Item {
     signal requestDelete(var download)
     signal requestSchedule(var download)
     signal requestAdd()
+    signal requestDeleteSelection()
     signal requestOpenTorrent()
 
     ListView {
@@ -22,6 +23,7 @@ Item {
             width: list.width
             onRequestDelete: (d) => root.requestDelete(d)
             onRequestSchedule: (d) => root.requestSchedule(d)
+            onRequestDeleteSelection: root.requestDeleteSelection()
         }
 
         focus: true

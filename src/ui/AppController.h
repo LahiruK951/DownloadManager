@@ -25,6 +25,8 @@ class AppController : public QObject {
 
     Q_PROPERTY(QAbstractItemModel* downloads READ downloads CONSTANT)
     Q_PROPERTY(QObject* selected READ selected NOTIFY selectedChanged)
+    Q_PROPERTY(int selectionCount READ selectionCount NOTIFY selectionChanged)
+    Q_PROPERTY(int selectionRev READ selectionRev NOTIFY selectionChanged) // bump to re-evaluate isSelected()
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY searchChanged)
     Q_PROPERTY(QVariantMap counts READ counts NOTIFY countsChanged)
@@ -145,7 +147,19 @@ public:
     Q_INVOKABLE void openExtensionDir() const;
     Q_INVOKABLE QString suggestedName(const QString& url) const;
     QString handleBrowserRequest(const QVariantMap& request); // returns error text or ""
-    Q_INVOKABLE void select(qint64 id);
+    Q_INVOKABLE void select(qint64 id);              // single selection (plain click)
+    Q_INVOKABLE void toggleSelect(qint64 id);        // Ctrl+click
+    Q_INVOKABLE void selectRange(qint64 id);         // Shift+click, from the current item
+    Q_INVOKABLE void selectAll();
+    Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE bool isSelected(qint64 id) const { return m_sel.contains(id); }
+    Q_INVOKABLE QVariantList selectedIds() const;
+    Q_INVOKABLE void pauseSelected();
+    Q_INVOKABLE void resumeSelected();
+    Q_INVOKABLE void removeSelected(bool deleteFiles);
+    Q_INVOKABLE void copySelectedLinks();
+    int selectionCount() const { return int(m_sel.size()); }
+    int selectionRev() const { return m_selRev; }
     Q_INVOKABLE void pause(qint64 id);
     Q_INVOKABLE void resume(qint64 id);
     Q_INVOKABLE void togglePause(qint64 id);
@@ -179,6 +193,7 @@ public:
 
 signals:
     void selectedChanged();
+    void selectionChanged();
     void filterChanged();
     void searchChanged();
     void countsChanged();
@@ -205,6 +220,9 @@ private:
     DownloadsFilterModel* m_proxy;
     QSettings m_ui;
     QPointer<Download> m_selected;
+    QList<qint64> m_sel; // multi-selection (includes the current item)
+    int m_selRev = 0;
+    void selectionUpdated();
     QVariantMap m_counts;
     QTimer m_recountTimer;
     double m_totalSpeed = 0;

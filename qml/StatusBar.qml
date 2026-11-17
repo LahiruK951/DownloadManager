@@ -23,6 +23,12 @@ Rectangle {
             color: Theme.textDim
             font.pixelSize: 12
         }
+        Text {
+            visible: App.selectionCount > 1
+            text: "·  " + App.selectionCount + " " + qsTr("selected")
+            color: Theme.accent
+            font.pixelSize: 12
+        }
 
         Item { Layout.fillWidth: true }
 

@@ -35,6 +35,7 @@ public:
     QString search() const { return m_search; }
     int count() const { return rowCount(); }
     Q_INVOKABLE qint64 idAt(int row) const;
+    Q_INVOKABLE int rowOf(qint64 id) const;
 
 signals:
     void countChanged();

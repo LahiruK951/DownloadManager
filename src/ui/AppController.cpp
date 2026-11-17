@@ -67,8 +67,10 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         scheduleRecount();
     });
     connect(m_mgr, &DownloadManager::downloadRemoved, this, [this](Download* d) {
+        if (m_sel.removeAll(d->id()) > 0)
+            selectionUpdated();
         if (m_selected == d) {
-            m_selected = nullptr;
+            m_selected = m_sel.isEmpty() ? nullptr : byId(m_sel.last());
             emit selectedChanged();
         }
         scheduleRecount();
@@ -255,13 +257,118 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
     return {};
 }
 
+void AppController::selectionUpdated()
+{
+    ++m_selRev;
+    emit selectionChanged();
+}
+
 void AppController::select(qint64 id)
 {
     Download* d = byId(id);
+    m_sel.clear();
+    if (d)
+        m_sel.append(id);
+    selectionUpdated();
     if (m_selected == d)
         return;
     m_selected = d;
     emit selectedChanged();
+}
+
+void AppController::toggleSelect(qint64 id)
+{
+    Download* d = byId(id);
+    if (!d)
+        return;
+    if (m_sel.contains(id)) {
+        m_sel.removeAll(id);
+        if (m_selected == d) {
+            m_selected = m_sel.isEmpty() ? nullptr : byId(m_sel.last());
+            emit selectedChanged();
+        }
+    } else {
+        m_sel.append(id);
+        m_selected = d;
+        emit selectedChanged();
+    }
+    selectionUpdated();
+}
+
+void AppController::selectRange(qint64 id)
+{
+    const int to = m_proxy->rowOf(id);
+    const int from = m_selected ? m_proxy->rowOf(m_selected->id()) : -1;
+    if (to < 0)
+        return;
+    if (from < 0) {
+        select(id);
+        return;
+    }
+    m_sel.clear();
+    for (int r = qMin(from, to); r <= qMax(from, to); ++r)
+        m_sel.append(m_proxy->idAt(r));
+    selectionUpdated(); // the current item stays where the range started
+}
+
+void AppController::selectAll()
+{
+    m_sel.clear();
+    for (int r = 0; r < m_proxy->rowCount(); ++r)
+        m_sel.append(m_proxy->idAt(r));
+    if (!m_selected && !m_sel.isEmpty()) {
+        m_selected = byId(m_sel.first());
+        emit selectedChanged();
+    }
+    selectionUpdated();
+}
+
+void AppController::clearSelection()
+{
+    m_sel.clear();
+    selectionUpdated();
+    if (m_selected) {
+        m_selected = nullptr;
+        emit selectedChanged();
+    }
+}
+
+QVariantList AppController::selectedIds() const
+{
+    QVariantList out;
+    for (qint64 id : m_sel)
+        out << id;
+    return out;
+}
+
+void AppController::pauseSelected()
+{
+    for (qint64 id : m_sel)
+        if (Download* d = byId(id); d && (d->running() || d->queued()))
+            m_mgr->pause(d);
+}
+
+void AppController::resumeSelected()
+{
+    for (qint64 id : m_sel)
+        m_mgr->resume(byId(id));
+}
+
+void AppController::removeSelected(bool deleteFiles)
+{
+    const QList<qint64> ids = m_sel; // remove() prunes m_sel through downloadRemoved
+    for (qint64 id : ids)
+        m_mgr->remove(byId(id), deleteFiles);
+}
+
+void AppController::copySelectedLinks()
+{
+    QStringList links;
+    for (qint64 id : m_sel)
+        if (Download* d = byId(id))
+            links << d->url();
+    m_lastClip = links.join(QLatin1Char('\n'));
+    QGuiApplication::clipboard()->setText(m_lastClip);
 }
 
 void AppController::pause(qint64 id) { m_mgr->pause(byId(id)); }

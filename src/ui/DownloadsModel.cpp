@@ -121,3 +121,11 @@ bool DownloadsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex&) c
         return d->title().contains(m_search, Qt::CaseInsensitive) || d->url().contains(m_search, Qt::CaseInsensitive);
     return true;
 }
+
+int DownloadsFilterModel::rowOf(qint64 id) const
+{
+    for (int r = 0; r < rowCount(); ++r)
+        if (idAt(r) == id)
+            return r;
+    return -1;
+}

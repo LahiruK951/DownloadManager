@@ -13,6 +13,7 @@ Rectangle {
     signal exportClicked()
 
     function focusSearch() { search.forceActiveFocus(); search.selectAll() }
+    readonly property bool searchFocused: search.activeFocus
     function openMenu() { mainMenu.popup(menuBtn, 0, menuBtn.height) }
 
     implicitHeight: 56
@@ -50,11 +51,19 @@ Rectangle {
 
         Item { implicitWidth: 10 }
 
-        IconButton { glyph: Theme.icons.play; tip: qsTr("Resume all"); onClicked: App.resumeAll() }
-        IconButton { glyph: Theme.icons.pause; tip: qsTr("Pause all"); onClicked: App.pauseAll() }
+        IconButton {
+            glyph: Theme.icons.play
+            tip: App.selectionCount > 0 ? qsTr("Resume selected") : qsTr("Resume all")
+            onClicked: App.selectionCount > 0 ? App.resumeSelected() : App.resumeAll()
+        }
+        IconButton {
+            glyph: Theme.icons.pause
+            tip: App.selectionCount > 0 ? qsTr("Pause selected") : qsTr("Pause all")
+            onClicked: App.selectionCount > 0 ? App.pauseSelected() : App.pauseAll()
+        }
         IconButton {
             glyph: Theme.icons.del
-            tip: qsTr("Delete selected (Del)")
+            tip: App.selectionCount > 1 ? qsTr("Delete %1 selected (Del)").arg(App.selectionCount) : qsTr("Delete selected (Del)")
             enabled: App.selected !== null
             onClicked: bar.deleteClicked()
         }

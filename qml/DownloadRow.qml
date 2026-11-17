@@ -8,9 +8,11 @@ Rectangle {
     required property int index
     signal requestDelete(var download)
     signal requestSchedule(var download)
+    signal requestDeleteSelection()
 
     readonly property var d: download
-    readonly property bool isSelected: App.selected === download
+    readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
+    readonly property bool isCurrent: App.selected === download
     readonly property bool showActions: hoverH.hovered || isSelected
     readonly property bool compact: App.compactView
     readonly property bool hasProgress: !d.completed && (d.running || d.received > 0)
@@ -19,6 +21,16 @@ Rectangle {
     color: isSelected ? Theme.selection : (hoverH.hovered ? Theme.hover : "transparent")
 
     HoverHandler { id: hoverH }
+
+    Rectangle {
+        visible: row.isCurrent && App.selectionCount > 1
+        width: 3
+        height: parent.height - 16
+        radius: 2
+        x: 4
+        anchors.verticalCenter: parent.verticalCenter
+        color: Theme.accent
+    }
 
     // ------------------------------------------------------------ text helpers
     function sizeLine() {
@@ -62,11 +74,21 @@ Rectangle {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                App.select(row.d.id)
-                ctx.popup()
+                if (!row.isSelected)
+                    App.select(row.d.id)
+                if (App.selectionCount > 1) multiCtx.popup()
+                else ctx.popup()
                 return
             }
-            if (row.isSelected)
+            if (mouse.modifiers & Qt.ControlModifier) {
+                App.toggleSelect(row.d.id)
+                return
+            }
+            if (mouse.modifiers & Qt.ShiftModifier) {
+                App.selectRange(row.d.id)
+                return
+            }
+            if (row.isCurrent && App.selectionCount === 1)
                 App.bottomPanelOpen = !App.bottomPanelOpen
             else {
                 App.select(row.d.id)
@@ -229,6 +251,17 @@ Rectangle {
         color: Theme.border
         opacity: 0.55
         visible: !row.isSelected
+    }
+
+    FMenu {
+        id: multiCtx
+        FMenuItem { text: qsTr("%1 downloads selected").arg(App.selectionCount); enabled: false }
+        FMenuSeparator {}
+        FMenuItem { glyph: Theme.icons.play; text: qsTr("Resume"); onTriggered: App.resumeSelected() }
+        FMenuItem { glyph: Theme.icons.pause; text: qsTr("Pause"); onTriggered: App.pauseSelected() }
+        FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy links"); onTriggered: App.copySelectedLinks() }
+        FMenuSeparator {}
+        FMenuItem { glyph: Theme.icons.del; danger: true; text: qsTr("Delete %1 downloads…").arg(App.selectionCount); onTriggered: row.requestDeleteSelection() }
     }
 
     FMenu {

@@ -77,13 +77,15 @@ ApplicationWindow {
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
-    Shortcut { sequence: StandardKey.Delete; enabled: !win.dialogOpen && App.selected !== null; onActivated: deleteDialog.openFor(App.selected) }
+    Shortcut { sequence: StandardKey.Delete; enabled: !win.dialogOpen && App.selectionCount > 0; onActivated: deleteDialog.openForSelection() }
+    Shortcut { sequence: StandardKey.SelectAll; enabled: !win.dialogOpen && !topBar.searchFocused; onActivated: App.selectAll() }
+    Shortcut { sequence: "Esc"; enabled: !win.dialogOpen && App.selectionCount > 1; onActivated: App.clearSelection() }
     Shortcut { sequence: StandardKey.Find; onActivated: topBar.focusSearch() }
 
     header: TopBar {
         id: topBar
         onAddClicked: addDialog.openWith(App.clipboardUrls())
-        onDeleteClicked: if (App.selected) deleteDialog.openFor(App.selected)
+        onDeleteClicked: deleteDialog.openForSelection()
         onSettingsClicked: settingsDialog.open()
         onAboutClicked: aboutDialog.open()
         onOpenTorrentClicked: torrentFileDialog.open()
@@ -113,6 +115,7 @@ ApplicationWindow {
                 SplitView.fillHeight: true
                 SplitView.minimumHeight: 120
                 onRequestDelete: (d) => deleteDialog.openFor(d)
+                onRequestDeleteSelection: deleteDialog.openForSelection()
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -159,6 +162,7 @@ ApplicationWindow {
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
         else if (v === "compact") App.compactView = true
+        else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("export:")) toast.show(App.exportDownloads(App.toUrl(v.substring(7))))
         else if (v.startsWith("import:")) { toast.show(App.importDownloads(App.toUrl(v.substring(7)))); App.filter = "active" }
