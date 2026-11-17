@@ -87,6 +87,8 @@ ApplicationWindow {
         onSettingsClicked: settingsDialog.open()
         onAboutClicked: aboutDialog.open()
         onOpenTorrentClicked: torrentFileDialog.open()
+        onImportClicked: importDialog.open()
+        onExportClicked: exportDialog.open()
     }
 
     footer: StatusBar {}
@@ -156,6 +158,9 @@ ApplicationWindow {
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
         else if (v === "compact") App.compactView = true
+        else if (v === "toast") devToastTimer.start()
+        else if (v.startsWith("export:")) toast.show(App.exportDownloads(App.toUrl(v.substring(7))))
+        else if (v.startsWith("import:")) { toast.show(App.importDownloads(App.toUrl(v.substring(7)))); App.filter = "active" }
         else if (v.startsWith("search:")) App.search = v.substring(7)
         else if (v === "narrow") { win.width = 820; win.height = 560 }
     }
@@ -166,6 +171,22 @@ ApplicationWindow {
     AboutDialog { id: aboutDialog }
     ScheduleDialog { id: scheduleDialog }
     WhenDoneDialog { id: whenDoneDialog }
+    FileDialog {
+        id: importDialog
+        title: qsTr("Import downloads")
+        nameFilters: [qsTr("Download lists (*.json *.txt)"), qsTr("All files (*)")]
+        onAccepted: toast.show(App.importDownloads(selectedFile))
+    }
+    FileDialog {
+        id: exportDialog
+        title: qsTr("Export downloads")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("FluxDM download list (*.json)")]
+        onAccepted: toast.show(App.exportDownloads(selectedFile))
+    }
+    Toast { id: toast }
+    Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }
     FileDialog {
         id: torrentFileDialog
         title: qsTr("Open torrent file")

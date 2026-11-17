@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QSet>
 
 #ifdef Q_OS_WIN
 #define WIN32_LEAN_AND_MEAN
@@ -777,4 +778,75 @@ QString AppController::folderFor(const QString& links) const
 {
     const QString folder = categoryFolder(categoryOf(links));
     return folder.isEmpty() ? defaultFolder() : folder;
+}
+// ------------------------------------------------------------------ import / export (FDM: .fdd)
+
+QString AppController::exportDownloads(const QUrl& file) const
+{
+    QJsonArray items;
+    for (Download* d : m_mgr->downloads()) {
+        QJsonObject o{{QStringLiteral("url"), d->rec.url},
+                      {QStringLiteral("folder"), d->destDir()},
+                      {QStringLiteral("title"), d->title()},
+                      {QStringLiteral("completed"), d->completed()},
+                      {QStringLiteral("added"), d->rec.created.toString(Qt::ISODate)}};
+        if (!d->rec.preferredName.isEmpty())
+            o[QStringLiteral("fileName")] = d->rec.preferredName;
+        if (!d->rec.referrer.isEmpty())
+            o[QStringLiteral("referrer")] = d->rec.referrer;
+        items.append(o);
+    }
+    const QJsonObject doc{{QStringLiteral("format"), QStringLiteral("fluxdm-downloads")},
+                          {QStringLiteral("version"), 1},
+                          {QStringLiteral("downloads"), items}};
+    QFile f(file.toLocalFile());
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return tr("Cannot write %1").arg(QDir::toNativeSeparators(f.fileName()));
+    f.write(QJsonDocument(doc).toJson());
+    return tr("Exported %n download(s).", nullptr, int(items.size()));
+}
+
+QString AppController::importDownloads(const QUrl& file)
+{
+    QFile f(file.toLocalFile());
+    if (!f.open(QIODevice::ReadOnly))
+        return tr("Cannot open %1").arg(QDir::toNativeSeparators(f.fileName()));
+    const QByteArray data = f.readAll();
+
+    struct Item { QString url, folder, fileName, referrer; };
+    QList<Item> items;
+    const QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isObject() && doc.object().value(QStringLiteral("format")).toString() == QLatin1String("fluxdm-downloads")) {
+        for (const auto& v : doc.object().value(QStringLiteral("downloads")).toArray()) {
+            const QJsonObject o = v.toObject();
+            if (o.value(QStringLiteral("completed")).toBool())
+                continue; // nothing to do for finished ones
+            items.append({o.value(QStringLiteral("url")).toString(), o.value(QStringLiteral("folder")).toString(),
+                          o.value(QStringLiteral("fileName")).toString(), o.value(QStringLiteral("referrer")).toString()});
+        }
+    } else { // plain list of links, one per line
+        static const QRegularExpression ws(QStringLiteral("\\s+"));
+        for (const QString& l : BatchLinks::expandAll(QString::fromUtf8(data).split(ws, Qt::SkipEmptyParts)))
+            items.append({l, {}, {}, {}});
+    }
+
+    int added = 0, skipped = 0;
+    QSet<QString> known;
+    for (Download* d : m_mgr->downloads())
+        known.insert(d->rec.url);
+    for (const Item& it : items) {
+        if (!m_mgr->canHandle(it.url) || known.contains(it.url)) {
+            ++skipped;
+            continue;
+        }
+        const QString folder = it.folder.isEmpty() ? folderFor(it.url) : it.folder;
+        if (m_mgr->add(it.url, folder, it.fileName, false, it.referrer)) { // imported paused, like FDM
+            known.insert(it.url);
+            ++added;
+        }
+    }
+    if (added == 0)
+        return tr("No new downloads found in the file.");
+    return skipped > 0 ? tr("Imported %1 download(s) (paused); skipped %2.").arg(added).arg(skipped)
+                       : tr("Imported %1 download(s) (paused).").arg(added);
 }

@@ -9,6 +9,8 @@ Rectangle {
     signal settingsClicked()
     signal aboutClicked()
     signal openTorrentClicked()
+    signal importClicked()
+    signal exportClicked()
 
     function focusSearch() { search.forceActiveFocus(); search.selectAll() }
     function openMenu() { mainMenu.popup(menuBtn, 0, menuBtn.height) }
@@ -97,6 +99,8 @@ Rectangle {
                 id: mainMenu
                 FMenuItem { glyph: Theme.icons.add; text: qsTr("Add download…"); onTriggered: bar.addClicked() }
                 FMenuItem { glyph: Theme.icons.link; text: qsTr("Open torrent file…"); visible: App.torrentSupport; height: visible ? implicitHeight : 0; onTriggered: bar.openTorrentClicked() }
+                FMenuItem { glyph: String.fromCharCode(0xE8B5); text: qsTr("Import downloads…"); onTriggered: bar.importClicked() }
+                FMenuItem { glyph: String.fromCharCode(0xEDE1); text: qsTr("Export downloads…"); onTriggered: bar.exportClicked() }
                 FMenuSeparator {}
                 FMenu {
                     title: qsTr("When downloads finish")
