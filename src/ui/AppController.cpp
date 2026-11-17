@@ -21,6 +21,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <powrprof.h>
+#include <mmsystem.h>
 #include <shlobj.h>
 #endif
 
@@ -73,6 +74,10 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     });
     connect(m_mgr, &DownloadManager::downloadFinished, this, [this](Download* d) {
         emit downloadCompleted(d->title(), d->filePath());
+#ifdef Q_OS_WIN
+        if (soundOnComplete() && !qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO"))
+            PlaySoundW(L"SystemNotification", nullptr, SND_ALIAS | SND_ASYNC | SND_NODEFAULT);
+#endif
     });
     connect(m_mgr, &DownloadManager::statsUpdated, this, &AppController::updateStats);
     connect(m_mgr, &DownloadManager::trafficModeChanged, this, &AppController::trafficModeChanged);
@@ -155,6 +160,7 @@ UI_SETTING(compactView, setCompactView, bool, "compactView", false, toBool)
 UI_SETTING(closeButtonHidesApp, setCloseButtonHidesApp, bool, "closeButtonHidesApp", true, toBool)
 UI_SETTING(monitorClipboard, setMonitorClipboard, bool, "monitorClipboard", true, toBool)
 UI_SETTING(notifyOnComplete, setNotifyOnComplete, bool, "notifyOnComplete", true, toBool)
+UI_SETTING(soundOnComplete, setSoundOnComplete, bool, "soundOnComplete", true, toBool)
 UI_SETTING(bottomPanelOpen, setBottomPanelOpen, bool, "bottomPanelOpened", true, toBool)
 UI_SETTING(bottomPanelTab, setBottomPanelTab, int, "bottomPanelCurrentTab", 0, toInt)
 UI_SETTING(bottomPanelHeight, setBottomPanelHeight, double, "bottomPanelHeight", 230.0, toDouble)

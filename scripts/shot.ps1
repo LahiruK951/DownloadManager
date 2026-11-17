@@ -25,7 +25,8 @@ if (-not (Test-Path $plugin)) { throw "Missing $plugin (run scripts\build.ps1, w
 foreach ($theme in $Themes) {
     foreach ($view in $Views) {
         $profile = Join-Path $env:TEMP ("fluxdm-shot-" + [guid]::NewGuid().ToString("N"))
-        $png = Join-Path $out "$view-$theme.png"
+        $safe = $view -replace '[:\\/*?"<>|]', '-'
+        $png = Join-Path $out "$safe-$theme.png"
         Remove-Item $png -ErrorAction SilentlyContinue
         $env:FLUXDM_DATA_DIR = $profile
         if ($view -eq "empty") { Remove-Item env:FLUXDM_DEV_DEMO -ErrorAction SilentlyContinue } else { $env:FLUXDM_DEV_DEMO = "1" }
@@ -37,10 +38,10 @@ foreach ($theme in $Themes) {
         $env:QT_QPA_FONTDIR = "$env:WINDIR\Fonts"   # offscreen uses FreeType; point it at system fonts
         $env:QT_SCALE_FACTOR = "$Scale"
         $p = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden `
-            -RedirectStandardError (Join-Path $out "$view-$theme.log") -RedirectStandardOutput "NUL"
+            -RedirectStandardError (Join-Path $out "$safe-$theme.log") -RedirectStandardOutput "NUL"
         if (-not $p.WaitForExit(30000)) { $p.Kill(); Write-Warning "$view/$theme timed out" }
         Remove-Item -Recurse -Force $profile -ErrorAction SilentlyContinue
-        $warn = Get-Content (Join-Path $out "$view-$theme.log") -ErrorAction SilentlyContinue |
+        $warn = Get-Content (Join-Path $out "$safe-$theme.log") -ErrorAction SilentlyContinue |
             Where-Object { $_ -match "qml|QML|Error|error" -and $_ -notmatch "QSystemTrayIcon|tray" }
         $status = if (Test-Path $png) { "ok" } else { "MISSING" }
         Write-Host ("{0,-12} {1,-6} {2}" -f $view, $theme, $status)

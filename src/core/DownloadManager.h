@@ -78,6 +78,7 @@ private:
     void applyLimits();
     void checkAllDone();
     void runAutoRetries();
+    void checkMissingFiles();
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;
 
@@ -100,5 +101,6 @@ private:
     int m_overriddenRule = -1;
     QTimer m_clock;
     bool m_hadActive = false;
+    int m_tick = 0;
     bool m_shuttingDown = false;
 };

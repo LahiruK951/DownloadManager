@@ -42,6 +42,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
+    Q_PROPERTY(bool soundOnComplete READ soundOnComplete WRITE setSoundOnComplete NOTIFY settingsChanged)
     Q_PROPERTY(QString defaultFolder READ defaultFolder WRITE setDefaultFolder NOTIFY settingsChanged)
     Q_PROPERTY(QStringList folderHistory READ folderHistory NOTIFY settingsChanged)
     Q_PROPERTY(bool bottomPanelOpen READ bottomPanelOpen WRITE setBottomPanelOpen NOTIFY settingsChanged)
@@ -88,6 +89,8 @@ public:
     void setMonitorClipboard(bool v);
     bool notifyOnComplete() const;
     void setNotifyOnComplete(bool v);
+    bool soundOnComplete() const;
+    void setSoundOnComplete(bool v);
     QString defaultFolder() const;
     void setDefaultFolder(const QString& f);
     QStringList folderHistory() const;

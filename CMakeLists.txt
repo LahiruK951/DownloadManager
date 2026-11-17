@@ -114,7 +114,7 @@ qt_add_qml_module(fluxdm
 target_link_libraries(fluxdm PRIVATE fluxcore Qt6::Widgets Qt6::Quick Qt6::QuickControls2 Qt6::Qml)
 target_include_directories(fluxdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/ui) # for qmltyperegistrar
 if(WIN32)
-    target_link_libraries(fluxdm PRIVATE PowrProf Shell32)
+    target_link_libraries(fluxdm PRIVATE PowrProf Shell32 Winmm)
 endif()
 set_target_properties(fluxdm PROPERTIES OUTPUT_NAME "FluxDM")
 

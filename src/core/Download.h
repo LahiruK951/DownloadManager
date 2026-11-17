@@ -53,6 +53,7 @@ class Download : public QObject {
     Q_PROPERTY(QVariantList files READ files NOTIFY filesChanged)
     Q_PROPERTY(qint64 retryIn READ retryIn NOTIFY changed) // seconds until the automatic retry, -1 = none
     Q_PROPERTY(int autoRetries READ autoRetries NOTIFY changed)
+    Q_PROPERTY(bool fileMissing READ fileMissing NOTIFY changed)
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -108,6 +109,8 @@ public:
     QVariantList files() const { return m_files; }
     qint64 retryIn() const { return failed() && autoRetryAt.isValid() ? qMax<qint64>(0, QDateTime::currentDateTime().secsTo(autoRetryAt)) : -1; }
     int autoRetries() const { return autoRetryCount; }
+    bool fileMissing() const { return m_missing; }
+    void setFileMissing(bool m) { if (m_missing != m) { m_missing = m; emit changed(); } }
 
     void setState(State s, const QString& error = {});
     void setTitle(const QString& title);
@@ -136,4 +139,5 @@ private:
     int m_seeds = 0;
     int m_peers = 0;
     QVariantList m_files;
+    bool m_missing = false;
 };

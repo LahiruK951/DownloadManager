@@ -404,21 +404,19 @@ private slots:
         p2.resumeData = resume;
         stats.clear();
         eng.start(p2);
-        bool sawPartial = false;
         t.restart();
         while (fin.isEmpty() && fail.isEmpty() && t.elapsed() < 60000) {
             QTest::qWait(100);
             eng.addPeer(11, QStringLiteral("127.0.0.1"), seeder.listen_port());
-            // Within the first moments after resuming, progress must already include the old data
-            // (2 MB/s seeder: re-downloading `got` bytes from scratch would take far longer).
-            if (t.elapsed() < 1500)
-                for (const auto& args : stats)
-                    if (args.at(0).value<TaskStats>().received >= got / 2)
-                        sawPartial = true;
         }
         QVERIFY2(!fin.isEmpty(), qPrintable(fail.isEmpty() ? QStringLiteral("timeout") : fail.last().at(1).toString()));
-        QVERIFY2(sawPartial, "resume started from zero");
         QVERIFY(readAll(fin.last().at(1).toString()) == payload);
+        // A real resume transfers roughly one copy of the file in total; restarting from
+        // zero would make the seeder upload the already-downloaded part a second time.
+        const std::int64_t uploaded = seeder.get_torrents().front().status().total_payload_upload;
+        QVERIFY2(uploaded < qint64(payload.size()) + got / 2,
+                 qPrintable(QStringLiteral("seeder uploaded %1 bytes for a %2-byte file (got %3 before stop)")
+                                .arg(uploaded).arg(payload.size()).arg(got)));
     }
 #endif
 

@@ -217,8 +217,12 @@ Popup {
                         }
                         SettingRow {
                             title: qsTr("Notify when a download completes")
-                            divider: false
                             FToggle { checked: App.notifyOnComplete; onToggled: App.notifyOnComplete = checked }
+                        }
+                        SettingRow {
+                            title: qsTr("Play a sound when a download completes")
+                            divider: false
+                            FToggle { checked: App.soundOnComplete; onToggled: App.soundOnComplete = checked }
                         }
                     }
                 }

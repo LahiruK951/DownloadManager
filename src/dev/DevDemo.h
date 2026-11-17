@@ -1,5 +1,6 @@
 #pragma once
 #include <QDateTime>
+#include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -25,6 +26,15 @@ inline void seed(DownloadManager& mgr, const QString& dir)
         return d;
     };
 
+    {   // a finished download whose file was deleted afterwards
+        Download* gone = add(QStringLiteral("demo://old.example.com/meeting-recording-2025-11.mp4?size=734003200"), false);
+        gone->rec.state = Download::Completed;
+        gone->rec.total = gone->rec.received = 734003200;
+        gone->rec.filePath = QDir(dir).filePath(QStringLiteral("meeting-recording-2025-11.mp4"));
+        gone->rec.finished = QDateTime::currentDateTime().addDays(-3);
+        gone->setFileMissing(true);
+        gone->notify();
+    }
     add(QStringLiteral("demo://docs.example.com/annual-report-2026.pdf?size=3355443&speed=1e12"));
     add(QStringLiteral("demo://media.example.com/Midnight%20Sessions%20-%2001%20-%20Intro.flac?size=48234567&speed=1e12"));
     add(QStringLiteral("demo://dl.example.com/VSCodeUserSetup-x64-1.96.exe?size=99876543&speed=1e12"));

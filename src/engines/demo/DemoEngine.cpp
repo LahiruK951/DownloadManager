@@ -1,6 +1,8 @@
 #include "engines/demo/DemoEngine.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRandomGenerator>
@@ -91,6 +93,9 @@ void DemoEngine::tick()
         emit stats(s);
         if (qint64(t.received) >= t.total) {
             const QString path = t.path;
+            QDir().mkpath(QFileInfo(path).absolutePath()); // empty placeholder so "Open"/missing-file logic behaves
+            QFile placeholder(path);
+            placeholder.open(QIODevice::WriteOnly);
             m_tasks.remove(id);
             emit finished(id, path);
         } else if (t.ticks % 4 == 0) {

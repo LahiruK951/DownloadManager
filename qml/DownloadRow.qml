@@ -30,6 +30,7 @@ Rectangle {
         if (d.completed && d.seeding)
             return qsTr("Seeding") + " · ↑ " + App.fmtSpeed(d.uploadSpeed) + " · " + qsTr("ratio") + " " + d.ratio.toFixed(2)
                    + " · " + d.peers + " " + qsTr("peers")
+        if (d.completed && d.fileMissing) return qsTr("The file was moved or deleted")
         if (d.completed) return App.fmtDate(d.finishedAt)
         if (d.failed) return d.error + (d.retryIn >= 0 ? "  ·  " + qsTr("retrying in %1").arg(App.fmtEta(d.retryIn)) : "")
         if (d.waitingForSchedule) return d.scheduleText
@@ -46,6 +47,7 @@ Rectangle {
     }
     readonly property var pill: {
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
+        if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
         if (d.failed) return { text: qsTr("Error"), glyph: Theme.icons.warn, fg: Theme.error, bg: Theme.errorSoft }
         if (d.paused) return { text: qsTr("Paused"), glyph: Theme.icons.pause, fg: Theme.textDim, bg: Theme.surfaceAlt }
@@ -193,13 +195,16 @@ Rectangle {
             Behavior on opacity { NumberAnimation { duration: 100 } }
             IconButton {
                 glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
+                     : (row.d.completed && row.d.fileMissing) ? Theme.icons.refresh
                      : row.d.completed ? Theme.icons.open
                      : (row.d.running || row.d.queued) ? Theme.icons.pause
                      : row.d.failed ? Theme.icons.refresh : Theme.icons.play
                 tip: (row.d.completed && row.d.seeding) ? qsTr("Stop seeding")
+                     : (row.d.completed && row.d.fileMissing) ? qsTr("Download again")
                      : row.d.completed ? qsTr("Open") : (row.d.running || row.d.queued) ? qsTr("Pause")
                      : row.d.failed ? qsTr("Retry") : qsTr("Resume")
-                onClicked: (row.d.completed && !row.d.seeding) ? App.openFile(row.d.id) : App.togglePause(row.d.id)
+                onClicked: (row.d.completed && row.d.fileMissing) ? App.restart(row.d.id)
+                         : (row.d.completed && !row.d.seeding) ? App.openFile(row.d.id) : App.togglePause(row.d.id)
             }
             IconButton {
                 glyph: Theme.icons.folder
@@ -228,7 +233,7 @@ Rectangle {
 
     FMenu {
         id: ctx
-        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.d.completed; onTriggered: App.openFile(row.d.id) }
+        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.d.completed && !row.d.fileMissing; onTriggered: App.openFile(row.d.id) }
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
         FMenuSeparator {}
         FMenuItem {
@@ -249,7 +254,7 @@ Rectangle {
             visible: !row.d.completed
             onTriggered: row.requestSchedule(row.d)
         }
-        FMenuItem { glyph: Theme.icons.refresh; text: qsTr("Restart"); onTriggered: App.restart(row.d.id) }
+        FMenuItem { glyph: Theme.icons.refresh; text: row.d.fileMissing ? qsTr("Download again") : qsTr("Restart"); onTriggered: App.restart(row.d.id) }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
         FMenu {
             title: qsTr("Priority")

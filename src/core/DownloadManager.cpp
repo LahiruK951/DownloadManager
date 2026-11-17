@@ -48,6 +48,8 @@ DownloadManager::DownloadManager(Database* db, QObject* parent)
     connect(&m_clock, &QTimer::timeout, this, [this] {
         evaluateTrafficRules();
         runAutoRetries();
+        if (++m_tick % 4 == 0) // once a minute
+            checkMissingFiles();
         schedule();
     });
     m_clock.start();
@@ -90,6 +92,7 @@ void DownloadManager::load()
             d->rec.state = Download::Queued; // resume what was running when we quit
         m_list.append(d);
     }
+    checkMissingFiles();
     schedule();
     // Completed torrents keep seeding across restarts until the ratio is reached.
     for (Download* d : m_list)
@@ -589,6 +592,7 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
     d->autoRetryAt = {};
     if (!d->isTorrent())
         d->rec.resumeData.clear(); // torrents keep it to seed after restart
+    d->setFileMissing(false);
     d->setState(Download::Completed);
     if (d->isTorrent())
         d->setSeeding(true);
@@ -686,4 +690,13 @@ void DownloadManager::runAutoRetries()
             }
         }
     }
+}
+void DownloadManager::checkMissingFiles()
+{
+    // FDM marks completed downloads whose file was moved or deleted.
+    for (Download* d : m_list)
+        if (d->completed() && !d->rec.filePath.isEmpty())
+            d->setFileMissing(!QFileInfo::exists(d->rec.filePath));
+        else
+            d->setFileMissing(false);
 }

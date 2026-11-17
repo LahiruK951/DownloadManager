@@ -156,6 +156,7 @@ ApplicationWindow {
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
         else if (v === "compact") App.compactView = true
+        else if (v.startsWith("search:")) App.search = v.substring(7)
         else if (v === "narrow") { win.width = 820; win.height = 560 }
     }
 
