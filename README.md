@@ -34,18 +34,20 @@ Data: `%LOCALAPPDATA%\FluxDM\FluxDM\` (`db.sqlite`, `settings.ini`, `backup\db\`
 
 ## Status
 
-Done:
-- **HTTP/HTTPS/FTP** (`downloadswww`): up to 32 connections per download with dynamic splitting,
-  crash-safe resume, per-connection retries with backoff, Content-Disposition names, system proxy.
-- **BitTorrent** (`downloadsbt`, libtorrent 2.1): magnet links, local and http `.torrent` files,
-  per-file selection, DHT/LSD/UPnP, resume, seeding until a share ratio, upload limit,
-  magnet/.torrent association (opt-in, HKCU).
-- **Traffic modes** Snail (Low) / Medium / High with per-mode limits, plus a **weekly schedule**
-  ("snail mode on weekdays 09:00–18:00"); picking a mode by hand overrides the active rule until it ends.
-- **Per-download schedule** (FDM's `downloadsScheduleRecords`), **when-done action**
-  (sleep / hibernate / shut down / exit, with a 30 s cancellable countdown).
-- **Batch links** `file[1-20].zip`, `img[001-120].jpg`, `[a-f].txt`.
-- Queue + priorities, tray, clipboard monitoring, drag & drop, single instance + CLI, light/dark theme.
+Download modules (FDM's plugin layout):
+- **downloadswww** – HTTP/HTTPS/FTP: up to 32 connections with dynamic splitting, crash-safe resume,
+  retries, Content-Disposition names, system proxy, per-download and global speed caps.
+- **downloadsbt** – BitTorrent (libtorrent 2.1): magnets, local/web `.torrent`, file selection, seeding to a
+  share ratio, upload limit, DHT/LSD/UPnP, opt-in magnet/.torrent association.
+- **downloadsm3u** – HLS video streams: best variant, parallel segments, AES-128, fMP4, resume.
 
-Next: browser extension + native messaging host, HLS/DASH + yt-dlp/ffmpeg, tags with default folders,
-auto-retry rules, import/export, remote control, installer.
+App:
+- Traffic modes Snail/Medium/High with a weekly **snail schedule**; per-download schedules;
+  "when done" sleep/hibernate/shut down/exit; automatic retries; batch links `file[1-20].zip`.
+- Browser integration: `fluxdm-nativehost.exe` + Chrome/Edge/Brave extension (catches downloads,
+  context menu, detects video streams on the page).
+- Library: multi-select, folders by file type, move to folder, missing-file detection, import/export,
+  per-download speed limit, completion notification + sound, tray, clipboard monitor, light/dark.
+- UI built from a small design system (`qml/F*.qml`), full-page settings.
+
+Next: ffmpeg conversion of streams to MP4, DASH, site extractors, remote control, installer.
