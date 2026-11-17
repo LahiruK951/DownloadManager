@@ -10,6 +10,10 @@
 #include <curl/curl.h>
 
 #include "RangeServer.h"
+#include "HlsServer.h"
+#include "core/Aes128.h"
+#include "engines/hls/HlsEngine.h"
+#include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
 #include "core/Instance.h"
@@ -82,6 +86,30 @@ TaskParams params(qint64 id, const QString& url, const QString& dir, int conns =
     p.maxConnections = conns;
     return p;
 }
+    // Serves master -> media playlist with `count` AES-128 segments (implicit IVs from sequence 10).
+QByteArray setupHls(HlsServer& srv, int count, QList<QByteArray>* plainOut)
+    {
+        const QByteArray key = QByteArray::fromHex("000102030405060708090a0b0c0d0e0f");
+        srv.files.insert("/key.bin", key);
+        QByteArray media = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:10\n"
+                           "#EXT-X-KEY:METHOD=AES-128,URI=\"/key.bin\"\n";
+        QByteArray all;
+        for (int i = 0; i < count; ++i) {
+            QByteArray plain = makeData(150000 + i * 977);
+            plain[0] = char(0x47); // TS sync byte, for realism
+            plain[1] = char(i);
+            *plainOut << plain;
+            all += plain;
+            srv.files.insert(QStringLiteral("/show/hi/seg%1.ts").arg(i), Aes128::encrypt(key, M3u8::sequenceIv(10 + i), plain));
+            media += "#EXTINF:4.0,\nseg" + QByteArray::number(i) + ".ts\n";
+        }
+        media += "#EXT-X-ENDLIST\n";
+        srv.files.insert("/show/hi/index.m3u8", media);
+        srv.files.insert("/show/master.m3u8",
+                         "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=300000\nlo/index.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720\nhi/index.m3u8\n");
+        return all;
+    }
+
 } // namespace
 
 class TestCore : public QObject {
@@ -488,6 +516,129 @@ private slots:
         QCOMPARE(received.value("url").toString(), QStringLiteral("https://example.com/file.zip"));
         QCOMPARE(received.value("cookies").toString(), QStringLiteral("a=1; b=2"));
         qunsetenv("FLUXDM_DATA_DIR");
+    }
+
+    void m3u8Parsing()
+    {
+        const QUrl base("https://cdn.example.com/show/master.m3u8");
+        const M3u8Playlist master = M3u8::parse(
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nlow/index.m3u8\n"
+            "#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS=\"avc1.640028,mp4a.40.2\"\nhi/index.m3u8\n", base);
+        QVERIFY(master.valid && master.master);
+        QCOMPARE(master.variants.size(), 2);
+        QCOMPARE(master.best()->resolution, QStringLiteral("1920x1080"));
+        QCOMPARE(master.best()->url, QUrl("https://cdn.example.com/show/hi/index.m3u8"));
+
+        const M3u8Playlist media = M3u8::parse(
+            "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:7\n#EXT-X-MAP:URI=\"init.mp4\"\n"
+            "#EXT-X-KEY:METHOD=AES-128,URI=\"https://keys.example.com/k1\",IV=0x000102030405060708090a0b0c0d0e0f\n"
+            "#EXTINF:6.0,\nseg7.m4s\n#EXT-X-KEY:METHOD=NONE\n#EXTINF:4.5,title\nseg8.m4s\n#EXT-X-ENDLIST\n",
+            QUrl("https://cdn.example.com/show/hi/index.m3u8"));
+        QVERIFY(media.valid && !media.master && media.endList);
+        QCOMPARE(media.segments.size(), 2);
+        QCOMPARE(media.segments[0].sequence, qint64(7));
+        QCOMPARE(media.segments[0].keyIndex, 0);
+        QCOMPARE(media.segments[1].keyIndex, -1);
+        QCOMPARE(media.segments[1].url, QUrl("https://cdn.example.com/show/hi/seg8.m4s"));
+        QCOMPARE(media.keys[0].iv, QByteArray::fromHex("000102030405060708090a0b0c0d0e0f"));
+        QCOMPARE(media.initSection, QUrl("https://cdn.example.com/show/hi/init.mp4"));
+        QCOMPARE(media.totalDuration, 10.5);
+        QVERIFY(!M3u8::parse("<html>", base).valid);
+        QCOMPARE(M3u8::sequenceIv(258), QByteArray::fromHex("00000000000000000000000000000102"));
+        QCOMPARE(HlsEngine::outputBaseName(QUrl("https://x.com/videos/my-show/master.m3u8")), QStringLiteral("my-show"));
+        QCOMPARE(HlsEngine::outputBaseName(QUrl("https://x.com/v/episode-3.m3u8")), QStringLiteral("episode-3"));
+    }
+
+    void aesRoundTrip()
+    {
+        const QByteArray key = QByteArray::fromHex("2b7e151628aed2a6abf7158809cf4f3c");
+        const QByteArray iv = M3u8::sequenceIv(42);
+        const QByteArray plain = makeData(100000);
+        bool ok = false;
+        const QByteArray enc = Aes128::encrypt(key, iv, plain, &ok);
+        QVERIFY(ok);
+        QCOMPARE(enc.size() % 16, 0);
+        QVERIFY(enc != plain.left(enc.size()));
+        QCOMPARE(Aes128::decrypt(key, iv, enc, &ok), plain);
+        QVERIFY(ok);
+    }
+
+    void hlsDownload()
+    {
+        HlsServer srv;
+        QList<QByteArray> plain;
+        const QByteArray expected = setupHls(srv, 12, &plain);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        HlsEngine eng;
+        QSignalSpy meta(&eng, &DownloadEngine::meta), fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        QVERIFY(eng.canHandle(QUrl(srv.url("/show/master.m3u8"))));
+        eng.start(params(21, srv.url("/show/master.m3u8"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("show.ts"));
+        QVERIFY(readAll(o.path) == expected);
+        QCOMPARE(srv.hits.value("/show/lo/index.m3u8"), 0); // best variant only
+        QCOMPARE(srv.hits.value("/key.bin"), 1);           // key fetched once
+    }
+
+    void hlsStopAndResume()
+    {
+        HlsServer srv;
+        QList<QByteArray> plain;
+        const QByteArray expected = setupHls(srv, 16, &plain);
+        srv.delayMs = 120;
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        HlsEngine eng;
+        eng.setMaxConnections(2);
+        QSignalSpy stats(&eng, &DownloadEngine::stats), stopped(&eng, &DownloadEngine::stopped);
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(22, srv.url("/show/master.m3u8"), dir.path()));
+        QElapsedTimer t;
+        t.start();
+        qint64 got = 0;
+        while (got < expected.size() / 3 && t.elapsed() < 20000 && fin.isEmpty()) {
+            QTest::qWait(50);
+            if (!stats.isEmpty())
+                got = stats.last().at(0).value<TaskStats>().received;
+        }
+        QVERIFY2(fin.isEmpty(), "finished before we could stop it");
+        eng.stop(22);
+        QTRY_VERIFY_WITH_TIMEOUT(!stopped.isEmpty(), 3000);
+        const QByteArray resume = stopped.last().at(1).toByteArray();
+        QVERIFY(!resume.isEmpty());
+        int segHitsBefore = 0;
+        for (int i = 0; i < 16; ++i)
+            segHitsBefore += srv.hits.value(QStringLiteral("/show/hi/seg%1.ts").arg(i));
+
+        TaskParams p = params(22, srv.url("/show/master.m3u8"), dir.path());
+        p.resumeData = resume;
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == expected);
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("show.ts"));
+        int segHits = 0;
+        for (int i = 0; i < 16; ++i)
+            segHits += srv.hits.value(QStringLiteral("/show/hi/seg%1.ts").arg(i));
+        // only segments not yet written (plus the few in flight at stop) were fetched again
+        QVERIFY2(segHits <= 16 + 4, qPrintable(QStringLiteral("segment requests: %1 (before stop %2)").arg(segHits).arg(segHitsBefore)));
+    }
+
+    void hlsRejectsLiveStreams()
+    {
+        HlsServer srv;
+        srv.files.insert("/live.m3u8", "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\na.ts\n");
+        srv.files.insert("/a.ts", "x");
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        HlsEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(23, srv.url("/live.m3u8"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 10000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.contains("Live"), qPrintable(o.error));
     }
 
     void speedLimit()

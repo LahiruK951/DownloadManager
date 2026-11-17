@@ -152,6 +152,7 @@ ApplicationWindow {
             settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser"].indexOf(v))
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
+        else if (v === "add-hls") addDialog.openWith("https://media.example.com/shows/night-drive/master.m3u8")
         else if (v === "menu") topBar.openMenu()
         else if (v === "delete") { App.select(App.downloads.idAt(5)); deleteDialog.openFor(App.selected) }
         else if (v === "schedule") { App.select(App.downloads.idAt(2)); scheduleDialog.openFor(App.selected) }

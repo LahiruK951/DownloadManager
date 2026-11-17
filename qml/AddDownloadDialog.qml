@@ -10,6 +10,7 @@ FDialog {
 
     readonly property int linkCount: App.countLinks(urlsField.text)
     readonly property bool torrent: App.isTorrentLink(urlsField.text)
+    readonly property bool stream: App.linkModule(urlsField.text) === "downloadsm3u"
     property bool folderTouched: false
     readonly property string autoFolder: App.folderFor(urlsField.text)
     onAutoFolderChanged: if (!folderTouched && visible) folderField.editText = autoFolder
@@ -68,6 +69,7 @@ FDialog {
                 color: dlg.linkCount > 0 ? Theme.accent : Theme.textDim
                 text: dlg.linkCount === 0 ? qsTr("Tip: ranges like file[1-20].zip expand into several downloads")
                      : dlg.torrent ? qsTr("BitTorrent download")
+                     : dlg.stream ? qsTr("Video stream (HLS) — saved as one video file")
                      : dlg.linkCount === 1 ? qsTr("1 file") : qsTr("%1 files").arg(dlg.linkCount)
             }
         }

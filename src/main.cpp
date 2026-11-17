@@ -21,6 +21,7 @@
 #include "core/Instance.h"
 #include "dev/DevDemo.h"
 #include "engines/demo/DemoEngine.h"
+#include "engines/hls/HlsEngine.h"
 #include "ui/AppController.h"
 #include "ui/AppIcon.h"
 #include "ui/TrayIcon.h"
@@ -91,6 +92,7 @@ int main(int argc, char* argv[])
         const bool offline = qEnvironmentVariableIsSet("FLUXDM_DATA_DIR");
         mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), offline ? 0 : btPort, offline));
 #endif
+        mgr.addEngine(new HlsEngine); // .m3u8 links: takes precedence over plain HTTP
         const bool demo = qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO");
         if (demo)
             mgr.addEngine(new DemoEngine);

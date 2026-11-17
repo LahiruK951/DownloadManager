@@ -109,6 +109,7 @@ public:
                                      const QVariantMap& schedule = {});
     Q_INVOKABLE int countLinks(const QString& text) const;
     Q_INVOKABLE bool isTorrentLink(const QString& text) const;
+    Q_INVOKABLE QString linkModule(const QString& text) const; // module uid of the first link, "" if none
     Q_INVOKABLE void stopSeeding(qint64 id);
     Q_INVOKABLE void setFileWanted(qint64 id, int index, bool wanted);
 

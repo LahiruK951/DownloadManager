@@ -28,6 +28,10 @@ add_library(fluxcore STATIC
     src/engines/www/HttpTask.h        src/engines/www/HttpTask.cpp
     src/engines/www/CurlWorker.h      src/engines/www/CurlWorker.cpp
     src/engines/www/WwwEngine.h       src/engines/www/WwwEngine.cpp
+    # module "downloadsm3u": HLS streams
+    src/engines/hls/M3u8.h            src/engines/hls/M3u8.cpp
+    src/engines/hls/HlsEngine.h       src/engines/hls/HlsEngine.cpp
+    src/core/Aes128.h                 src/core/Aes128.cpp
     # developer-only simulated module (FLUXDM_DEV_DEMO)
     src/engines/demo/DemoEngine.h     src/engines/demo/DemoEngine.cpp
     src/dev/DevDemo.h
@@ -37,6 +41,7 @@ target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libc
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
+    target_link_libraries(fluxcore PUBLIC bcrypt)
 endif()
 
 # module "downloadsbt": BitTorrent via libtorrent-rasterbar (optional)
@@ -132,7 +137,7 @@ add_custom_command(TARGET fluxdm POST_BUILD
 
 # ---------------------------------------------------------------- tests
 enable_testing()
-qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h)
+qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h tests/HlsServer.h)
 target_link_libraries(test_core PRIVATE fluxcore Qt6::Test Qt6::Network)
 add_dependencies(test_core fluxdm-nativehost)
 add_test(NAME test_core COMMAND test_core)

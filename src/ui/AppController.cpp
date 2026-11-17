@@ -850,3 +850,9 @@ QString AppController::importDownloads(const QUrl& file)
     return skipped > 0 ? tr("Imported %1 download(s) (paused); skipped %2.").arg(added).arg(skipped)
                        : tr("Imported %1 download(s) (paused).").arg(added);
 }
+QString AppController::linkModule(const QString& text) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    const QStringList l = text.split(ws, Qt::SkipEmptyParts);
+    return l.isEmpty() ? QString() : m_mgr->moduleFor(l.first());
+}
