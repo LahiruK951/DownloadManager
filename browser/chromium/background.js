@@ -102,8 +102,69 @@ chrome.contextMenus.onClicked.addListener((info) => {
   if (url && /^(https?|ftp|magnet):/i.test(url)) handOff(url, info.pageUrl, "");
 });
 
+// ---------------------------------------------------------------- media detection
+// Remember HLS playlists and media files each tab loads, so the popup can offer them
+// (FDM's "download video from this page"). Kept in session storage: the service worker
+// may be restarted at any time.
+
+const MEDIA_RE = /\.(m3u8|mp4|webm|m4v|mov|mp3|m4a|flac)(\?|#|$)/i;
+const MAX_PER_TAB = 30;
+
+function mediaKind(url) {
+  const m = MEDIA_RE.exec(new URL(url).pathname + "?");
+  return m ? m[1].toLowerCase() : null;
+}
+
+async function tabMedia(tabId) {
+  const key = "media:" + tabId;
+  return (await chrome.storage.session.get(key))[key] || [];
+}
+
+async function setTabMedia(tabId, list) {
+  await chrome.storage.session.set({ ["media:" + tabId]: list });
+  const n = list.length;
+  chrome.action.setBadgeText({ tabId, text: n ? String(n) : "" });
+  chrome.action.setBadgeBackgroundColor({ tabId, color: "#2f7cf6" });
+}
+
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.tabId < 0) return;
+    let kind;
+    try {
+      kind = mediaKind(details.url);
+    } catch (e) {
+      return;
+    }
+    if (!kind) return;
+    // Segment-style requests (byte ranges of the same file) are deduplicated by URL without query.
+    const plain = details.url.split("#")[0];
+    tabMedia(details.tabId).then((list) => {
+      if (list.some((m) => m.url === plain)) return;
+      // On HLS pages the player fetches fMP4/ts segments by XHR: the playlist is the useful entry.
+      if (kind !== "m3u8" && details.type === "xmlhttprequest" && list.some((m) => m.kind === "m3u8")) return;
+      list.unshift({ url: plain, kind, time: Date.now() });
+      setTabMedia(details.tabId, list.slice(0, MAX_PER_TAB));
+    });
+  },
+  { urls: ["<all_urls>"], types: ["xmlhttprequest", "media", "other"] }
+);
+
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status === "loading" && info.url) setTabMedia(tabId, []);
+});
+chrome.tabs.onRemoved.addListener((tabId) => chrome.storage.session.remove("media:" + tabId));
+
 // Popup → background
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg && msg.type === "media") {
+    tabMedia(msg.tabId).then(sendResponse);
+    return true;
+  }
+  if (msg && msg.type === "download") {
+    handOff(msg.url, msg.referrer, "").then(sendResponse);
+    return true;
+  }
   if (msg && msg.type === "ping") {
     sendToHost({ cmd: "ping" }).then(sendResponse);
     return true;

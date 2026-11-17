@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "FluxDM",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Send your downloads to the FluxDM download manager.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA18mGnAzhSnixnnTPdlhUYciJtO6zqngX4k7f6ldN2JEfQ6jtOwiGqantOtt5Sf1RFF/X50eEt8MgYVbokMYkLHcyWiPhon2hwBXVrFtBKlzyPrgfjyjL2CxZbjSVKLrYyRH0CScWaykxlW7oa25zwOPj/71axNWqv2CQ1Xlnl5xhKp8l7+0U8N0UzWn6yH5hEc1JVwFJvIDelL5JL9tY4L0tlkqD+9ZJ2Uen1IwM6U26a4cWAVtqMxP8xdPUxh9TGgEGkwmDCfK9+SA4kVV03lf7hnpxVLn9YLc53rY335hjBP6AUjmd7pYVwmutFB8PrNVmetSMEJ9fJA63DrKRjwIDAQAB",
-  "permissions": ["downloads", "nativeMessaging", "contextMenus", "cookies", "storage"],
+  "permissions": ["downloads", "nativeMessaging", "contextMenus", "cookies", "storage", "webRequest", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {
