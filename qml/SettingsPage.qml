@@ -15,7 +15,8 @@ Popup {
         { title: qsTr("Downloads"), glyph: Theme.icons.down, desc: qsTr("Where new downloads are saved.") },
         { title: qsTr("Traffic modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode. Switch modes from the status bar at the bottom of the window.") },
         { title: qsTr("Snail schedule"), glyph: Theme.icons.clock, desc: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.") },
-        { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") }
+        { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
+        { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge and Brave to FluxDM.") }
     ]
 
     function openSection(i) {
@@ -41,6 +42,8 @@ Popup {
         upField.value = App.uploadLimitKBps()
         ratioField.value = Math.round(App.seedRatio() * 10)
         assocToggle.checked = App.torrentAssociated()
+        browserToggle.checked = App.browserIntegrated()
+        browserError.text = ""
     }
 
     function saveTum(m) { App.setTumSettings(m, tum[m].maxDownloads, tum[m].maxConnections, tum[m].speedLimit) }
@@ -445,6 +448,90 @@ Popup {
                         description: qsTr("Registers FluxDM for your Windows account only.")
                         divider: false
                         FToggle { id: assocToggle; onToggled: App.setTorrentAssociated(checked) }
+                    }
+                }
+
+                // ---------------- Browser
+                ColumnLayout {
+                    visible: page.section === 5
+                    Layout.fillWidth: true
+                    spacing: 20
+                    SettingsCard {
+                        title: qsTr("Integration")
+                        Layout.fillWidth: true
+                        SettingRow {
+                            title: qsTr("Connect FluxDM to your browsers")
+                            description: qsTr("Registers the FluxDM helper for Chrome, Edge and Brave (your Windows account only).")
+                            FToggle {
+                                id: browserToggle
+                                onToggled: {
+                                    browserError.text = App.setBrowserIntegrated(checked)
+                                    checked = App.browserIntegrated()
+                                }
+                            }
+                        }
+                        SettingRow {
+                            title: qsTr("Add browser downloads without asking")
+                            description: qsTr("Otherwise FluxDM shows the New download dialog first.")
+                            divider: false
+                            FToggle { checked: App.browserAddSilently; onToggled: App.browserAddSilently = checked }
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: browserError.text !== ""
+                        implicitHeight: browserError.implicitHeight + 20
+                        radius: Theme.radius
+                        color: Theme.errorSoft
+                        Text {
+                            id: browserError
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            color: Theme.error
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Theme.fontSmall + 0.5
+                        }
+                    }
+                    SettingsCard {
+                        title: qsTr("Install the extension")
+                        description: qsTr("One-time setup in each browser:")
+                        Layout.fillWidth: true
+                        Repeater {
+                            model: [
+                                qsTr("Open chrome://extensions (Edge: edge://extensions, Brave: brave://extensions)."),
+                                qsTr("Turn on Developer mode."),
+                                qsTr("Click Load unpacked and choose the FluxDM extension folder below."),
+                                qsTr("Turn on “Connect FluxDM to your browsers” above.")
+                            ]
+                            delegate: RowLayout {
+                                required property string modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                Layout.topMargin: 10
+                                spacing: 12
+                                Rectangle {
+                                    implicitWidth: 22
+                                    implicitHeight: 22
+                                    radius: 11
+                                    color: Theme.accentSoft
+                                    Text { anchors.centerIn: parent; text: index + 1; color: Theme.accent; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontBody
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                        SettingRow {
+                            Layout.topMargin: 6
+                            title: qsTr("Extension folder")
+                            description: App.extensionDir()
+                            divider: false
+                            FButton { glyph: Theme.icons.folder; text: qsTr("Open folder"); onClicked: App.openExtensionDir() }
+                        }
                     }
                 }
 

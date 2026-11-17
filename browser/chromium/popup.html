@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/32.png" alt="" width="24" height="24">
+    <h1>FluxDM</h1>
+    <span id="status" class="status">Checking…</span>
+  </header>
+
+  <label class="row">
+    <span>
+      <strong>Catch browser downloads</strong>
+      <small>Send downloads to FluxDM instead of the browser</small>
+    </span>
+    <input type="checkbox" id="enabled">
+  </label>
+
+  <label class="row">
+    <span>
+      <strong>Skip files smaller than</strong>
+      <small>KB; 0 catches everything</small>
+    </span>
+    <input type="number" id="minSizeKB" min="0" step="64">
+  </label>
+
+  <label class="row column">
+    <span>
+      <strong>Never catch these extensions</strong>
+      <small>For example: pdf, jpg</small>
+    </span>
+    <input type="text" id="skipExtensions" placeholder="pdf, jpg">
+  </label>
+
+  <button id="open">Open FluxDM</button>
+  <p id="help" class="help" hidden>
+    FluxDM was not found. In FluxDM open <b>Settings → Browser</b> and turn on browser integration.
+  </p>
+  <script src="popup.js"></script>
+</body>
+</html>

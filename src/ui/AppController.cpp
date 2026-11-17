@@ -11,6 +11,10 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QFile>
 
 #ifdef Q_OS_WIN
 #define WIN32_LEAN_AND_MEAN
@@ -21,6 +25,7 @@
 #endif
 
 #include "core/BatchLinks.h"
+#include "core/Instance.h"
 #include "core/Download.h"
 #include "core/DownloadManager.h"
 #include "core/FileNamer.h"
@@ -230,9 +235,13 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
     if (sched)
         m_ui.setValue(QStringLiteral("lastSchedule"), w.toMap());
     Download* last = nullptr;
-    for (const QString& u : urls)
-        last = m_mgr->add(u, QDir::toNativeSeparators(dir), urls.size() == 1 ? fileName.trimmed() : QString(), start || sched,
-                          {}, {}, {}, sched ? &w : nullptr);
+    for (const QString& u : urls) {
+        const QVariantMap meta = m_browserMeta.take(u); // cookies etc. captured by the browser extension
+        QString name = urls.size() == 1 ? fileName.trimmed() : QString();
+        last = m_mgr->add(u, QDir::toNativeSeparators(dir), name, start || sched,
+                          meta.value(QStringLiteral("referrer")).toString(), meta.value(QStringLiteral("cookies")).toString(),
+                          meta.value(QStringLiteral("userAgent")).toString(), sched ? &w : nullptr);
+    }
     rememberFolder(dir);
     if (last)
         select(last->id());
@@ -605,5 +614,124 @@ void AppController::setTorrentAssociated(bool on)
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 #else
     Q_UNUSED(on);
+#endif
+}
+
+// ------------------------------------------------------------------ browser integration
+
+bool AppController::browserAddSilently() const { return m_ui.value(QStringLiteral("browserAddSilently"), false).toBool(); }
+void AppController::setBrowserAddSilently(bool v)
+{
+    if (v == browserAddSilently())
+        return;
+    m_ui.setValue(QStringLiteral("browserAddSilently"), v);
+    emit settingsChanged();
+}
+
+bool AppController::startHidden() const { return QCoreApplication::arguments().contains(QStringLiteral("--tray")); }
+
+QString AppController::suggestedName(const QString& url) const
+{
+    return m_browserMeta.value(url.trimmed()).value(QStringLiteral("fileName")).toString();
+}
+
+QString AppController::handleBrowserRequest(const QVariantMap& r)
+{
+    const QString cmd = r.value(QStringLiteral("cmd")).toString();
+    if (cmd == QLatin1String("ping"))
+        return {};
+    if (cmd == QLatin1String("show")) {
+        emit showWindowRequested();
+        return {};
+    }
+    if (cmd != QLatin1String("download"))
+        return tr("Unknown command");
+    const QString url = r.value(QStringLiteral("url")).toString().trimmed();
+    if (!m_mgr->canHandle(url))
+        return tr("Unsupported link");
+    QVariantMap meta;
+    for (const char* k : {"referrer", "cookies", "userAgent", "fileName"})
+        meta.insert(QString::fromLatin1(k), r.value(QString::fromLatin1(k)));
+    meta[QStringLiteral("fileName")] = FileNamer::sanitize(QFileInfo(meta.value(QStringLiteral("fileName")).toString()).fileName());
+    if (meta.value(QStringLiteral("fileName")).toString() == QLatin1String("download"))
+        meta.remove(QStringLiteral("fileName"));
+    m_browserMeta.insert(url, meta);
+
+    if (browserAddSilently() || r.value(QStringLiteral("silent")).toBool()) {
+        const QString err = addDownloads(url, defaultFolder(), suggestedName(url), true);
+        return err;
+    }
+    emit addDialogRequested(url);
+    return {};
+}
+
+QString AppController::extensionDir() const
+{
+    return QDir::toNativeSeparators(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("browser/chromium")));
+}
+
+void AppController::openExtensionDir() const { QDesktopServices::openUrl(QUrl::fromLocalFile(extensionDir())); }
+
+#ifdef Q_OS_WIN
+static const char* kBrowserKeys[] = {
+    "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\NativeMessagingHosts",
+    "HKEY_CURRENT_USER\\Software\\Microsoft\\Edge\\NativeMessagingHosts",
+    "HKEY_CURRENT_USER\\Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts",
+};
+#endif
+
+bool AppController::browserIntegrated() const
+{
+#ifdef Q_OS_WIN
+    QSettings reg(QString::fromLatin1(kBrowserKeys[0]), QSettings::NativeFormat);
+    const QString manifest = reg.value(QString::fromLatin1(Instance::kNativeHostName) + QStringLiteral("/Default")).toString();
+    return !manifest.isEmpty() && QFile::exists(manifest);
+#else
+    return false;
+#endif
+}
+
+QString AppController::setBrowserIntegrated(bool on)
+{
+#ifdef Q_OS_WIN
+    const QString hostName = QString::fromLatin1(Instance::kNativeHostName);
+    const QString manifestPath = QDir(Instance::profileDir()).filePath(QStringLiteral("nativehost.json"));
+    if (on) {
+        const QString host = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("fluxdm-nativehost.exe"));
+        if (!QFile::exists(host))
+            return tr("fluxdm-nativehost.exe is missing next to FluxDM.exe");
+        // The extension ID is fixed by the public key in its manifest (see browser/chromium/manifest.json).
+        QFile idFile(QDir(extensionDir()).filePath(QStringLiteral("extension-id.txt")));
+        QString extId = idFile.open(QIODevice::ReadOnly) ? QString::fromLatin1(idFile.readAll()).trimmed() : QString();
+        if (extId.isEmpty())
+            return tr("Browser extension files are missing (%1)").arg(extensionDir());
+        const QJsonObject manifest{
+            {QStringLiteral("name"), hostName},
+            {QStringLiteral("description"), QStringLiteral("FluxDM download manager")},
+            {QStringLiteral("path"), QDir::toNativeSeparators(host)},
+            {QStringLiteral("type"), QStringLiteral("stdio")},
+            {QStringLiteral("allowed_origins"), QJsonArray{QStringLiteral("chrome-extension://%1/").arg(extId)}},
+        };
+        QFile f(manifestPath);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return tr("Cannot write %1").arg(manifestPath);
+        f.write(QJsonDocument(manifest).toJson());
+        f.close();
+        for (const char* key : kBrowserKeys) {
+            QSettings reg(QString::fromLatin1(key), QSettings::NativeFormat);
+            reg.setValue(hostName + QStringLiteral("/Default"), QDir::toNativeSeparators(manifestPath));
+        }
+    } else {
+        for (const char* key : kBrowserKeys) {
+            QSettings reg(QString::fromLatin1(key), QSettings::NativeFormat);
+            reg.remove(hostName);
+        }
+        QFile::remove(manifestPath);
+    }
+    emit settingsChanged();
+    return {};
+#else
+    Q_UNUSED(on);
+    return tr("Not supported on this platform");
 #endif
 }

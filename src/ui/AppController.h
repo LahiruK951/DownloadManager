@@ -35,6 +35,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool trafficScheduled READ trafficScheduled NOTIFY trafficModeChanged)
     Q_PROPERTY(int whenDone READ whenDone WRITE setWhenDone NOTIFY whenDoneChanged)
     Q_PROPERTY(bool torrentSupport READ torrentSupport CONSTANT)
+    Q_PROPERTY(bool browserAddSilently READ browserAddSilently WRITE setBrowserAddSilently NOTIFY settingsChanged)
+    Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY settingsChanged)
     Q_PROPERTY(bool compactView READ compactView WRITE setCompactView NOTIFY settingsChanged)
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
@@ -72,6 +74,9 @@ public:
     int whenDone() const { return m_whenDone; }
     void setWhenDone(int a);
     bool torrentSupport() const;
+    bool browserAddSilently() const;
+    void setBrowserAddSilently(bool v);
+    bool startHidden() const;
 
     QString theme() const;
     void setTheme(const QString& t);
@@ -120,6 +125,14 @@ public:
     Q_INVOKABLE void setSeedRatio(double r);
     Q_INVOKABLE bool torrentAssociated() const;
     Q_INVOKABLE void setTorrentAssociated(bool on);
+
+    // --- browser integration (native messaging host + extension)
+    Q_INVOKABLE bool browserIntegrated() const;
+    Q_INVOKABLE QString setBrowserIntegrated(bool on); // returns error text or ""
+    Q_INVOKABLE QString extensionDir() const;
+    Q_INVOKABLE void openExtensionDir() const;
+    Q_INVOKABLE QString suggestedName(const QString& url) const;
+    QString handleBrowserRequest(const QVariantMap& request); // returns error text or ""
     Q_INVOKABLE void select(qint64 id);
     Q_INVOKABLE void pause(qint64 id);
     Q_INVOKABLE void resume(qint64 id);
@@ -187,5 +200,6 @@ private:
     int m_activeCount = 0;
     int m_whenDone = 0; // 0 nothing, 1 sleep, 2 hibernate, 3 shut down, 4 exit FluxDM
     QString m_lastClip;
+    QHash<QString, QVariantMap> m_browserMeta; // url -> referrer/cookies/userAgent/fileName from the browser
     bool m_trayHintShown = false;
 };

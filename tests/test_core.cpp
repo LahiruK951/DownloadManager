@@ -11,6 +11,12 @@
 
 #include "RangeServer.h"
 #include "core/BatchLinks.h"
+#include "core/Instance.h"
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QProcess>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "core/FileNamer.h"
 #include "core/Schedule.h"
 #include "engines/www/WwwEngine.h"
@@ -400,6 +406,76 @@ private slots:
         QVERIFY(readAll(fin.last().at(1).toString()) == payload);
     }
 #endif
+
+    void nativeHostForwardsToApp()
+    {
+        // Isolated channel: the host computes the same name from FLUXDM_DATA_DIR.
+        QTemporaryDir profile;
+        qputenv("FLUXDM_DATA_DIR", profile.path().toUtf8());
+        const QString host = QDir(QCoreApplication::applicationDirPath()).filePath("fluxdm-nativehost.exe");
+        QVERIFY2(QFile::exists(host), qPrintable(host));
+
+        auto frame = [](const QJsonObject& o) {
+            const QByteArray d = QJsonDocument(o).toJson(QJsonDocument::Compact);
+            const quint32 n = quint32(d.size());
+            return QByteArray(reinterpret_cast<const char*>(&n), 4) + d;
+        };
+        auto unframe = [](const QByteArray& raw) {
+            if (raw.size() < 4)
+                return QJsonObject();
+            quint32 n = 0;
+            memcpy(&n, raw.constData(), 4);
+            return QJsonDocument::fromJson(raw.mid(4, n)).object();
+        };
+
+        // 1) ping with no app running
+        {
+            QProcess p;
+            p.start(host);
+            QVERIFY(p.waitForStarted());
+            p.write(frame({{"cmd", "ping"}}));
+            p.closeWriteChannel();
+            QVERIFY(p.waitForFinished(10000));
+            const QJsonObject r = unframe(p.readAllStandardOutput());
+            QCOMPARE(r.value("ok").toBool(), true);
+            QCOMPARE(r.value("running").toBool(), false);
+        }
+
+        // 2) download request is forwarded to the app channel and the app's reply comes back
+        QLocalServer app;
+        QLocalServer::removeServer(Instance::channelName());
+        QVERIFY(app.listen(Instance::channelName()));
+        QJsonObject received;
+        connect(&app, &QLocalServer::newConnection, this, [&] {
+            QLocalSocket* s = app.nextPendingConnection();
+            connect(s, &QLocalSocket::readyRead, s, [s, &received] {
+                if (!s->canReadLine())
+                    return;
+                const QJsonObject req = QJsonDocument::fromJson(s->readLine()).object();
+                if (req.value("cmd").toString() == "download")
+                    received = req;
+                s->write(QJsonDocument(QJsonObject{{"ok", true}, {"error", ""}}).toJson(QJsonDocument::Compact) + '\n');
+                s->flush();
+                s->disconnectFromServer();
+            });
+        });
+
+        QProcess p;
+        p.start(host);
+        QVERIFY(p.waitForStarted());
+        p.write(frame({{"cmd", "download"}, {"url", "https://example.com/file.zip"}, {"referrer", "https://example.com/"},
+                       {"cookies", "a=1; b=2"}, {"fileName", "file.zip"}}));
+        p.closeWriteChannel();
+        QElapsedTimer t;
+        t.start();
+        while (p.state() != QProcess::NotRunning && t.elapsed() < 15000)
+            QTest::qWait(20); // keep our event loop running so the fake app can answer
+        const QJsonObject r = unframe(p.readAllStandardOutput());
+        QCOMPARE(r.value("ok").toBool(), true);
+        QCOMPARE(received.value("url").toString(), QStringLiteral("https://example.com/file.zip"));
+        QCOMPARE(received.value("cookies").toString(), QStringLiteral("a=1; b=2"));
+        qunsetenv("FLUXDM_DATA_DIR");
+    }
 
     void speedLimit()
     {

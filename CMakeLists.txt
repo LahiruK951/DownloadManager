@@ -22,6 +22,7 @@ add_library(fluxcore STATIC
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h
+    src/core/Instance.h
     # module "downloadswww": HTTP/HTTPS/FTP via libcurl
     src/engines/www/FileWriter.h      src/engines/www/FileWriter.cpp
     src/engines/www/HttpTask.h        src/engines/www/HttpTask.cpp
@@ -117,10 +118,22 @@ if(WIN32)
 endif()
 set_target_properties(fluxdm PROPERTIES OUTPUT_NAME "FluxDM")
 
+# ---------------------------------------------------------------- browser integration
+# Native messaging host (console app; the browser talks to it over stdio).
+qt_add_executable(fluxdm-nativehost src/nativehost/main.cpp src/core/Instance.h)
+target_include_directories(fluxdm-nativehost PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(fluxdm-nativehost PRIVATE Qt6::Core Qt6::Network)
+target_compile_definitions(fluxdm-nativehost PRIVATE FLUXDM_VERSION="${PROJECT_VERSION}")
+# Ship the unpacked browser extension next to the app (Settings → Browser → open folder).
+add_custom_command(TARGET fluxdm POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/browser/chromium
+            $<TARGET_FILE_DIR:fluxdm>/browser/chromium)
+
 # ---------------------------------------------------------------- tests
 enable_testing()
 qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h)
 target_link_libraries(test_core PRIVATE fluxcore Qt6::Test Qt6::Network)
+add_dependencies(test_core fluxdm-nativehost)
 add_test(NAME test_core COMMAND test_core)
 set_tests_properties(test_core PROPERTIES
     ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${QT6_INSTALL_PREFIX}/bin"

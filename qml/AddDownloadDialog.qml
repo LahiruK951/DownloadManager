@@ -13,7 +13,7 @@ FDialog {
 
     function openWith(text) {
         urlsField.text = text || ""
-        nameField.text = ""
+        nameField.text = App.suggestedName(text || "")
         errorText.text = ""
         startBox.checked = true
         const s = App.defaultSchedule()

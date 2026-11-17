@@ -10,7 +10,7 @@ ApplicationWindow {
     height: 680
     minimumWidth: 760
     minimumHeight: 440
-    visible: true
+    visible: !App.startHidden
     title: "FluxDM"
     color: Theme.bg
 
@@ -147,7 +147,7 @@ ApplicationWindow {
             App.bottomPanelOpen = true
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
         } else if (v.startsWith("settings")) {
-            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt"].indexOf(v))
+            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser"].indexOf(v))
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "menu") topBar.openMenu()

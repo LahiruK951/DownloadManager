@@ -3,6 +3,7 @@
 #include <QFont>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMessageBox>
@@ -17,6 +18,7 @@
 
 #include "core/Database.h"
 #include "core/DownloadManager.h"
+#include "core/Instance.h"
 #include "dev/DevDemo.h"
 #include "engines/demo/DemoEngine.h"
 #include "ui/AppController.h"
@@ -28,19 +30,8 @@
 
 // FLUXDM_DATA_DIR selects a separate profile (dev/screenshots): own database,
 // settings and single-instance channel, so it never touches the real one.
-static QString profileDir()
-{
-    const QString custom = qEnvironmentVariable("FLUXDM_DATA_DIR");
-    return custom.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) : custom;
-}
-
-static QString instanceName()
-{
-    QString name = QStringLiteral("FluxDM-") + qEnvironmentVariable("USERNAME", QStringLiteral("user"));
-    if (qEnvironmentVariableIsSet("FLUXDM_DATA_DIR"))
-        name += QLatin1Char('-') + QString::number(qHash(profileDir()), 16);
-    return name;
-}
+static QString profileDir() { return Instance::profileDir(); }
+static QString instanceName() { return Instance::channelName(); }
 
 // Forward our arguments to an already running instance. Returns true if one was found.
 static bool forwardToRunningInstance(const QStringList& args)
@@ -111,17 +102,24 @@ int main(int argc, char* argv[])
         TrayIcon tray(&ctl);
 
         QLocalServer server;
-        QLocalServer::removeServer(instanceName());
-        server.listen(instanceName());
         QObject::connect(&server, &QLocalServer::newConnection, &server, [&server, &ctl] {
             while (QLocalSocket* c = server.nextPendingConnection()) {
                 QObject::connect(c, &QLocalSocket::readyRead, c, [c, &ctl] {
                     if (!c->canReadLine())
                         return;
-                    QStringList list;
-                    for (const auto& v : QJsonDocument::fromJson(c->readLine()).array())
-                        list << v.toString();
-                    ctl.handleExternalArgs(list);
+                    const QJsonDocument doc = QJsonDocument::fromJson(c->readLine());
+                    if (doc.isObject()) { // browser integration: {"cmd":"download", ...}
+                        const QString reply = ctl.handleBrowserRequest(doc.object().toVariantMap());
+                        c->write(QJsonDocument(QJsonObject{{QStringLiteral("ok"), reply.isEmpty()},
+                                                           {QStringLiteral("error"), reply}})
+                                     .toJson(QJsonDocument::Compact) + '\n');
+                        c->flush();
+                    } else { // second instance forwarding its command line
+                        QStringList list;
+                        for (const auto& v : doc.array())
+                            list << v.toString();
+                        ctl.handleExternalArgs(list);
+                    }
                     c->disconnectFromServer();
                 });
                 QObject::connect(c, &QLocalSocket::disconnected, c, &QObject::deleteLater);
@@ -132,6 +130,9 @@ int main(int argc, char* argv[])
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                          [] { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
         engine.loadFromModule("FluxDM", "Main");
+        // Listen only once the UI exists, so a request that launched us (browser) isn't lost.
+        QLocalServer::removeServer(instanceName());
+        server.listen(instanceName());
 
         // Developer aid: FLUXDM_DEV_GRAB=<png> saves a render of the window and exits.
         const QString grabPath = qEnvironmentVariable("FLUXDM_DEV_GRAB");
