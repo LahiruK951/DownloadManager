@@ -23,6 +23,7 @@ add_library(fluxcore STATIC
     src/core/Schedule.h
     src/core/BatchLinks.h
     src/core/Instance.h
+    src/core/FileMover.h
     # module "downloadswww": HTTP/HTTPS/FTP via libcurl
     src/engines/www/FileWriter.h      src/engines/www/FileWriter.cpp
     src/engines/www/HttpTask.h        src/engines/www/HttpTask.cpp

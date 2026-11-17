@@ -9,6 +9,11 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <QJsonObject>
+#include <QPointer>
+#include <thread>
+#include <QCoreApplication>
+#include "core/FileMover.h"
 #include <algorithm>
 
 #include "core/Database.h"
@@ -222,7 +227,7 @@ void DownloadManager::schedule()
 
     QList<Download*> queue;
     for (Download* d : m_list)
-        if (d->queued() && d->inScheduleWindow(now))
+        if (d->queued() && d->inScheduleWindow(now) && !d->moving())
             queue.append(d);
     std::stable_sort(queue.begin(), queue.end(), [](Download* a, Download* b) {
         if (a->priority() != b->priority())
@@ -712,4 +717,93 @@ void DownloadManager::checkMissingFiles()
             d->setFileMissing(!QFileInfo::exists(d->rec.filePath));
         else
             d->setFileMissing(false);
+}
+// ------------------------------------------------------------------ move files (FDM: moveFilesTasks)
+
+bool DownloadManager::canMove(const Download* d)
+{
+    return d && !d->running() && !d->seeding() && !d->moving();
+}
+
+QString DownloadManager::moveTo(Download* d, const QString& newDirIn)
+{
+    if (!d)
+        return tr("No download");
+    if (!canMove(d))
+        return tr("Pause the download (or stop seeding) before moving it");
+    const QString newDir = QDir::toNativeSeparators(QDir::cleanPath(newDirIn));
+    if (QDir::cleanPath(newDir).compare(QDir::cleanPath(d->rec.destDir), Qt::CaseInsensitive) == 0)
+        return {};
+    if (!QDir().mkpath(newDir))
+        return tr("Cannot create folder %1").arg(newDir);
+
+    // What is on disk now: the final file/folder when finished, else the partial file.
+    QString src, dst;
+    const QString name = QFileInfo(d->rec.filePath).fileName();
+    if (!d->rec.filePath.isEmpty()) {
+        if (d->completed()) {
+            src = d->rec.filePath;
+            dst = FileNamer::uniquePath(newDir, name);
+        } else if (QFileInfo::exists(d->rec.filePath + FileNamer::kPartSuffix)) {
+            src = d->rec.filePath + FileNamer::kPartSuffix;
+            dst = FileNamer::uniquePath(newDir, name) + FileNamer::kPartSuffix;
+        } else if (d->isTorrent() && QFileInfo::exists(d->rec.filePath)) {
+            src = d->rec.filePath; // partially downloaded torrent data
+            dst = QDir(newDir).filePath(name);
+        }
+    }
+
+    auto applyPaths = [this, d, newDir](const QString& movedTo) {
+        d->rec.destDir = newDir;
+        if (!movedTo.isEmpty()) {
+            const QString finalPath = movedTo.endsWith(FileNamer::kPartSuffix)
+                                          ? movedTo.left(movedTo.size() - FileNamer::kPartSuffix.size()) : movedTo;
+            d->rec.filePath = finalPath;
+            d->setTitle(QFileInfo(finalPath).fileName());
+            // HTTP/HLS resume data remembers where the partial file lives.
+            QJsonObject rd = QJsonDocument::fromJson(d->rec.resumeData).object();
+            if (rd.contains(QStringLiteral("partPath"))) {
+                rd[QStringLiteral("finalPath")] = finalPath;
+                rd[QStringLiteral("partPath")] = finalPath + FileNamer::kPartSuffix;
+                rd[QStringLiteral("fileName")] = QFileInfo(finalPath).fileName();
+                d->rec.resumeData = QJsonDocument(rd).toJson(QJsonDocument::Compact);
+            } else if (d->isTorrent()) {
+                d->rec.resumeData.clear(); // libtorrent re-checks the data in its new location
+            }
+        }
+        d->addLog(tr("Moved to %1").arg(newDir));
+        d->setFileMissing(false);
+        d->notify();
+        persist(d);
+    };
+
+    if (src.isEmpty()) { // nothing on disk yet: just change where it will be saved
+        applyPaths({});
+        return {};
+    }
+
+    // Same volume: rename right away. Otherwise copy in the background.
+    if (QDir().rename(src, dst)) {
+        applyPaths(dst);
+        return {};
+    }
+    d->setMoving(true);
+    d->addLog(tr("Moving to %1…").arg(newDir));
+    QPointer<Download> guard(d);
+    QPointer<DownloadManager> self(this);
+    std::thread([self, guard, src, dst, applyPaths] {
+        QString error;
+        const bool ok = FileMover::move(src, dst, &error);
+        // qApp outlives the manager; both pointers are re-checked on the GUI thread.
+        QMetaObject::invokeMethod(qApp, [self, guard, ok, error, dst, applyPaths] {
+            if (!self || !guard)
+                return;
+            guard->setMoving(false);
+            if (ok)
+                applyPaths(dst);
+            else
+                guard->addLog(tr("Move failed: %1").arg(error));
+        }, Qt::QueuedConnection);
+    }).detach();
+    return {};
 }

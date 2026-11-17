@@ -10,6 +10,7 @@ Rectangle {
     signal requestSchedule(var download)
     signal requestDeleteSelection()
     signal requestSpeedLimit(var download)
+    signal requestMove()
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -60,6 +61,7 @@ Rectangle {
         return parts.join("  ·  ")
     }
     readonly property var pill: {
+        if (d.moving) return { text: qsTr("Moving…"), glyph: Theme.icons.folder, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
@@ -262,6 +264,7 @@ Rectangle {
         FMenuItem { glyph: Theme.icons.play; text: qsTr("Resume"); onTriggered: App.resumeSelected() }
         FMenuItem { glyph: Theme.icons.pause; text: qsTr("Pause"); onTriggered: App.pauseSelected() }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy links"); onTriggered: App.copySelectedLinks() }
+        FMenuItem { glyph: String.fromCharCode(0xE8DE); text: qsTr("Move to…"); onTriggered: row.requestMove() }
         FMenuSeparator {}
         FMenuItem { glyph: Theme.icons.del; danger: true; text: qsTr("Delete %1 downloads…").arg(App.selectionCount); onTriggered: row.requestDeleteSelection() }
     }
@@ -270,6 +273,12 @@ Rectangle {
         id: ctx
         FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.d.completed && !row.d.fileMissing; onTriggered: App.openFile(row.d.id) }
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE8DE) // MoveToFolder
+            text: qsTr("Move to…")
+            enabled: !row.d.running && !row.d.seeding && !row.d.moving
+            onTriggered: row.requestMove()
+        }
         FMenuSeparator {}
         FMenuItem {
             glyph: (row.d.running || row.d.queued) ? Theme.icons.pause : Theme.icons.play

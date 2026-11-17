@@ -117,6 +117,7 @@ ApplicationWindow {
                 onRequestDelete: (d) => deleteDialog.openFor(d)
                 onRequestDeleteSelection: deleteDialog.openForSelection()
                 onRequestSpeedLimit: (d) => speedLimitDialog.openFor(d)
+                onRequestMove: moveDialog.open()
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -163,6 +164,7 @@ ApplicationWindow {
         else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
         else if (v === "compact") App.compactView = true
+        else if (v.startsWith("move:")) devMoveTimer.start()
         else if (v === "speedlimit") { App.select(App.downloads.idAt(0)); speedLimitDialog.openFor(App.selected) }
         else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
@@ -193,7 +195,25 @@ ApplicationWindow {
         nameFilters: [qsTr("FluxDM download list (*.json)")]
         onAccepted: toast.show(App.exportDownloads(selectedFile))
     }
+    FolderDialog {
+        id: moveDialog
+        title: qsTr("Move to folder")
+        onAccepted: {
+            const err = App.moveSelected(selectedFolder)
+            toast.show(err !== "" ? err : qsTr("Moved to %1").arg(App.urlToLocal(selectedFolder)))
+        }
+    }
     Toast { id: toast }
+    Timer {
+        id: devMoveTimer
+        interval: 1500
+        onTriggered: {
+            App.select(App.downloads.idAt(6))
+            App.bottomPanelOpen = true
+            const e = App.moveSelected(App.toUrl(App.devOpen.substring(5)))
+            toast.show(e !== "" ? e : qsTr("Moved"))
+        }
+    }
     Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }
     FileDialog {
         id: torrentFileDialog

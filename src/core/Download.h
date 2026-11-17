@@ -55,6 +55,7 @@ class Download : public QObject {
     Q_PROPERTY(int autoRetries READ autoRetries NOTIFY changed)
     Q_PROPERTY(bool fileMissing READ fileMissing NOTIFY changed)
     Q_PROPERTY(int speedLimit READ speedLimit NOTIFY changed) // KB/s, 0 = none
+    Q_PROPERTY(bool moving READ moving NOTIFY changed)
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -112,6 +113,8 @@ public:
     int autoRetries() const { return autoRetryCount; }
     bool fileMissing() const { return m_missing; }
     int speedLimit() const { return rec.speedLimitKBps; }
+    bool moving() const { return m_moving; }
+    void setMoving(bool m) { if (m_moving != m) { m_moving = m; emit changed(); } }
     void setFileMissing(bool m) { if (m_missing != m) { m_missing = m; emit changed(); } }
 
     void setState(State s, const QString& error = {});
@@ -142,4 +145,5 @@ private:
     int m_peers = 0;
     QVariantList m_files;
     bool m_missing = false;
+    bool m_moving = false;
 };

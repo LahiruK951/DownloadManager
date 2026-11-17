@@ -12,6 +12,7 @@
 #include "RangeServer.h"
 #include "HlsServer.h"
 #include "core/Aes128.h"
+#include "core/FileMover.h"
 #include "engines/hls/HlsEngine.h"
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
@@ -535,6 +536,30 @@ private slots:
         QVERIFY2(o.finished, qPrintable(o.error));
         QVERIFY(readAll(o.path) == srv.data);
         QVERIFY2(t.elapsed() >= 1300, qPrintable(QStringLiteral("took only %1 ms").arg(t.elapsed())));
+    }
+
+    void fileMover()
+    {
+        QTemporaryDir a, b;
+        QFile f(a.filePath("one.bin"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("hello");
+        f.close();
+        QVERIFY(FileMover::move(a.filePath("one.bin"), b.filePath("sub/one.bin")));
+        QVERIFY(!QFile::exists(a.filePath("one.bin")));
+        QCOMPARE(readAll(b.filePath("sub/one.bin")), QByteArray("hello"));
+
+        QDir().mkpath(a.filePath("show/season1"));
+        QFile g(a.filePath("show/season1/ep1.mkv"));
+        QVERIFY(g.open(QIODevice::WriteOnly));
+        g.write("video");
+        g.close();
+        QString err;
+        QVERIFY(FileMover::copyTree(a.filePath("show"), b.filePath("copy"), &err));
+        QCOMPARE(readAll(b.filePath("copy/season1/ep1.mkv")), QByteArray("video"));
+        QVERIFY(FileMover::move(a.filePath("show"), b.filePath("show")));
+        QVERIFY(QFile::exists(b.filePath("show/season1/ep1.mkv")));
+        QVERIFY(!FileMover::move(a.filePath("missing"), b.filePath("x"), &err));
     }
 
     void m3u8Parsing()

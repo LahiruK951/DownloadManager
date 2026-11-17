@@ -964,3 +964,17 @@ QString AppController::linkModule(const QString& text) const
     const QStringList l = text.split(ws, Qt::SkipEmptyParts);
     return l.isEmpty() ? QString() : m_mgr->moduleFor(l.first());
 }
+QString AppController::moveSelected(const QUrl& folder)
+{
+    const QString dir = folder.toLocalFile();
+    QStringList errors;
+    for (qint64 id : m_sel)
+        if (Download* d = byId(id)) {
+            const QString err = m_mgr->moveTo(d, dir);
+            if (!err.isEmpty())
+                errors << d->title() + QStringLiteral(": ") + err;
+        }
+    return errors.isEmpty() ? QString() : errors.join(QLatin1Char('\n'));
+}
+
+bool AppController::canMove(qint64 id) const { return DownloadManager::canMove(byId(id)); }

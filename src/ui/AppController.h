@@ -167,6 +167,8 @@ public:
     Q_INVOKABLE void remove(qint64 id, bool deleteFiles);
     Q_INVOKABLE void setPriority(qint64 id, int priority);
     Q_INVOKABLE void setDownloadSpeedLimit(qint64 id, int kbps);
+    Q_INVOKABLE QString moveSelected(const QUrl& folder); // error text or ""
+    Q_INVOKABLE bool canMove(qint64 id) const;
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
     Q_INVOKABLE void openFile(qint64 id);

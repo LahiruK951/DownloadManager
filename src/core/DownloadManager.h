@@ -36,6 +36,8 @@ public:
     void setSchedule(Download* d, bool enabled, const ScheduleWindow& w);
     void setFileWanted(Download* d, int index, bool wanted);
     void setSpeedLimit(Download* d, int kbps);
+    QString moveTo(Download* d, const QString& newDir); // returns error text or ""; may finish asynchronously
+    static bool canMove(const Download* d);
     void stopSeeding(Download* d);
     void pauseAll();
     void resumeAll();
