@@ -735,3 +735,5 @@ QString AppController::setBrowserIntegrated(bool on)
     return tr("Not supported on this platform");
 #endif
 }
+int AppController::autoRetryLimit() const { return m_mgr->autoRetryLimit(); }
+void AppController::setAutoRetryLimit(int n) { m_mgr->setAutoRetryLimit(n); }

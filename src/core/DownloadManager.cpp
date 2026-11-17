@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QRegularExpression>
 #include <algorithm>
 
 #include "core/Database.h"
@@ -46,6 +47,7 @@ DownloadManager::DownloadManager(Database* db, QObject* parent)
     m_clock.setInterval(15000);
     connect(&m_clock, &QTimer::timeout, this, [this] {
         evaluateTrafficRules();
+        runAutoRetries();
         schedule();
     });
     m_clock.start();
@@ -299,6 +301,8 @@ void DownloadManager::resume(Download* d)
 {
     if (!d || !(d->paused() || d->failed()))
         return;
+    d->autoRetryCount = 0; // a manual resume starts a fresh retry budget
+    d->autoRetryAt = {};
     d->setState(Download::Queued);
     persist(d);
     schedule();
@@ -581,6 +585,8 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         d->rec.total = d->rec.received;
     d->rec.received = d->rec.total;
     d->rec.finished = QDateTime::currentDateTime();
+    d->autoRetryCount = 0;
+    d->autoRetryAt = {};
     if (!d->isTorrent())
         d->rec.resumeData.clear(); // torrents keep it to seed after restart
     d->setState(Download::Completed);
@@ -601,6 +607,14 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
         d->rec.resumeData = resumeData;
     d->setSegmentsFromResumeData();
     d->setState(Download::Error, error);
+    // FDM-style automatic retries for transient failures: 30 s, 1, 2, 5, 10 min...
+    if (isRetriable(error) && d->autoRetryCount < autoRetryLimit()) {
+        static const int delays[] = {30, 60, 120, 300, 600};
+        const int delay = delays[qMin(d->autoRetryCount, 4)];
+        d->autoRetryAt = QDateTime::currentDateTime().addSecs(delay);
+        d->addLog(tr("Will retry automatically in %1 s (attempt %2 of %3)").arg(delay).arg(d->autoRetryCount + 1).arg(autoRetryLimit()));
+        d->notify();
+    }
     persist(d);
     emit statsUpdated();
     schedule();
@@ -638,4 +652,38 @@ void DownloadManager::onLog(qint64 id, const QString& line)
 {
     if (Download* d = find(id))
         d->addLog(line);
+}
+
+// ------------------------------------------------------------------ automatic retries
+
+int DownloadManager::autoRetryLimit() const { return qBound(0, m_db->setting(QStringLiteral("AutoRetryCount"), 5).toInt(), 50); }
+
+void DownloadManager::setAutoRetryLimit(int n) { m_db->setSetting(QStringLiteral("AutoRetryCount"), qBound(0, n, 50)); }
+
+bool DownloadManager::isRetriable(const QString& error)
+{
+    // Permanent problems: retrying cannot help.
+    static const QRegularExpression permanent(QStringLiteral(
+        R"(HTTP error 4(0[0-7]|09|1\d|2[0-8]|3\d|4\d|5\d)\b|Disk write|Cannot create|Cannot allocate|Cannot rename|Unsupported|)"
+        R"(already being downloaded|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
+        QRegularExpression::CaseInsensitiveOption);
+    return !error.isEmpty() && !permanent.match(error).hasMatch();
+}
+
+void DownloadManager::runAutoRetries()
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    for (Download* d : m_list) {
+        if (d->failed() && d->autoRetryAt.isValid()) {
+            if (d->autoRetryAt <= now) {
+                d->autoRetryAt = {};
+                ++d->autoRetryCount;
+                d->addLog(tr("Retrying automatically"));
+                d->setState(Download::Queued);
+                persist(d);
+            } else {
+                d->notify(); // refresh the countdown
+            }
+        }
+    }
 }

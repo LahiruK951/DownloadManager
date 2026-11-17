@@ -123,6 +123,8 @@ public:
     Q_INVOKABLE void setUploadLimitKBps(int kbps);
     Q_INVOKABLE double seedRatio() const;
     Q_INVOKABLE void setSeedRatio(double r);
+    Q_INVOKABLE int autoRetryLimit() const;
+    Q_INVOKABLE void setAutoRetryLimit(int n);
     Q_INVOKABLE bool torrentAssociated() const;
     Q_INVOKABLE void setTorrentAssociated(bool on);
 

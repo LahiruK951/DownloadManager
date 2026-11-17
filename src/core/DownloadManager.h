@@ -53,6 +53,9 @@ public:
     qint64 uploadLimitKBps() const;
     void setUploadLimitKBps(qint64 kbps);
     double seedRatio() const;
+    int autoRetryLimit() const;
+    void setAutoRetryLimit(int n);
+    static bool isRetriable(const QString& error);
     void setSeedRatio(double r);
 
     void shutdown();
@@ -74,6 +77,7 @@ private:
     void persist(Download* d);
     void applyLimits();
     void checkAllDone();
+    void runAutoRetries();
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;
 

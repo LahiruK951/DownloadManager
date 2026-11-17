@@ -228,6 +228,16 @@ Popup {
                     title: qsTr("Saving")
                     Layout.fillWidth: true
                     SettingRow {
+                        title: qsTr("Retry failed downloads")
+                        description: qsTr("Automatic attempts after network or server errors (30 s, 1, 2, 5, 10 min apart). 0 turns it off.")
+                        FSpinBox {
+                            from: 0; to: 50
+                            zeroText: qsTr("Off")
+                            Component.onCompleted: value = App.autoRetryLimit()
+                            onValueModified: App.setAutoRetryLimit(value)
+                        }
+                    }
+                    SettingRow {
                         title: qsTr("Default folder")
                         description: qsTr("Used for new downloads unless you pick another folder.")
                         divider: false

@@ -51,6 +51,8 @@ class Download : public QObject {
     Q_PROPERTY(int seeds READ seeds NOTIFY changed)
     Q_PROPERTY(int peers READ peers NOTIFY changed)
     Q_PROPERTY(QVariantList files READ files NOTIFY filesChanged)
+    Q_PROPERTY(qint64 retryIn READ retryIn NOTIFY changed) // seconds until the automatic retry, -1 = none
+    Q_PROPERTY(int autoRetries READ autoRetries NOTIFY changed)
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -60,6 +62,8 @@ public:
 
     DownloadRecord rec;
     int pendingStops = 0; // engine stop requests not yet acknowledged
+    int autoRetryCount = 0;   // automatic retries used since the last success/manual action
+    QDateTime autoRetryAt;    // when the next automatic retry happens (invalid = none)
 
     qint64 id() const { return rec.id; }
     QString title() const { return rec.title; }
@@ -102,6 +106,8 @@ public:
     int seeds() const { return m_seeds; }
     int peers() const { return m_peers; }
     QVariantList files() const { return m_files; }
+    qint64 retryIn() const { return failed() && autoRetryAt.isValid() ? qMax<qint64>(0, QDateTime::currentDateTime().secsTo(autoRetryAt)) : -1; }
+    int autoRetries() const { return autoRetryCount; }
 
     void setState(State s, const QString& error = {});
     void setTitle(const QString& title);

@@ -11,6 +11,7 @@
 
 #include "RangeServer.h"
 #include "core/BatchLinks.h"
+#include "core/DownloadManager.h"
 #include "core/Instance.h"
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -153,6 +154,20 @@ private slots:
         QCOMPARE(r.window.days, 0x1F);
         QCOMPARE(r.window.fromMin, 540);
         QCOMPARE(r.mode, 0);
+    }
+
+    void retryClassification()
+    {
+        QVERIFY(DownloadManager::isRetriable("Couldn't connect to server"));
+        QVERIFY(DownloadManager::isRetriable("HTTP error 503"));
+        QVERIFY(DownloadManager::isRetriable("Timeout was reached"));
+        QVERIFY(DownloadManager::isRetriable("HTTP error 408"));
+        QVERIFY(DownloadManager::isRetriable("HTTP error 429"));
+        QVERIFY(!DownloadManager::isRetriable("HTTP error 404"));
+        QVERIFY(!DownloadManager::isRetriable("HTTP error 403"));
+        QVERIFY(!DownloadManager::isRetriable("Disk write error: not enough space"));
+        QVERIFY(!DownloadManager::isRetriable("This torrent is already being downloaded"));
+        QVERIFY(!DownloadManager::isRetriable(""));
     }
 
     void batchLinks()

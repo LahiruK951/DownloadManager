@@ -31,7 +31,7 @@ Rectangle {
             return qsTr("Seeding") + " · ↑ " + App.fmtSpeed(d.uploadSpeed) + " · " + qsTr("ratio") + " " + d.ratio.toFixed(2)
                    + " · " + d.peers + " " + qsTr("peers")
         if (d.completed) return App.fmtDate(d.finishedAt)
-        if (d.failed) return d.error
+        if (d.failed) return d.error + (d.retryIn >= 0 ? "  ·  " + qsTr("retrying in %1").arg(App.fmtEta(d.retryIn)) : "")
         if (d.waitingForSchedule) return d.scheduleText
         if (d.starting) return d.isTorrent ? qsTr("Fetching torrent information…") : qsTr("Connecting…")
         let parts = []
