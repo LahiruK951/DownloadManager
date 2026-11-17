@@ -155,7 +155,11 @@ UI_SETTING(bottomPanelTab, setBottomPanelTab, int, "bottomPanelCurrentTab", 0, t
 UI_SETTING(bottomPanelHeight, setBottomPanelHeight, double, "bottomPanelHeight", 230.0, toDouble)
 #undef UI_SETTING
 
-QString AppController::theme() const { return m_ui.value(QStringLiteral("theme"), QStringLiteral("system")).toString(); }
+QString AppController::theme() const
+{
+    const QString forced = qEnvironmentVariable("FLUXDM_THEME"); // dev/screenshots
+    return !forced.isEmpty() ? forced : m_ui.value(QStringLiteral("theme"), QStringLiteral("system")).toString();
+}
 void AppController::setTheme(const QString& t)
 {
     if (t == theme())

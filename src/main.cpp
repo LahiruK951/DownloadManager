@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QDir>
+#include <QFont>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocalServer>
@@ -16,6 +17,8 @@
 
 #include "core/Database.h"
 #include "core/DownloadManager.h"
+#include "dev/DevDemo.h"
+#include "engines/demo/DemoEngine.h"
 #include "ui/AppController.h"
 #include "ui/AppIcon.h"
 #include "ui/TrayIcon.h"
@@ -23,9 +26,20 @@
 #include "engines/bt/BtEngine.h"
 #endif
 
+// FLUXDM_DATA_DIR selects a separate profile (dev/screenshots): own database,
+// settings and single-instance channel, so it never touches the real one.
+static QString profileDir()
+{
+    const QString custom = qEnvironmentVariable("FLUXDM_DATA_DIR");
+    return custom.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) : custom;
+}
+
 static QString instanceName()
 {
-    return QStringLiteral("FluxDM-") + qEnvironmentVariable("USERNAME", QStringLiteral("user"));
+    QString name = QStringLiteral("FluxDM-") + qEnvironmentVariable("USERNAME", QStringLiteral("user"));
+    if (qEnvironmentVariableIsSet("FLUXDM_DATA_DIR"))
+        name += QLatin1Char('-') + QString::number(qHash(profileDir()), 16);
+    return name;
 }
 
 // Forward our arguments to an already running instance. Returns true if one was found.
@@ -53,11 +67,16 @@ int main(int argc, char* argv[])
         return 0;
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+    {
+        QFont f(QStringLiteral("Segoe UI"));
+        f.setPointSizeF(9.5);
+        app.setFont(f); // explicit, so offscreen renders (dev screenshots) match the desktop
+    }
     app.setWindowIcon(AppIcon::make());
     app.setQuitOnLastWindowClosed(false); // the tray keeps us alive
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
-    const QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    const QString dataDir = profileDir();
     QDir().mkpath(dataDir);
 
     Database db;
@@ -79,7 +98,12 @@ int main(int argc, char* argv[])
         }
         mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), btPort));
 #endif
+        const bool demo = qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO");
+        if (demo)
+            mgr.addEngine(new DemoEngine);
         mgr.load();
+        if (demo)
+            DevDemo::seed(mgr, QDir(dataDir).filePath(QStringLiteral("downloads")));
         AppController ctl(&mgr, dataDir);
         AppController::s_instance = &ctl;
         TrayIcon tray(&ctl);

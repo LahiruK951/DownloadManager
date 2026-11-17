@@ -41,6 +41,9 @@ try {
     $deployFlag = if ($Preset -eq "msvc-debug") { "--debug" } else { "--release" }
     & "$env:FLUXDM_QT_DIR\bin\windeployqt.exe" $deployFlag --qmldir "$root\qml" --no-translations --no-system-d3d-compiler --no-opengl-sw $exe | Out-Null
     if ($LASTEXITCODE) { throw "windeployqt failed" }
+    # Offscreen platform plugin for headless screenshots (scripts\shot.ps1); windeployqt skips it.
+    $offscreen = if ($Preset -eq "msvc-debug") { "qoffscreend.dll" } else { "qoffscreen.dll" }
+    Copy-Item "$env:FLUXDM_QT_DIR\plugins\platforms\$offscreen" (Join-Path $bin "platforms") -Force
     Write-Host "Built: $exe"
 
     if ($Test) {

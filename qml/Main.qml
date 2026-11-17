@@ -137,9 +137,19 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        if (App.devOpen === "settings") settingsDialog.open()
-        else if (App.devOpen === "add") addDialog.openWith("https://example.com/part[01-12].zip")
-        else if (App.devOpen === "menu") topBar.openMenu()
+        // Developer aid for screenshots (FLUXDM_DEV_OPEN): open a view at startup.
+        const v = App.devOpen
+        if (v === "") return
+        if (v === "panel" || v === "panel-log" || v === "panel-files") {
+            App.select(App.downloads.idAt(0))
+            App.bottomPanelOpen = true
+            App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
+        } else if (v === "settings") settingsDialog.open()
+        else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
+        else if (v === "menu") topBar.openMenu()
+        else if (v === "delete") deleteDialog.openFor(App.selected || null)
+        else if (v === "whendone") whenDoneDialog.start(3)
+        else if (v === "about") aboutDialog.open()
     }
 
     AddDownloadDialog { id: addDialog }

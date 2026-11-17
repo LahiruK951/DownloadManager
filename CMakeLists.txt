@@ -27,6 +27,9 @@ add_library(fluxcore STATIC
     src/engines/www/HttpTask.h        src/engines/www/HttpTask.cpp
     src/engines/www/CurlWorker.h      src/engines/www/CurlWorker.cpp
     src/engines/www/WwwEngine.h       src/engines/www/WwwEngine.cpp
+    # developer-only simulated module (FLUXDM_DEV_DEMO)
+    src/engines/demo/DemoEngine.h     src/engines/demo/DemoEngine.cpp
+    src/dev/DevDemo.h
 )
 target_include_directories(fluxcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl)
