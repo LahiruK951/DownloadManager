@@ -10,6 +10,8 @@ scripts\setup-toolchain.ps1          # one time: VS Build Tools, CMake, Ninja, P
 scripts\build.ps1                    # configure + build + windeployqt  -> build\release\FluxDM.exe
 scripts\build.ps1 -Test              # ... and run the test suite
 scripts\build.ps1 -Run               # ... and launch the app
+scripts\package.ps1                  # portable release zip -> dist\FluxDM-<version>-win64.zip
+scripts\shot.ps1                     # headless screenshots of every view -> build\shots
 ```
 
 CLI: `FluxDM.exe <url> [<url>...]` opens the Add dialog; `FluxDM.exe --silent <url>` adds directly.
