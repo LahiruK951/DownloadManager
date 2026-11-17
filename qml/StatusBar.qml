@@ -52,46 +52,12 @@ Rectangle {
         }
         Text { text: qsTr("Traffic mode"); color: Theme.textDim; font.pixelSize: 12; Layout.rightMargin: 4 }
 
-        Rectangle {
-            implicitWidth: modes.implicitWidth + 4
-            implicitHeight: 26
-            radius: 13
-            color: Theme.surfaceAlt
-
-            Row {
-                id: modes
-                anchors.centerIn: parent
-                spacing: 0
-                Repeater {
-                    model: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
-                    delegate: AbstractButton {
-                        id: modeBtn
-                        required property string modelData
-                        required property int index
-                        readonly property bool current: App.trafficMode === index
-                        implicitWidth: label.implicitWidth + 22
-                        implicitHeight: 22
-                        hoverEnabled: true
-                        focusPolicy: Qt.NoFocus
-                        onClicked: App.trafficMode = index
-                        background: Rectangle {
-                            radius: 11
-                            color: modeBtn.current ? Theme.accent : (modeBtn.hovered ? Theme.hover : "transparent")
-                        }
-                        contentItem: Text {
-                            id: label
-                            text: modeBtn.modelData
-                            color: modeBtn.current ? "white" : Theme.text
-                            font.pixelSize: 12
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        ToolTip.visible: hovered
-                        ToolTip.text: App.tumDescription(index)
-                        ToolTip.delay: 400
-                    }
-                }
-            }
+        FSegmented {
+            itemHeight: 22
+            model: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
+            currentIndex: App.trafficMode
+            tips: [App.tumDescription(0), App.tumDescription(1), App.tumDescription(2)]
+            onActivated: (i) => App.trafficMode = i
         }
     }
 }

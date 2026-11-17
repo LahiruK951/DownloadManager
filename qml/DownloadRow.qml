@@ -9,43 +9,54 @@ Rectangle {
     signal requestDelete(var download)
     signal requestSchedule(var download)
 
-    readonly property bool isSelected: App.selected === download
     readonly property var d: download
+    readonly property bool isSelected: App.selected === download
+    readonly property bool showActions: hoverH.hovered || isSelected
+    readonly property bool compact: App.compactView
+    readonly property bool hasProgress: !d.completed && (d.running || d.received > 0)
 
-    height: App.compactView ? 40 : 66
-    color: isSelected ? Theme.selection : (ma.containsMouse ? Theme.hover : "transparent")
+    height: compact ? 42 : 68
+    color: isSelected ? Theme.selection : (hoverH.hovered ? Theme.hover : "transparent")
 
-    function progressText() {
+    HoverHandler { id: hoverH }
+
+    // ------------------------------------------------------------ text helpers
+    function sizeLine() {
         if (d.total > 0)
             return App.fmtSize(d.received) + " " + qsTr("of") + " " + App.fmtSize(d.total)
-                   + " (" + Math.floor(d.progress * 100) + "%)"
-        return App.fmtSize(d.received)
+        return d.received > 0 ? App.fmtSize(d.received) : ""
     }
-
-    function statusLine() {
+    function metaLine() {
         if (d.completed && d.seeding)
             return qsTr("Seeding") + " · ↑ " + App.fmtSpeed(d.uploadSpeed) + " · " + qsTr("ratio") + " " + d.ratio.toFixed(2)
                    + " · " + d.peers + " " + qsTr("peers")
-        if (d.completed) return qsTr("Done") + " · " + App.fmtDate(d.finishedAt)
-        if (d.failed) return qsTr("Error") + ": " + d.error
-        if (d.paused) return qsTr("Paused") + " · " + progressText()
-        if (d.waitingForSchedule) return qsTr("Scheduled") + " · " + d.scheduleText + " · " + progressText()
-        if (d.queued) return qsTr("Queued") + " · " + progressText()
+        if (d.completed) return App.fmtDate(d.finishedAt)
+        if (d.failed) return d.error
+        if (d.waitingForSchedule) return d.scheduleText
         if (d.starting) return d.isTorrent ? qsTr("Fetching torrent information…") : qsTr("Connecting…")
-        let s = progressText()
-        if (d.eta >= 0) s += " · " + App.fmtEta(d.eta) + " " + qsTr("left")
-        if (d.isTorrent)
-            s += " · " + d.seeds + " " + qsTr("seeds") + ", " + d.peers + " " + qsTr("peers")
-        else if (d.connections > 0)
-            s += " · " + d.connections + " " + (d.connections === 1 ? qsTr("connection") : qsTr("connections"))
-        if (d.scheduled) s += " · " + d.scheduleText
-        return s
+        let parts = []
+        const s = sizeLine()
+        if (s !== "") parts.push(s)
+        if (d.running) {
+            if (d.isTorrent) parts.push(d.seeds + " " + qsTr("seeds") + ", " + d.peers + " " + qsTr("peers"))
+            else if (d.connections > 0) parts.push(d.connections + " " + (d.connections === 1 ? qsTr("connection") : qsTr("connections")))
+        }
+        if (d.scheduled && !d.waitingForSchedule) parts.push(d.scheduleText)
+        return parts.join("  ·  ")
+    }
+    readonly property var pill: {
+        if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
+        if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
+        if (d.failed) return { text: qsTr("Error"), glyph: Theme.icons.warn, fg: Theme.error, bg: Theme.errorSoft }
+        if (d.paused) return { text: qsTr("Paused"), glyph: Theme.icons.pause, fg: Theme.textDim, bg: Theme.surfaceAlt }
+        if (d.waitingForSchedule) return { text: qsTr("Scheduled"), glyph: Theme.icons.clock, fg: Theme.accent, bg: Theme.accentSoft }
+        if (d.queued) return { text: qsTr("Queued"), glyph: "", fg: Theme.textDim, bg: Theme.surfaceAlt }
+        return null
     }
 
+    // ------------------------------------------------------------ input
     MouseArea {
-        id: ma
         anchors.fill: parent
-        hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
@@ -66,18 +77,19 @@ Rectangle {
         }
     }
 
+    // ------------------------------------------------------------ layout
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 14
+        anchors.leftMargin: 16
         anchors.rightMargin: 10
-        spacing: 12
+        spacing: 14
 
-        Rectangle {
+        Rectangle { // file-type tile
             readonly property color c: Theme.categoryColor(row.d.category)
-            Layout.preferredWidth: App.compactView ? 26 : 40
+            Layout.preferredWidth: row.compact ? 26 : 40
             Layout.preferredHeight: Layout.preferredWidth
-            radius: App.compactView ? 6 : 10
-            color: Qt.rgba(c.r, c.g, c.b, Theme.dark ? 0.22 : 0.13)
+            radius: row.compact ? 7 : 10
+            color: Qt.rgba(c.r, c.g, c.b, Theme.dark ? 0.2 : 0.12)
             Text {
                 anchors.centerIn: parent
                 text: Theme.categoryGlyph(row.d.category)
@@ -91,60 +103,114 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 5
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: row.d.title
-                elide: Text.ElideMiddle
-                color: Theme.text
-                font.pixelSize: 14
+                spacing: 8
+                Text {
+                    Layout.fillWidth: true
+                    text: row.d.title
+                    elide: Text.ElideMiddle
+                    color: Theme.text
+                    font.pixelSize: 14
+                    font.weight: Font.Medium
+                }
+                Text { // compact mode: inline status
+                    visible: row.compact
+                    text: row.d.running && row.d.total > 0 ? Math.floor(row.d.progress * 100) + "%" : (row.pill ? row.pill.text : "")
+                    color: row.pill ? row.pill.fg : Theme.textDim
+                    font.pixelSize: Theme.fontSmall
+                }
             }
             ProgressTrack {
                 Layout.fillWidth: true
-                visible: !App.compactView && !row.d.completed
+                visible: !row.compact && row.hasProgress
                 value: row.d.progress
                 active: row.d.running
                 failed: row.d.failed
             }
-            Text {
+            RowLayout {
+                visible: !row.compact
                 Layout.fillWidth: true
-                visible: !App.compactView
-                text: row.statusLine()
-                elide: Text.ElideRight
-                color: row.d.failed ? Theme.error : (row.d.completed ? Theme.success : Theme.textDim)
-                font.pixelSize: 12
+                spacing: 8
+                StatePill {
+                    visible: row.pill !== null
+                    text: row.pill ? row.pill.text : ""
+                    glyph: row.pill ? row.pill.glyph : ""
+                    fg: row.pill ? row.pill.fg : Theme.textDim
+                    bg: row.pill ? row.pill.bg : Theme.surfaceAlt
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: row.metaLine()
+                    elide: Text.ElideRight
+                    color: row.d.failed ? Theme.error : Theme.textDim
+                    font.pixelSize: Theme.fontSmall
+                }
             }
         }
 
-        Text {
-            Layout.preferredWidth: 96
-            horizontalAlignment: Text.AlignRight
-            text: row.d.running && row.d.speed > 0 ? App.fmtSpeed(row.d.speed)
-                : (row.d.seeding && row.d.uploadSpeed > 0 ? "↑ " + App.fmtSpeed(row.d.uploadSpeed) : "")
-            color: Theme.accent
-            font.pixelSize: 13
+        ColumnLayout { // speed / time left
+            Layout.preferredWidth: 104
+            spacing: 2
+            Text {
+                Layout.alignment: Qt.AlignRight
+                text: row.d.running && row.d.speed > 0 ? App.fmtSpeed(row.d.speed)
+                     : (row.d.seeding && row.d.uploadSpeed > 0 ? "↑ " + App.fmtSpeed(row.d.uploadSpeed) : "")
+                color: Theme.accent
+                font.pixelSize: Theme.fontBody
+                font.weight: Font.Medium
+            }
+            Text {
+                Layout.alignment: Qt.AlignRight
+                visible: !row.compact && row.d.running && row.d.eta >= 0
+                text: App.fmtEta(row.d.eta) + " " + qsTr("left")
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
         }
-        Text {
-            Layout.preferredWidth: 80
-            horizontalAlignment: Text.AlignRight
-            text: row.d.total >= 0 ? App.fmtSize(row.d.total) : ""
-            color: Theme.textDim
-            font.pixelSize: 13
+
+        ColumnLayout { // size / percent
+            Layout.preferredWidth: 78
+            spacing: 2
+            Text {
+                Layout.alignment: Qt.AlignRight
+                text: row.d.total >= 0 ? App.fmtSize(row.d.total) : ""
+                color: Theme.text
+                font.pixelSize: Theme.fontBody
+            }
+            Text {
+                Layout.alignment: Qt.AlignRight
+                visible: !row.compact && row.hasProgress && row.d.progress >= 0
+                text: Math.floor(row.d.progress * 100) + "%"
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
         }
-        IconButton {
-            glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
-                 : row.d.completed ? Theme.icons.open
-                 : (row.d.running || row.d.queued) ? Theme.icons.pause
-                 : row.d.failed ? Theme.icons.refresh : Theme.icons.play
-            tip: (row.d.completed && row.d.seeding) ? qsTr("Stop seeding")
-                 : row.d.completed ? qsTr("Open") : (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
-            opacity: ma.containsMouse || hovered || row.isSelected ? 1 : 0.55
-            onClicked: (row.d.completed && !row.d.seeding) ? App.openFile(row.d.id) : App.togglePause(row.d.id)
-        }
-        IconButton {
-            glyph: Theme.icons.folder
-            tip: qsTr("Show in folder")
-            opacity: ma.containsMouse || hovered || row.isSelected ? 1 : 0.55
-            onClicked: App.openFolder(row.d.id)
+
+        Row { // actions (hover / selection)
+            spacing: 2
+            opacity: row.showActions ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 100 } }
+            IconButton {
+                glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
+                     : row.d.completed ? Theme.icons.open
+                     : (row.d.running || row.d.queued) ? Theme.icons.pause
+                     : row.d.failed ? Theme.icons.refresh : Theme.icons.play
+                tip: (row.d.completed && row.d.seeding) ? qsTr("Stop seeding")
+                     : row.d.completed ? qsTr("Open") : (row.d.running || row.d.queued) ? qsTr("Pause")
+                     : row.d.failed ? qsTr("Retry") : qsTr("Resume")
+                onClicked: (row.d.completed && !row.d.seeding) ? App.openFile(row.d.id) : App.togglePause(row.d.id)
+            }
+            IconButton {
+                glyph: Theme.icons.folder
+                tip: qsTr("Show in folder")
+                onClicked: App.openFolder(row.d.id)
+            }
+            IconButton {
+                glyph: String.fromCharCode(0xE712) // More
+                tip: qsTr("More")
+                onClicked: { App.select(row.d.id); ctx.popup() }
+            }
         }
     }
 
@@ -152,10 +218,12 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 14
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
         height: 1
         color: Theme.border
-        opacity: 0.6
+        opacity: 0.55
+        visible: !row.isSelected
     }
 
     FMenu {
@@ -164,19 +232,21 @@ Rectangle {
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
         FMenuSeparator {}
         FMenuItem {
+            glyph: (row.d.running || row.d.queued) ? Theme.icons.pause : Theme.icons.play
             text: (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
-            enabled: !row.d.completed
+            visible: !row.d.completed
             onTriggered: App.togglePause(row.d.id)
         }
         FMenuItem {
+            glyph: Theme.icons.upload
             text: qsTr("Stop seeding")
             visible: row.d.seeding
-            height: visible ? implicitHeight : 0
             onTriggered: App.stopSeeding(row.d.id)
         }
         FMenuItem {
+            glyph: Theme.icons.clock
             text: row.d.scheduled ? qsTr("Edit schedule…") : qsTr("Schedule…")
-            enabled: !row.d.completed
+            visible: !row.d.completed
             onTriggered: row.requestSchedule(row.d)
         }
         FMenuItem { glyph: Theme.icons.refresh; text: qsTr("Restart"); onTriggered: App.restart(row.d.id) }

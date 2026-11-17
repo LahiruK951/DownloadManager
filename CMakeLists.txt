@@ -76,6 +76,7 @@ set(FLUXDM_QML_FILES
     qml/SettingRow.qml
     qml/FSegmented.qml
     qml/FToggle.qml
+    qml/StatePill.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

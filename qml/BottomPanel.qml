@@ -7,12 +7,15 @@ Rectangle {
     property var download: null
     signal closeRequested()
 
+    readonly property var d: download
     color: Theme.surface
 
     component InfoLabel: Text {
         color: Theme.textDim
-        font.pixelSize: 13
+        font.pixelSize: Theme.fontSmall + 0.5
         Layout.alignment: Qt.AlignTop
+        Layout.preferredWidth: 130
+        topPadding: 1
     }
     component InfoValue: TextEdit {
         Layout.fillWidth: true
@@ -21,7 +24,8 @@ Rectangle {
         wrapMode: TextEdit.WrapAnywhere
         color: Theme.text
         selectionColor: Theme.accent
-        font.pixelSize: 13
+        selectedTextColor: "white"
+        font.pixelSize: Theme.fontBody
     }
 
     ColumnLayout {
@@ -30,47 +34,81 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
+        // ------------------------------------------------ header: tabs + quick actions
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 38
-            Layout.leftMargin: 8
-            Layout.rightMargin: 6
-            spacing: 0
+            Layout.preferredHeight: 44
+            Layout.leftMargin: 10
+            Layout.rightMargin: 8
+            spacing: 4
 
             TabBar {
                 id: tabs
                 currentIndex: App.bottomPanelTab
                 onCurrentIndexChanged: App.bottomPanelTab = currentIndex
                 background: Item {}
+                Layout.alignment: Qt.AlignBottom
                 Repeater {
                     model: [qsTr("General"), qsTr("Files"), qsTr("Log")]
                     TabButton {
+                        id: tab
                         required property string modelData
                         required property int index
-                        width: implicitWidth + 16
+                        readonly property bool current: tabs.currentIndex === index
+                        width: implicitWidth + 20
+                        height: 40
+                        hoverEnabled: true
                         contentItem: Text {
-                            text: modelData
-                            color: tabs.currentIndex === index ? Theme.accent : Theme.textDim
-                            font.pixelSize: 13
+                            text: tab.modelData
+                            color: tab.current ? Theme.text : (tab.hovered ? Theme.text : Theme.textDim)
+                            font.pixelSize: Theme.fontBody
+                            font.weight: tab.current ? Font.DemiBold : Font.Normal
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
-                        background: Rectangle {
-                            color: "transparent"
+                        background: Item {
                             Rectangle {
                                 anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: 2
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width - 16
+                                height: 3
+                                radius: 1.5
                                 color: Theme.accent
-                                visible: tabs.currentIndex === index
+                                visible: tab.current
                             }
                         }
                     }
                 }
             }
+
             Item { Layout.fillWidth: true }
-            IconButton { glyph: Theme.icons.close; glyphSize: 11; size: 28; tip: qsTr("Close panel"); onClicked: panel.closeRequested() }
+
+            FButton {
+                kind: "ghost"
+                glyph: Theme.icons.open
+                text: qsTr("Open")
+                visible: panel.d !== null && panel.d.completed
+                onClicked: App.openFile(panel.d.id)
+            }
+            FButton {
+                kind: "ghost"
+                glyph: Theme.icons.folder
+                text: qsTr("Show in folder")
+                visible: panel.d !== null
+                onClicked: App.openFolder(panel.d.id)
+            }
+            FButton {
+                kind: "ghost"
+                glyph: Theme.icons.copy
+                text: qsTr("Copy link")
+                visible: panel.d !== null
+                onClicked: App.copyLink(panel.d.id)
+            }
+            Rectangle { width: 1; height: 20; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
+            IconButton { glyph: Theme.icons.close; glyphSize: 11; size: 30; tip: qsTr("Close panel"); onClicked: panel.closeRequested() }
         }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; opacity: 0.6 }
 
         StackLayout {
             Layout.fillWidth: true
@@ -79,76 +117,88 @@ Rectangle {
 
             // ---------------------------------------------------- General
             ScrollView {
+                id: generalScroll
                 clip: true
                 contentWidth: availableWidth
                 ColumnLayout {
-                    width: parent.width
-                    spacing: 10
+                    width: generalScroll.availableWidth
+                    spacing: 12
 
-                    SegmentBar {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        Layout.leftMargin: 16
-                        Layout.rightMargin: 16
-                        Layout.topMargin: 12
-                        segments: panel.download ? panel.download.segments : []
+                        Layout.leftMargin: 20
+                        Layout.rightMargin: 20
+                        Layout.topMargin: 14
+                        spacing: 6
+                        visible: panel.d !== null && !panel.d.completed
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: qsTr("Progress"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: panel.d && panel.d.progress >= 0 ? (panel.d.progress * 100).toFixed(1) + "%" : ""
+                                color: Theme.text
+                                font.pixelSize: Theme.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                        SegmentBar {
+                            Layout.fillWidth: true
+                            segments: panel.d ? panel.d.segments : []
+                        }
                     }
 
                     GridLayout {
                         Layout.fillWidth: true
-                        Layout.leftMargin: 16
-                        Layout.rightMargin: 16
-                        Layout.bottomMargin: 12
+                        Layout.leftMargin: 20
+                        Layout.rightMargin: 20
+                        Layout.topMargin: panel.d && panel.d.completed ? 14 : 0
+                        Layout.bottomMargin: 14
                         columns: 2
-                        columnSpacing: 18
-                        rowSpacing: 6
-                        visible: panel.download !== null
+                        columnSpacing: 16
+                        rowSpacing: 8
+                        visible: panel.d !== null
 
                         InfoLabel { text: qsTr("Status") }
                         InfoValue {
-                            text: !panel.download ? "" : panel.download.failed
-                                  ? panel.download.stateText + ": " + panel.download.error
-                                  : panel.download.stateText
+                            text: !panel.d ? "" : panel.d.failed ? panel.d.stateText + " — " + panel.d.error
+                                 : panel.d.seeding ? qsTr("Seeding") : panel.d.stateText
+                            color: panel.d && panel.d.failed ? Theme.error : Theme.text
                         }
                         InfoLabel { text: qsTr("Address") }
-                        InfoValue { text: panel.download ? panel.download.url : "" }
+                        InfoValue { text: panel.d ? panel.d.url : ""; color: Theme.accent }
                         InfoLabel { text: qsTr("Saved to") }
-                        InfoValue { text: panel.download ? (panel.download.filePath || panel.download.destDir) : "" }
+                        InfoValue { text: panel.d ? (panel.d.filePath || panel.d.destDir) : "" }
                         InfoLabel { text: qsTr("Size") }
-                        InfoValue { text: panel.download ? (panel.download.total >= 0 ? App.fmtSize(panel.download.total) : qsTr("Unknown")) : "" }
-                        InfoLabel { text: qsTr("Downloaded") }
                         InfoValue {
-                            text: !panel.download ? "" : App.fmtSize(panel.download.received)
-                                  + (panel.download.progress >= 0 ? "  (" + (panel.download.progress * 100).toFixed(1) + "%)" : "")
+                            text: !panel.d ? "" : (panel.d.total >= 0 ? App.fmtSize(panel.d.total) : qsTr("Unknown"))
+                                  + (panel.d.completed || panel.d.received === 0 ? "" : "  ·  " + App.fmtSize(panel.d.received) + " " + qsTr("downloaded"))
                         }
-                        InfoLabel { text: qsTr("Speed"); visible: panel.download && panel.download.running }
+                        InfoLabel { text: qsTr("Speed"); visible: panel.d && panel.d.running }
                         InfoValue {
-                            visible: panel.download && panel.download.running
-                            text: panel.download ? App.fmtSpeed(panel.download.speed) + "  ·  " + App.fmtEta(panel.download.eta) + " " + qsTr("left") : ""
+                            visible: panel.d && panel.d.running
+                            text: panel.d ? App.fmtSpeed(panel.d.speed) + "  ·  " + App.fmtEta(panel.d.eta) + " " + qsTr("left")
+                                            + "  ·  " + panel.d.connections + " " + qsTr("connections") : ""
                         }
-                        InfoLabel { text: qsTr("Connections"); visible: panel.download && panel.download.running }
-                        InfoValue { visible: panel.download && panel.download.running; text: panel.download ? String(panel.download.connections) : "" }
                         InfoLabel { text: qsTr("Resume support") }
                         InfoValue {
-                            text: !panel.download ? "" : panel.download.resumable === 1 ? qsTr("Yes")
-                                  : panel.download.resumable === 0 ? qsTr("No") : qsTr("Unknown")
+                            text: !panel.d ? "" : panel.d.resumable === 1 ? qsTr("Yes")
+                                  : panel.d.resumable === 0 ? qsTr("No — a restart begins from zero") : qsTr("Unknown")
                         }
-                        InfoLabel { text: qsTr("Seeds / peers"); visible: panel.download && panel.download.isTorrent }
+                        InfoLabel { text: qsTr("Seeds / peers"); visible: panel.d && panel.d.isTorrent }
+                        InfoValue { visible: panel.d && panel.d.isTorrent; text: panel.d ? panel.d.seeds + " / " + panel.d.peers : "" }
+                        InfoLabel { text: qsTr("Uploaded"); visible: panel.d && panel.d.isTorrent }
                         InfoValue {
-                            visible: panel.download && panel.download.isTorrent
-                            text: panel.download ? panel.download.seeds + " / " + panel.download.peers : ""
+                            visible: panel.d && panel.d.isTorrent
+                            text: panel.d ? App.fmtSize(panel.d.uploaded) + "  ·  " + qsTr("ratio") + " " + panel.d.ratio.toFixed(2)
+                                            + "  ·  ↑ " + App.fmtSpeed(panel.d.uploadSpeed) : ""
                         }
-                        InfoLabel { text: qsTr("Uploaded"); visible: panel.download && panel.download.isTorrent }
-                        InfoValue {
-                            visible: panel.download && panel.download.isTorrent
-                            text: panel.download ? App.fmtSize(panel.download.uploaded) + "  ·  " + qsTr("ratio") + " "
-                                  + panel.download.ratio.toFixed(2) + "  ·  ↑ " + App.fmtSpeed(panel.download.uploadSpeed) : ""
-                        }
-                        InfoLabel { text: qsTr("Schedule"); visible: panel.download && panel.download.scheduled }
-                        InfoValue { visible: panel.download && panel.download.scheduled; text: panel.download ? panel.download.scheduleText : "" }
+                        InfoLabel { text: qsTr("Schedule"); visible: panel.d && panel.d.scheduled }
+                        InfoValue { visible: panel.d && panel.d.scheduled; text: panel.d ? panel.d.scheduleText : "" }
                         InfoLabel { text: qsTr("Added") }
-                        InfoValue { text: panel.download ? App.fmtDate(panel.download.created) : "" }
-                        InfoLabel { text: qsTr("Completed"); visible: panel.download && panel.download.completed }
-                        InfoValue { visible: panel.download && panel.download.completed; text: panel.download ? App.fmtDate(panel.download.finishedAt) : "" }
+                        InfoValue { text: panel.d ? App.fmtDate(panel.d.created) : "" }
+                        InfoLabel { text: qsTr("Completed"); visible: panel.d && panel.d.completed }
+                        InfoValue { visible: panel.d && panel.d.completed; text: panel.d ? App.fmtDate(panel.d.finishedAt) : "" }
                     }
                 }
             }
@@ -157,77 +207,93 @@ Rectangle {
             ListView {
                 id: filesView
                 clip: true
-                topMargin: 8
+                topMargin: 6
+                bottomMargin: 6
                 ScrollBar.vertical: ScrollBar {}
-                readonly property bool multi: panel.download !== null && panel.download.files.length > 0
-                model: !panel.download ? []
-                       : multi ? panel.download.files
-                       : [{ name: panel.download.title, size: panel.download.total, done: panel.download.received, wanted: true, index: -1 }]
-                delegate: RowLayout {
+                readonly property bool multi: panel.d !== null && panel.d.files.length > 0
+                model: !panel.d ? []
+                       : multi ? panel.d.files
+                       : [{ name: panel.d.title, size: panel.d.total, done: panel.d.received, wanted: true, index: -1 }]
+                delegate: Item {
                     id: fileRow
                     required property var modelData
-                    width: filesView.width - 32
-                    x: 16
-                    height: 30
-                    spacing: 10
-                    CheckBox {
-                        visible: filesView.multi
-                        checked: fileRow.modelData.wanted
-                        enabled: panel.download && !panel.download.completed
-                        onToggled: App.setFileWanted(panel.download.id, fileRow.modelData.index, checked)
-                        ToolTip.visible: hovered
-                        ToolTip.delay: 600
-                        ToolTip.text: qsTr("Download this file")
+                    width: filesView.width
+                    height: 38
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        radius: 6
+                        color: fileHover.hovered ? Theme.hover : "transparent"
                     }
-                    Text {
-                        Layout.fillWidth: true
-                        text: fileRow.modelData.name
-                        color: fileRow.modelData.wanted ? Theme.text : Theme.textDisabled
-                        elide: Text.ElideMiddle
-                        font.pixelSize: 13
-                    }
-                    Text {
-                        text: fileRow.modelData.size >= 0 ? App.fmtSize(fileRow.modelData.size) : ""
-                        color: Theme.textDim
-                        font.pixelSize: 13
-                        Layout.preferredWidth: 80
-                        horizontalAlignment: Text.AlignRight
-                    }
-                    ProgressTrack {
-                        Layout.preferredWidth: 140
-                        value: fileRow.modelData.size > 0 ? fileRow.modelData.done / fileRow.modelData.size
-                               : (panel.download && panel.download.completed ? 1 : -1)
-                        active: panel.download ? panel.download.running : false
-                        failed: panel.download ? panel.download.failed : false
-                    }
-                    Text {
-                        Layout.preferredWidth: 44
-                        horizontalAlignment: Text.AlignRight
-                        text: fileRow.modelData.size > 0 ? Math.floor(100 * fileRow.modelData.done / fileRow.modelData.size) + "%" : ""
-                        color: Theme.textDim
-                        font.pixelSize: 13
+                    HoverHandler { id: fileHover }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        spacing: 12
+                        FCheckBox {
+                            visible: filesView.multi
+                            padding: 0
+                            checked: fileRow.modelData.wanted
+                            enabled: panel.d && !panel.d.completed
+                            onToggled: App.setFileWanted(panel.d.id, fileRow.modelData.index, checked)
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: fileRow.modelData.name
+                            color: fileRow.modelData.wanted ? Theme.text : Theme.textDisabled
+                            elide: Text.ElideMiddle
+                            font.pixelSize: Theme.fontBody
+                        }
+                        Text {
+                            text: fileRow.modelData.size >= 0 ? App.fmtSize(fileRow.modelData.size) : ""
+                            color: Theme.textDim
+                            font.pixelSize: Theme.fontSmall + 0.5
+                            Layout.preferredWidth: 80
+                            horizontalAlignment: Text.AlignRight
+                        }
+                        ProgressTrack {
+                            Layout.preferredWidth: 160
+                            value: fileRow.modelData.size > 0 ? fileRow.modelData.done / fileRow.modelData.size
+                                   : (panel.d && panel.d.completed ? 1 : -1)
+                            active: panel.d ? panel.d.running : false
+                            failed: panel.d ? panel.d.failed : false
+                        }
+                        Text {
+                            Layout.preferredWidth: 40
+                            horizontalAlignment: Text.AlignRight
+                            text: fileRow.modelData.size > 0 ? Math.floor(100 * fileRow.modelData.done / fileRow.modelData.size) + "%"
+                                  : (panel.d && panel.d.completed ? "100%" : "")
+                            color: Theme.textDim
+                            font.pixelSize: Theme.fontSmall + 0.5
+                        }
                     }
                 }
             }
+
             // ---------------------------------------------------- Log
             ListView {
                 id: logView
                 clip: true
-                model: panel.download ? panel.download.log : []
+                model: panel.d ? panel.d.log : []
                 ScrollBar.vertical: ScrollBar {}
-                topMargin: 8
-                bottomMargin: 8
+                topMargin: 10
+                bottomMargin: 10
+                spacing: 2
                 onCountChanged: positionViewAtEnd()
                 delegate: TextEdit {
                     required property string modelData
-                    width: logView.width - 32
-                    x: 16
+                    width: logView.width
+                    leftPadding: 20
+                    rightPadding: 20
                     text: modelData
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.WrapAnywhere
-                    color: Theme.text
+                    color: modelData.indexOf("Error") >= 0 ? Theme.error : Theme.text
                     selectionColor: Theme.accent
+                    selectedTextColor: "white"
                     font.family: "Consolas"
                     font.pixelSize: 12
                 }

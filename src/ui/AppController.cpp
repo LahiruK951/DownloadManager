@@ -441,7 +441,18 @@ QString AppController::fmtEta(qint64 s) const
 
 QString AppController::fmtDate(const QDateTime& dt) const
 {
-    return dt.isValid() ? QLocale().toString(dt, QLocale::ShortFormat) : QString();
+    if (!dt.isValid())
+        return {};
+    const QLocale loc;
+    const QString time = loc.toString(dt.time(), QLocale::ShortFormat);
+    const qint64 days = dt.date().daysTo(QDate::currentDate());
+    if (days == 0)
+        return tr("Today, %1").arg(time);
+    if (days == 1)
+        return tr("Yesterday, %1").arg(time);
+    if (days > 1 && days < 7)
+        return loc.dayName(dt.date().dayOfWeek(), QLocale::LongFormat) + QStringLiteral(", ") + time;
+    return loc.toString(dt.date(), QLocale::ShortFormat);
 }
 
 QUrl AppController::toUrl(const QString& localPath) const { return QUrl::fromLocalFile(localPath); }
