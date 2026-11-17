@@ -10,6 +10,7 @@ Popup {
     property var tum: []
     property var rules: []
     property int folderRev: 0
+    property string ffmpeg: ""
     readonly property var modeNames: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
@@ -43,6 +44,8 @@ Popup {
         upField.value = App.uploadLimitKBps()
         ratioField.value = Math.round(App.seedRatio() * 10)
         assocToggle.checked = App.torrentAssociated()
+        ffmpegField.text = App.ffmpegSetting()
+        page.ffmpeg = App.ffmpegFound()
         browserToggle.checked = App.browserIntegrated()
         browserError.text = ""
     }
@@ -240,6 +243,26 @@ Popup {
                             zeroText: qsTr("Off")
                             Component.onCompleted: value = App.autoRetryLimit()
                             onValueModified: App.setAutoRetryLimit(value)
+                        }
+                    }
+                    SettingRow {
+                        title: qsTr("Convert video streams to MP4")
+                        description: page.ffmpeg !== "" ? qsTr("Lossless remux with ffmpeg (%1).").arg(page.ffmpeg)
+                                                        : qsTr("Needs ffmpeg: not found. Install it or set its path below; streams stay .ts until then.")
+                        FToggle { checked: App.convertStreams(); onToggled: App.setConvertStreams(checked) }
+                    }
+                    SettingRow {
+                        title: qsTr("ffmpeg location")
+                        description: qsTr("Leave empty to look for ffmpeg next to FluxDM and on PATH.")
+                        Row {
+                            spacing: 8
+                            FTextField {
+                                id: ffmpegField
+                                width: 260
+                                placeholderText: qsTr("Automatic")
+                                onEditingFinished: { App.setFfmpegSetting(text); page.ffmpeg = App.ffmpegFound() }
+                            }
+                            FButton { text: qsTr("Browse…"); onClicked: ffmpegDlg.open() }
                         }
                     }
                     SettingRow {
@@ -591,6 +614,17 @@ Popup {
 
                 Item { implicitHeight: 24 }
             }
+        }
+    }
+
+    FileDialog {
+        id: ffmpegDlg
+        title: qsTr("Locate ffmpeg.exe")
+        nameFilters: [qsTr("ffmpeg (ffmpeg.exe)"), qsTr("Programs (*.exe)")]
+        onAccepted: {
+            ffmpegField.text = App.urlToLocal(selectedFile)
+            App.setFfmpegSetting(ffmpegField.text)
+            page.ffmpeg = App.ffmpegFound()
         }
     }
 

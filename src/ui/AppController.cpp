@@ -978,3 +978,8 @@ QString AppController::moveSelected(const QUrl& folder)
 }
 
 bool AppController::canMove(qint64 id) const { return DownloadManager::canMove(byId(id)); }
+bool AppController::convertStreams() const { return m_mgr->convertStreams(); }
+void AppController::setConvertStreams(bool on) { m_mgr->setConvertStreams(on); }
+QString AppController::ffmpegSetting() const { return m_mgr->ffmpegSetting(); }
+void AppController::setFfmpegSetting(const QString& path) { m_mgr->setFfmpegSetting(path); }
+QString AppController::ffmpegFound() const { return QDir::toNativeSeparators(m_mgr->ffmpegPath()); }

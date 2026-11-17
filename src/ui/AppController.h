@@ -169,6 +169,11 @@ public:
     Q_INVOKABLE void setDownloadSpeedLimit(qint64 id, int kbps);
     Q_INVOKABLE QString moveSelected(const QUrl& folder); // error text or ""
     Q_INVOKABLE bool canMove(qint64 id) const;
+    Q_INVOKABLE bool convertStreams() const;
+    Q_INVOKABLE void setConvertStreams(bool on);
+    Q_INVOKABLE QString ffmpegSetting() const;
+    Q_INVOKABLE void setFfmpegSetting(const QString& path);
+    Q_INVOKABLE QString ffmpegFound() const; // resolved path or ""
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
     Q_INVOKABLE void openFile(qint64 id);

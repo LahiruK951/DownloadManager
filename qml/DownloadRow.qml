@@ -61,6 +61,7 @@ Rectangle {
         return parts.join("  ·  ")
     }
     readonly property var pill: {
+        if (d.converting) return { text: qsTr("Converting…"), glyph: Theme.icons.refresh, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.moving) return { text: qsTr("Moving…"), glyph: Theme.icons.folder, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }

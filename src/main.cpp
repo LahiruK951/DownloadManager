@@ -139,7 +139,8 @@ int main(int argc, char* argv[])
         // Developer aid: FLUXDM_DEV_GRAB=<png> saves a render of the window and exits.
         const QString grabPath = qEnvironmentVariable("FLUXDM_DEV_GRAB");
         if (!grabPath.isEmpty())
-            QTimer::singleShot(3000, &app, [&engine, grabPath] {
+            QTimer::singleShot(qEnvironmentVariableIntValue("FLUXDM_DEV_GRAB_DELAY") > 0 ? qEnvironmentVariableIntValue("FLUXDM_DEV_GRAB_DELAY") : 3000,
+                               &app, [&engine, grabPath] {
                 if (!engine.rootObjects().isEmpty())
                     if (auto* w = qobject_cast<QQuickWindow*>(engine.rootObjects().first()))
                         w->grabWindow().save(grabPath);

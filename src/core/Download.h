@@ -56,6 +56,7 @@ class Download : public QObject {
     Q_PROPERTY(bool fileMissing READ fileMissing NOTIFY changed)
     Q_PROPERTY(int speedLimit READ speedLimit NOTIFY changed) // KB/s, 0 = none
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
+    Q_PROPERTY(bool converting READ converting NOTIFY changed)
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -114,6 +115,8 @@ public:
     bool fileMissing() const { return m_missing; }
     int speedLimit() const { return rec.speedLimitKBps; }
     bool moving() const { return m_moving; }
+    bool converting() const { return m_converting; }
+    void setConverting(bool c) { if (m_converting != c) { m_converting = c; emit changed(); } }
     void setMoving(bool m) { if (m_moving != m) { m_moving = m; emit changed(); } }
     void setFileMissing(bool m) { if (m_missing != m) { m_missing = m; emit changed(); } }
 
@@ -146,4 +149,5 @@ private:
     QVariantList m_files;
     bool m_missing = false;
     bool m_moving = false;
+    bool m_converting = false;
 };

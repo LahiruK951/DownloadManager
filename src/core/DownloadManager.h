@@ -38,6 +38,13 @@ public:
     void setSpeedLimit(Download* d, int kbps);
     QString moveTo(Download* d, const QString& newDir); // returns error text or ""; may finish asynchronously
     static bool canMove(const Download* d);
+
+    // Stream post-processing: remux HLS .ts to .mp4 with ffmpeg (FDM ships ffmpeg; we find one).
+    bool convertStreams() const;
+    void setConvertStreams(bool on);
+    QString ffmpegSetting() const;
+    void setFfmpegSetting(const QString& path);
+    QString ffmpegPath() const; // resolved: setting, FLUXDM_FFMPEG, then PATH; "" if none
     void stopSeeding(Download* d);
     void pauseAll();
     void resumeAll();
@@ -82,6 +89,7 @@ private:
     void checkAllDone();
     void runAutoRetries();
     void checkMissingFiles();
+    void convertToMp4(Download* d);
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;
 

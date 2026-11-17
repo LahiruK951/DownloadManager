@@ -13,6 +13,8 @@
 #include <QPointer>
 #include <thread>
 #include <QCoreApplication>
+#include <QProcess>
+#include <QStandardPaths>
 #include "core/FileMover.h"
 #include <algorithm>
 
@@ -618,6 +620,9 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
     emit downloadFinished(d);
     emit statsUpdated();
     schedule();
+    if (d->rec.moduleUid == QLatin1String("downloadsm3u") && filePath.endsWith(QLatin1String(".ts"), Qt::CaseInsensitive)
+        && convertStreams())
+        convertToMp4(d);
 }
 
 void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray& resumeData)
@@ -806,4 +811,61 @@ QString DownloadManager::moveTo(Download* d, const QString& newDirIn)
         }, Qt::QueuedConnection);
     }).detach();
     return {};
+}
+// ------------------------------------------------------------------ stream conversion (ffmpeg)
+
+bool DownloadManager::convertStreams() const { return m_db->setting(QStringLiteral("ConvertStreamsToMp4"), true).toBool(); }
+void DownloadManager::setConvertStreams(bool on) { m_db->setSetting(QStringLiteral("ConvertStreamsToMp4"), on); }
+QString DownloadManager::ffmpegSetting() const { return m_db->setting(QStringLiteral("FfmpegPath")).toString(); }
+void DownloadManager::setFfmpegSetting(const QString& path) { m_db->setSetting(QStringLiteral("FfmpegPath"), QDir::toNativeSeparators(path.trimmed())); }
+
+QString DownloadManager::ffmpegPath() const
+{
+    for (const QString& candidate : {ffmpegSetting(), qEnvironmentVariable("FLUXDM_FFMPEG")})
+        if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable())
+            return candidate;
+    const QString beside = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("ffmpeg.exe"));
+    if (QFileInfo(beside).isExecutable())
+        return beside;
+    return QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+}
+
+void DownloadManager::convertToMp4(Download* d)
+{
+    const QString ffmpeg = ffmpegPath();
+    if (ffmpeg.isEmpty()) {
+        d->addLog(tr("Not converted to MP4: ffmpeg was not found (Settings > Downloads)"));
+        return;
+    }
+    const QString src = d->rec.filePath;
+    const QString dst = FileNamer::uniquePath(QFileInfo(src).absolutePath(), QFileInfo(src).completeBaseName() + QStringLiteral(".mp4"));
+    d->setConverting(true);
+    d->addLog(tr("Converting to MP4…"));
+
+    auto* proc = new QProcess(this);
+    QPointer<Download> guard(d);
+    connect(proc, &QProcess::finished, this, [this, proc, guard, src, dst](int code, QProcess::ExitStatus status) {
+        proc->deleteLater();
+        if (!guard)
+            return;
+        guard->setConverting(false);
+        if (status == QProcess::NormalExit && code == 0 && QFileInfo(dst).size() > 0) {
+            QFile::remove(src);
+            guard->rec.filePath = dst;
+            guard->rec.total = guard->rec.received = QFileInfo(dst).size();
+            guard->setTitle(QFileInfo(dst).fileName());
+            guard->addLog(tr("Converted to %1").arg(QFileInfo(dst).fileName()));
+            persist(guard);
+        } else {
+            QFile::remove(dst);
+            const QString err = QString::fromLocal8Bit(proc->readAllStandardError()).trimmed().section(QLatin1Char('\n'), -1);
+            guard->addLog(tr("MP4 conversion failed; keeping the .ts file (%1)").arg(err.isEmpty() ? tr("exit code %1").arg(code) : err));
+        }
+        guard->notify();
+    });
+    // Lossless remux: no re-encoding, just a new container (+faststart for streaming players).
+    proc->start(ffmpeg, {QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"), QStringLiteral("error"), QStringLiteral("-y"),
+                         QStringLiteral("-i"), src, QStringLiteral("-map"), QStringLiteral("0:v?"), QStringLiteral("-map"), QStringLiteral("0:a?"),
+                         QStringLiteral("-c"), QStringLiteral("copy"),
+                         QStringLiteral("-bsf:a"), QStringLiteral("aac_adtstoasc"), QStringLiteral("-movflags"), QStringLiteral("+faststart"), dst});
 }
