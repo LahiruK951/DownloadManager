@@ -158,36 +158,36 @@ Rectangle {
         opacity: 0.6
     }
 
-    Menu {
+    FMenu {
         id: ctx
-        MenuItem { text: qsTr("Open"); enabled: row.d.completed; onTriggered: App.openFile(row.d.id) }
-        MenuItem { text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
-        MenuSeparator {}
-        MenuItem {
+        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.d.completed; onTriggered: App.openFile(row.d.id) }
+        FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
+        FMenuSeparator {}
+        FMenuItem {
             text: (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
             enabled: !row.d.completed
             onTriggered: App.togglePause(row.d.id)
         }
-        MenuItem {
+        FMenuItem {
             text: qsTr("Stop seeding")
             visible: row.d.seeding
             height: visible ? implicitHeight : 0
             onTriggered: App.stopSeeding(row.d.id)
         }
-        MenuItem {
+        FMenuItem {
             text: row.d.scheduled ? qsTr("Edit schedule…") : qsTr("Schedule…")
             enabled: !row.d.completed
             onTriggered: row.requestSchedule(row.d)
         }
-        MenuItem { text: qsTr("Restart"); onTriggered: App.restart(row.d.id) }
-        MenuItem { text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
-        Menu {
+        FMenuItem { glyph: Theme.icons.refresh; text: qsTr("Restart"); onTriggered: App.restart(row.d.id) }
+        FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
+        FMenu {
             title: qsTr("Priority")
-            MenuItem { text: qsTr("High"); checkable: true; checked: row.d.priority === 2; onTriggered: App.setPriority(row.d.id, 2) }
-            MenuItem { text: qsTr("Normal"); checkable: true; checked: row.d.priority === 1; onTriggered: App.setPriority(row.d.id, 1) }
-            MenuItem { text: qsTr("Low"); checkable: true; checked: row.d.priority === 0; onTriggered: App.setPriority(row.d.id, 0) }
+            FMenuItem { text: qsTr("High"); checkable: true; checked: row.d.priority === 2; onTriggered: App.setPriority(row.d.id, 2) }
+            FMenuItem { text: qsTr("Normal"); checkable: true; checked: row.d.priority === 1; onTriggered: App.setPriority(row.d.id, 1) }
+            FMenuItem { text: qsTr("Low"); checkable: true; checked: row.d.priority === 0; onTriggered: App.setPriority(row.d.id, 0) }
         }
-        MenuSeparator {}
-        MenuItem { text: qsTr("Delete…"); onTriggered: row.requestDelete(row.d) }
+        FMenuSeparator {}
+        FMenuItem { glyph: Theme.icons.del; danger: true; text: qsTr("Delete…"); onTriggered: row.requestDelete(row.d) }
     }
 }

@@ -21,6 +21,20 @@ QtObject {
     readonly property color success:      dark ? "#3fb950" : "#2da44e"
     readonly property color error:        dark ? "#f85149" : "#d1242f"
     readonly property color warning:      dark ? "#d29922" : "#bf8700"
+    readonly property color inputBg:      dark ? "#1e2125" : "#ffffff"
+    readonly property color borderStrong: dark ? "#4a4f57" : "#c9ced5"
+    readonly property color accentPressed: dark ? "#3a78e6" : "#1a5cc4"
+    readonly property color accentSoft:   dark ? "#1f3354" : "#e6efff"
+    readonly property color errorSoft:    dark ? "#3a1f22" : "#fdecee"
+    readonly property color overlay:      dark ? "#a0000000" : "#66101418"
+
+    // Metrics
+    readonly property int radius: 8
+    readonly property int radiusLarge: 12
+    readonly property int controlHeight: 34
+    readonly property int fontBody: 13
+    readonly property int fontSmall: 12
+    readonly property int fontTitle: 17
 
     // Windows 11 ships "Segoe Fluent Icons", Windows 10 "Segoe MDL2 Assets" (same code points).
     readonly property string iconFont: Qt.fontFamilies().indexOf("Segoe Fluent Icons") >= 0
@@ -28,7 +42,10 @@ QtObject {
 
     readonly property var icons: ({
         power: String.fromCharCode(0xE7E8), calendar: String.fromCharCode(0xE787),
-        upload: String.fromCharCode(0xE898),
+        upload: String.fromCharCode(0xE898), chevronRight: String.fromCharCode(0xE76C),
+        back: String.fromCharCode(0xE72B), globe: String.fromCharCode(0xE774),
+        speed: String.fromCharCode(0xEC4A), sliders: String.fromCharCode(0xE9E9),
+        palette: String.fromCharCode(0xE790), warn: String.fromCharCode(0xE7BA),
         add: "", play: "", pause: "", del: "", search: "",
         menu: "", folder: "", open: "", settings: "", refresh: "",
         close: "", down: "", up: "", copy: "", link: "",

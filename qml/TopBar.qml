@@ -93,16 +93,16 @@ Rectangle {
             tip: qsTr("Menu")
             onClicked: mainMenu.popup(menuBtn, 0, menuBtn.height)
 
-            Menu {
+            FMenu {
                 id: mainMenu
-                MenuItem { text: qsTr("Add download…"); onTriggered: bar.addClicked() }
-                MenuItem { text: qsTr("Open torrent file…"); visible: App.torrentSupport; height: visible ? implicitHeight : 0; onTriggered: bar.openTorrentClicked() }
-                MenuSeparator {}
-                Menu {
-                    title: qsTr("When all downloads are done")
+                FMenuItem { glyph: Theme.icons.add; text: qsTr("Add download…"); onTriggered: bar.addClicked() }
+                FMenuItem { glyph: Theme.icons.link; text: qsTr("Open torrent file…"); visible: App.torrentSupport; height: visible ? implicitHeight : 0; onTriggered: bar.openTorrentClicked() }
+                FMenuSeparator {}
+                FMenu {
+                    title: qsTr("When downloads finish")
                     Repeater {
                         model: [qsTr("Do nothing"), qsTr("Sleep"), qsTr("Hibernate"), qsTr("Shut down"), qsTr("Exit FluxDM")]
-                        MenuItem {
+                        FMenuItem {
                             required property string modelData
                             required property int index
                             text: modelData
@@ -112,22 +112,22 @@ Rectangle {
                         }
                     }
                 }
-                MenuItem {
+                FMenuItem {
                     text: qsTr("Compact view")
                     checkable: true
                     checked: App.compactView
                     onTriggered: App.compactView = checked
                 }
-                Menu {
+                FMenu {
                     title: qsTr("Theme")
-                    MenuItem { text: qsTr("System"); checkable: true; checked: App.theme === "system"; onTriggered: App.theme = "system" }
-                    MenuItem { text: qsTr("Light"); checkable: true; checked: App.theme === "light"; onTriggered: App.theme = "light" }
-                    MenuItem { text: qsTr("Dark"); checkable: true; checked: App.theme === "dark"; onTriggered: App.theme = "dark" }
+                    FMenuItem { text: qsTr("System"); checkable: true; checked: App.theme === "system"; onTriggered: App.theme = "system" }
+                    FMenuItem { text: qsTr("Light"); checkable: true; checked: App.theme === "light"; onTriggered: App.theme = "light" }
+                    FMenuItem { text: qsTr("Dark"); checkable: true; checked: App.theme === "dark"; onTriggered: App.theme = "dark" }
                 }
-                MenuItem { text: qsTr("Settings…"); onTriggered: bar.settingsClicked() }
-                MenuSeparator {}
-                MenuItem { text: qsTr("About FluxDM"); onTriggered: bar.aboutClicked() }
-                MenuItem { text: qsTr("Exit"); onTriggered: App.quit() }
+                FMenuItem { glyph: Theme.icons.settings; text: qsTr("Settings…"); onTriggered: bar.settingsClicked() }
+                FMenuSeparator {}
+                FMenuItem { glyph: Theme.icons.info; text: qsTr("About FluxDM"); onTriggered: bar.aboutClicked() }
+                FMenuItem { glyph: Theme.icons.power; text: qsTr("Exit"); onTriggered: App.quit() }
             }
         }
     }

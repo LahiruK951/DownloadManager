@@ -28,13 +28,13 @@ RowLayout {
                 required property string modelData
                 required property int index
                 readonly property bool on: (ed.days & (1 << index)) !== 0
-                implicitWidth: 26
-                implicitHeight: 26
+                implicitWidth: 28
+                implicitHeight: 28
                 hoverEnabled: true
                 focusPolicy: Qt.NoFocus
                 onClicked: { ed.days = ed.days ^ (1 << index); ed.edited() }
                 background: Rectangle {
-                    radius: 13
+                    radius: 14
                     color: dayBtn.on ? Theme.accent : (dayBtn.hovered ? Theme.hover : Theme.surfaceAlt)
                     border.color: Theme.border
                     border.width: dayBtn.on ? 0 : 1
@@ -53,20 +53,22 @@ RowLayout {
         }
     }
 
-    Label { text: qsTr("from"); color: Theme.textDim }
-    TextField {
+    Text { text: qsTr("from"); color: Theme.textDim; font.pixelSize: Theme.fontBody }
+    FTextField {
         id: fromField
-        implicitWidth: 64
+        implicitWidth: 70
+        implicitHeight: 32
         horizontalAlignment: Text.AlignHCenter
         inputMask: "99:99"
         color: Theme.text
         text: ed.minToText(ed.fromMin)
         onEditingFinished: { const m = ed.textToMin(text); if (m >= 0) { ed.fromMin = m; ed.edited() } text = ed.minToText(ed.fromMin) }
     }
-    Label { text: qsTr("to"); color: Theme.textDim }
-    TextField {
+    Text { text: qsTr("to"); color: Theme.textDim; font.pixelSize: Theme.fontBody }
+    FTextField {
         id: toField
-        implicitWidth: 64
+        implicitWidth: 70
+        implicitHeight: 32
         horizontalAlignment: Text.AlignHCenter
         inputMask: "99:99"
         color: Theme.text

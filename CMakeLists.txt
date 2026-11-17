@@ -77,6 +77,18 @@ set(FLUXDM_QML_FILES
     qml/ScheduleEditor.qml
     qml/ScheduleDialog.qml
     qml/WhenDoneDialog.qml
+    qml/FButton.qml
+    qml/FTextField.qml
+    qml/FTextArea.qml
+    qml/FCheckBox.qml
+    qml/FSwitch.qml
+    qml/FComboBox.qml
+    qml/FSpinBox.qml
+    qml/FMenu.qml
+    qml/FMenuItem.qml
+    qml/FMenuSeparator.qml
+    qml/FDialog.qml
+    qml/FieldLabel.qml
 )
 # Place every QML file at the module root so they all see the module's types (App, Theme, ...).
 foreach(f IN LISTS FLUXDM_QML_FILES)

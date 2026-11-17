@@ -9,6 +9,9 @@ param(
     [double]$Scale = 1.0
 )
 $ErrorActionPreference = "Stop"
+# "-File" passes "a,b" as one string; accept both forms
+$Views = @($Views | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+$Themes = @($Themes | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 $root = Split-Path -Parent $PSScriptRoot
 $bin = Join-Path $root "build\$($Preset.Substring(5))"
 $exe = Join-Path $bin "FluxDM.exe"

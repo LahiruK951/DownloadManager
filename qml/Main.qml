@@ -147,8 +147,9 @@ ApplicationWindow {
         } else if (v === "settings") settingsDialog.open()
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "menu") topBar.openMenu()
-        else if (v === "delete") deleteDialog.openFor(App.selected || null)
-        else if (v === "whendone") whenDoneDialog.start(3)
+        else if (v === "delete") { App.select(App.downloads.idAt(5)); deleteDialog.openFor(App.selected) }
+        else if (v === "schedule") { App.select(App.downloads.idAt(2)); scheduleDialog.openFor(App.selected) }
+        else if (v === "whendone") whenDoneDialog.start(4) // "Exit FluxDM": never a real power action in dev mode
         else if (v === "about") aboutDialog.open()
     }
 

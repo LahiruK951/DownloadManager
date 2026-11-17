@@ -534,6 +534,10 @@ QString AppController::scheduleText(const QVariantMap& window) const { return Sc
 void AppController::performWhenDone(int action)
 {
     setWhenDone(0); // one-shot, like FDM
+    if (qEnvironmentVariableIsSet("FLUXDM_DEV_OPEN") || qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO")) {
+        QCoreApplication::quit(); // dev/screenshot runs must never sleep or shut the machine down
+        return;
+    }
 #ifdef Q_OS_WIN
     switch (action) {
     case 1: SetSuspendState(FALSE, FALSE, FALSE); return;

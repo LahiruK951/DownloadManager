@@ -3,14 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Per-download schedule (FDM: "Schedule…" in the download's context menu).
-Dialog {
+FDialog {
     id: dlg
     property var target: null
     title: qsTr("Schedule download")
-    modal: true
-    anchors.centerIn: parent
-    width: Math.min(560, parent.width - 40)
-    padding: 20
+    subtitle: target ? target.title : ""
+    width: Math.min(540, parent.width - 48)
 
     function openFor(d) {
         target = d
@@ -22,45 +20,34 @@ Dialog {
         open()
     }
 
-    background: Rectangle { color: Theme.surface; radius: 10; border.color: Theme.border }
-    header: Label { text: dlg.title; color: Theme.text; font.pixelSize: 17; padding: 20; bottomPadding: 0 }
-
     contentItem: ColumnLayout {
         spacing: 10
-        Text {
+        FSwitch {
+            id: enabledBox
             Layout.fillWidth: true
-            text: dlg.target ? dlg.target.title : ""
-            elide: Text.ElideMiddle
-            color: Theme.textDim
+            text: qsTr("Download only during this time")
+            description: qsTr("Outside the window the download waits and resumes automatically.")
         }
-        CheckBox { id: enabledBox; text: qsTr("Download only during this time") }
-        ScheduleEditor { id: editor; enabled: enabledBox.checked }
+        ScheduleEditor { id: editor; enabled: enabledBox.checked; opacity: enabled ? 1 : 0.5 }
         Text {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.textDim
-            font.pixelSize: 12
-            text: qsTr("Outside the window the download waits and resumes automatically. Use the same time for both ends to allow the whole day.")
+            font.pixelSize: Theme.fontSmall
+            text: qsTr("Tip: use the same start and end time to allow the whole day. Windows may cross midnight (e.g. 23:00 – 07:00).")
         }
     }
 
-    footer: Item {
-        implicitHeight: 64
-        RowLayout {
-            anchors.right: parent.right
-            anchors.rightMargin: 20
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
-            Button { text: qsTr("Cancel"); onClicked: dlg.close() }
-            Button {
-                text: qsTr("Save")
-                highlighted: true
-                onClicked: {
-                    App.setDownloadSchedule(dlg.target.id, enabledBox.checked,
-                                            { days: editor.days, from: editor.fromMin, to: editor.toMin })
-                    dlg.close()
-                }
+    buttons: [
+        FButton { text: qsTr("Cancel"); onClicked: dlg.close() },
+        FButton {
+            kind: "primary"
+            text: qsTr("Save")
+            onClicked: {
+                App.setDownloadSchedule(dlg.target.id, enabledBox.checked,
+                                        { days: editor.days, from: editor.fromMin, to: editor.toMin })
+                dlg.close()
             }
         }
-    }
+    ]
 }

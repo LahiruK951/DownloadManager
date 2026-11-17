@@ -3,13 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 
-Dialog {
+FDialog {
     id: dlg
     title: qsTr("New download")
-    modal: true
-    anchors.centerIn: parent
-    width: Math.min(640, parent.width - 40)
-    padding: 20
+    width: Math.min(620, parent.width - 48)
 
     readonly property int linkCount: App.countLinks(urlsField.text)
     readonly property bool torrent: App.isTorrentLink(urlsField.text)
@@ -26,8 +23,8 @@ Dialog {
         schedEditor.toMin = s.to
         open()
         folderField.editText = App.defaultFolder
-        urlsField.forceActiveFocus()
-        urlsField.cursorPosition = urlsField.length
+        urlsField.area.forceActiveFocus()
+        urlsField.area.cursorPosition = urlsField.area.length
     }
 
     function submit() {
@@ -37,93 +34,111 @@ Dialog {
         else errorText.text = err
     }
 
-    background: Rectangle { color: Theme.surface; radius: 10; border.color: Theme.border }
-    header: Label {
-        text: dlg.title
-        color: Theme.text
-        font.pixelSize: 17
-        padding: 20
-        bottomPadding: 0
-    }
-
     contentItem: ColumnLayout {
-        spacing: 8
+        spacing: 6
 
-                Label {
-            text: qsTr("Link, magnet or .torrent (one per line; ranges like file[1-20].zip expand)")
-            color: Theme.textDim
-        }
-        ScrollView {
+        FieldLabel { text: qsTr("Link") }
+        FTextArea {
+            id: urlsField
             Layout.fillWidth: true
-            Layout.preferredHeight: 84
-            TextArea {
-                id: urlsField
-                wrapMode: TextArea.WrapAnywhere
-                placeholderText: "https://example.com/file.zip   magnet:?xt=urn:btih:…"
-                color: Theme.text
-                placeholderTextColor: Theme.textDisabled
-                selectByMouse: true
-                background: Rectangle { color: Theme.surfaceAlt; radius: 6; border.color: urlsField.activeFocus ? Theme.accent : Theme.border }
-                Keys.onReturnPressed: (event) => {
-                    if (event.modifiers & Qt.ControlModifier) dlg.submit()
-                    else event.accepted = false
-                }
+            Layout.preferredHeight: 92
+            placeholderText: qsTr("Paste a link, magnet or .torrent path — one per line")
+            area.Keys.onReturnPressed: (event) => {
+                if (event.modifiers & Qt.ControlModifier) dlg.submit()
+                else event.accepted = false
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            Text {
+                visible: dlg.linkCount > 0
+                text: dlg.torrent ? Theme.icons.link : Theme.icons.down
+                font.family: Theme.iconFont
+                font.pixelSize: 11
+                color: Theme.accent
+            }
+            Text {
+                Layout.fillWidth: true
+                font.pixelSize: Theme.fontSmall
+                color: dlg.linkCount > 0 ? Theme.accent : Theme.textDim
+                text: dlg.linkCount === 0 ? qsTr("Tip: ranges like file[1-20].zip expand into several downloads")
+                     : dlg.torrent ? qsTr("BitTorrent download")
+                     : dlg.linkCount === 1 ? qsTr("1 file") : qsTr("%1 files").arg(dlg.linkCount)
             }
         }
 
-        Label { text: qsTr("Save to"); color: Theme.textDim; Layout.topMargin: 6 }
+        FieldLabel { text: qsTr("Save to"); Layout.topMargin: 8 }
         RowLayout {
             Layout.fillWidth: true
-            ComboBox {
+            spacing: 8
+            FComboBox {
                 id: folderField
                 Layout.fillWidth: true
                 editable: true
                 model: App.folderHistory
             }
-            Button { text: qsTr("Browse…"); onClicked: folderDlg.open() }
+            FButton { text: qsTr("Browse…"); onClicked: folderDlg.open() }
         }
 
-        Label { text: qsTr("File name (optional)"); color: Theme.textDim; Layout.topMargin: 6; visible: dlg.linkCount <= 1 && !dlg.torrent }
-        TextField {
+        FieldLabel {
+            text: qsTr("File name")
+            Layout.topMargin: 8
+            visible: dlg.linkCount <= 1 && !dlg.torrent
+        }
+        FTextField {
             id: nameField
             Layout.fillWidth: true
             visible: dlg.linkCount <= 1 && !dlg.torrent
-            placeholderText: qsTr("Taken from the server")
-            color: Theme.text
-            placeholderTextColor: Theme.textDisabled
-            selectByMouse: true
+            placeholderText: qsTr("Automatic (from the server)")
             onAccepted: dlg.submit()
         }
 
-        CheckBox { id: startBox; text: qsTr("Start downloading immediately"); checked: true; Layout.topMargin: 4; enabled: !schedBox.checked }
-        CheckBox { id: schedBox; text: qsTr("Schedule: download only during this time") }
-        ScheduleEditor { id: schedEditor; visible: schedBox.checked; Layout.leftMargin: 28 }
+        Rectangle { Layout.fillWidth: true; Layout.topMargin: 12; height: 1; color: Theme.border }
 
-        Text {
-            id: errorText
-            Layout.fillWidth: true
-            visible: text !== ""
-            color: Theme.error
-            wrapMode: Text.WordWrap
+        FCheckBox {
+            id: startBox
+            Layout.topMargin: 4
+            text: qsTr("Start downloading immediately")
+            checked: true
+            enabled: !schedBox.checked
         }
-    }
+        FCheckBox { id: schedBox; text: qsTr("Download only during a scheduled time") }
+        ScheduleEditor {
+            id: schedEditor
+            visible: schedBox.checked
+            Layout.leftMargin: 32
+            Layout.bottomMargin: 4
+        }
 
-    footer: Item {
-        implicitHeight: 64
-        RowLayout {
-            anchors.right: parent.right
-            anchors.rightMargin: 20
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
-            Button { text: qsTr("Cancel"); onClicked: dlg.close() }
-            Button {
-                text: dlg.linkCount > 1 ? qsTr("Download %1 files").arg(dlg.linkCount) : qsTr("Download")
-                highlighted: true
-                enabled: dlg.linkCount > 0
-                onClicked: dlg.submit()
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            visible: errorText.text !== ""
+            implicitHeight: errorText.implicitHeight + 16
+            radius: Theme.radius
+            color: Theme.errorSoft
+            Text {
+                id: errorText
+                anchors.fill: parent
+                anchors.margins: 8
+                color: Theme.error
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
             }
         }
     }
+
+    buttons: [
+        FButton { text: qsTr("Cancel"); onClicked: dlg.close() },
+        FButton {
+            kind: "primary"
+            glyph: Theme.icons.down
+            text: dlg.linkCount > 1 ? qsTr("Download %1 files").arg(dlg.linkCount) : qsTr("Download")
+            enabled: dlg.linkCount > 0
+            onClicked: dlg.submit()
+        }
+    ]
 
     FolderDialog {
         id: folderDlg
