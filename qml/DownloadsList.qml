@@ -4,7 +4,7 @@ import QtQuick.Controls
 Item {
     id: root
     signal requestDelete(var download)
-    signal requestAdd()
+    signal requestSchedule(var download)
 
     ListView {
         id: list
@@ -18,6 +18,7 @@ Item {
         delegate: DownloadRow {
             width: list.width
             onRequestDelete: (d) => root.requestDelete(d)
+            onRequestSchedule: (d) => root.requestSchedule(d)
         }
 
         focus: true

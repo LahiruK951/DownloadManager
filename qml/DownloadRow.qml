@@ -7,6 +7,7 @@ Rectangle {
     required property var download
     required property int index
     signal requestDelete(var download)
+    signal requestSchedule(var download)
 
     readonly property bool isSelected: App.selected === download
     readonly property var d: download
@@ -22,14 +23,22 @@ Rectangle {
     }
 
     function statusLine() {
+        if (d.completed && d.seeding)
+            return qsTr("Seeding") + " · ↑ " + App.fmtSpeed(d.uploadSpeed) + " · " + qsTr("ratio") + " " + d.ratio.toFixed(2)
+                   + " · " + d.peers + " " + qsTr("peers")
         if (d.completed) return qsTr("Done") + " · " + App.fmtDate(d.finishedAt)
         if (d.failed) return qsTr("Error") + ": " + d.error
         if (d.paused) return qsTr("Paused") + " · " + progressText()
+        if (d.waitingForSchedule) return qsTr("Scheduled") + " · " + d.scheduleText + " · " + progressText()
         if (d.queued) return qsTr("Queued") + " · " + progressText()
-        if (d.starting) return qsTr("Connecting…")
+        if (d.starting) return d.isTorrent ? qsTr("Fetching torrent information…") : qsTr("Connecting…")
         let s = progressText()
         if (d.eta >= 0) s += " · " + App.fmtEta(d.eta) + " " + qsTr("left")
-        if (d.connections > 0) s += " · " + d.connections + " " + (d.connections === 1 ? qsTr("connection") : qsTr("connections"))
+        if (d.isTorrent)
+            s += " · " + d.seeds + " " + qsTr("seeds") + ", " + d.peers + " " + qsTr("peers")
+        else if (d.connections > 0)
+            s += " · " + d.connections + " " + (d.connections === 1 ? qsTr("connection") : qsTr("connections"))
+        if (d.scheduled) s += " · " + d.scheduleText
         return s
     }
 
@@ -109,7 +118,8 @@ Rectangle {
         Text {
             Layout.preferredWidth: 96
             horizontalAlignment: Text.AlignRight
-            text: row.d.running && row.d.speed > 0 ? App.fmtSpeed(row.d.speed) : ""
+            text: row.d.running && row.d.speed > 0 ? App.fmtSpeed(row.d.speed)
+                : (row.d.seeding && row.d.uploadSpeed > 0 ? "↑ " + App.fmtSpeed(row.d.uploadSpeed) : "")
             color: Theme.accent
             font.pixelSize: 13
         }
@@ -121,12 +131,14 @@ Rectangle {
             font.pixelSize: 13
         }
         IconButton {
-            glyph: row.d.completed ? Theme.icons.open
+            glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
+                 : row.d.completed ? Theme.icons.open
                  : (row.d.running || row.d.queued) ? Theme.icons.pause
                  : row.d.failed ? Theme.icons.refresh : Theme.icons.play
-            tip: row.d.completed ? qsTr("Open") : (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
+            tip: (row.d.completed && row.d.seeding) ? qsTr("Stop seeding")
+                 : row.d.completed ? qsTr("Open") : (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
             opacity: ma.containsMouse || hovered || row.isSelected ? 1 : 0.55
-            onClicked: row.d.completed ? App.openFile(row.d.id) : App.togglePause(row.d.id)
+            onClicked: (row.d.completed && !row.d.seeding) ? App.openFile(row.d.id) : App.togglePause(row.d.id)
         }
         IconButton {
             glyph: Theme.icons.folder
@@ -155,6 +167,17 @@ Rectangle {
             text: (row.d.running || row.d.queued) ? qsTr("Pause") : qsTr("Resume")
             enabled: !row.d.completed
             onTriggered: App.togglePause(row.d.id)
+        }
+        MenuItem {
+            text: qsTr("Stop seeding")
+            visible: row.d.seeding
+            height: visible ? implicitHeight : 0
+            onTriggered: App.stopSeeding(row.d.id)
+        }
+        MenuItem {
+            text: row.d.scheduled ? qsTr("Edit schedule…") : qsTr("Schedule…")
+            enabled: !row.d.completed
+            onTriggered: row.requestSchedule(row.d)
         }
         MenuItem { text: qsTr("Restart"); onTriggered: App.restart(row.d.id) }
         MenuItem { text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }

@@ -29,8 +29,12 @@ class AppController : public QObject {
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY searchChanged)
     Q_PROPERTY(QVariantMap counts READ counts NOTIFY countsChanged)
     Q_PROPERTY(double totalSpeed READ totalSpeed NOTIFY statsChanged)
+    Q_PROPERTY(double totalUpload READ totalUpload NOTIFY statsChanged)
     Q_PROPERTY(int activeCount READ activeCount NOTIFY statsChanged)
     Q_PROPERTY(int trafficMode READ trafficMode WRITE setTrafficMode NOTIFY trafficModeChanged)
+    Q_PROPERTY(bool trafficScheduled READ trafficScheduled NOTIFY trafficModeChanged)
+    Q_PROPERTY(int whenDone READ whenDone WRITE setWhenDone NOTIFY whenDoneChanged)
+    Q_PROPERTY(bool torrentSupport READ torrentSupport CONSTANT)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY settingsChanged)
     Q_PROPERTY(bool compactView READ compactView WRITE setCompactView NOTIFY settingsChanged)
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
@@ -43,6 +47,7 @@ class AppController : public QObject {
     Q_PROPERTY(double bottomPanelHeight READ bottomPanelHeight WRITE setBottomPanelHeight NOTIFY settingsChanged)
     Q_PROPERTY(QUrl settingsFileUrl READ settingsFileUrl CONSTANT)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString devOpen READ devOpen CONSTANT) // FLUXDM_DEV_OPEN: open a dialog at startup (screenshots)
 
 public:
     AppController(DownloadManager* mgr, const QString& dataDir, QObject* parent = nullptr);
@@ -59,9 +64,14 @@ public:
     void setSearch(const QString& s);
     QVariantMap counts() const { return m_counts; }
     double totalSpeed() const { return m_totalSpeed; }
+    double totalUpload() const { return m_totalUpload; }
     int activeCount() const { return m_activeCount; }
     int trafficMode() const;
     void setTrafficMode(int m);
+    bool trafficScheduled() const;
+    int whenDone() const { return m_whenDone; }
+    void setWhenDone(int a);
+    bool torrentSupport() const;
 
     QString theme() const;
     void setTheme(const QString& t);
@@ -84,9 +94,32 @@ public:
     void setBottomPanelHeight(double v);
     QUrl settingsFileUrl() const;
     QString version() const;
+    QString devOpen() const { return qEnvironmentVariable("FLUXDM_DEV_OPEN"); }
 
     // --- actions
-    Q_INVOKABLE QString addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start);
+    Q_INVOKABLE QString addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
+                                     const QVariantMap& schedule = {});
+    Q_INVOKABLE int countLinks(const QString& text) const;
+    Q_INVOKABLE bool isTorrentLink(const QString& text) const;
+    Q_INVOKABLE void stopSeeding(qint64 id);
+    Q_INVOKABLE void setFileWanted(qint64 id, int index, bool wanted);
+
+    // --- scheduling
+    Q_INVOKABLE QVariantList trafficRules() const;
+    Q_INVOKABLE void setTrafficRules(const QVariantList& rules);
+    Q_INVOKABLE QVariantMap downloadSchedule(qint64 id) const;
+    Q_INVOKABLE void setDownloadSchedule(qint64 id, bool enabled, const QVariantMap& window);
+    Q_INVOKABLE QVariantMap defaultSchedule() const;
+    Q_INVOKABLE QString scheduleText(const QVariantMap& window) const;
+    Q_INVOKABLE void performWhenDone(int action);
+
+    // --- BitTorrent settings
+    Q_INVOKABLE int uploadLimitKBps() const;
+    Q_INVOKABLE void setUploadLimitKBps(int kbps);
+    Q_INVOKABLE double seedRatio() const;
+    Q_INVOKABLE void setSeedRatio(double r);
+    Q_INVOKABLE bool torrentAssociated() const;
+    Q_INVOKABLE void setTorrentAssociated(bool on);
     Q_INVOKABLE void select(qint64 id);
     Q_INVOKABLE void pause(qint64 id);
     Q_INVOKABLE void resume(qint64 id);
@@ -131,6 +164,8 @@ signals:
     void addDialogRequested(const QString& urls);
     void downloadCompleted(const QString& title, const QString& filePath);
     void hiddenToTray();
+    void whenDoneChanged();
+    void whenDoneCountdown(int action);
 
 private:
     Download* byId(qint64 id) const;
@@ -148,7 +183,9 @@ private:
     QVariantMap m_counts;
     QTimer m_recountTimer;
     double m_totalSpeed = 0;
+    double m_totalUpload = 0;
     int m_activeCount = 0;
+    int m_whenDone = 0; // 0 nothing, 1 sleep, 2 hibernate, 3 shut down, 4 exit FluxDM
     QString m_lastClip;
     bool m_trayHintShown = false;
 };

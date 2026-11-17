@@ -32,11 +32,18 @@ Data: `%LOCALAPPDATA%\FluxDM\FluxDM\` (`db.sqlite`, `settings.ini`, `backup\db\`
 
 ## Status
 
-Done (Phase 1): HTTP/HTTPS/FTP, up to 32 connections per download with dynamic splitting,
-crash-safe resume, per-connection retries with backoff, Content-Disposition names, system proxy,
-global speed cap via token bucket, traffic modes, queue + priorities, tray, clipboard monitoring,
-drag & drop, single instance, light/dark theme.
+Done:
+- **HTTP/HTTPS/FTP** (`downloadswww`): up to 32 connections per download with dynamic splitting,
+  crash-safe resume, per-connection retries with backoff, Content-Disposition names, system proxy.
+- **BitTorrent** (`downloadsbt`, libtorrent 2.1): magnet links, local and http `.torrent` files,
+  per-file selection, DHT/LSD/UPnP, resume, seeding until a share ratio, upload limit,
+  magnet/.torrent association (opt-in, HKCU).
+- **Traffic modes** Snail (Low) / Medium / High with per-mode limits, plus a **weekly schedule**
+  ("snail mode on weekdays 09:00–18:00"); picking a mode by hand overrides the active rule until it ends.
+- **Per-download schedule** (FDM's `downloadsScheduleRecords`), **when-done action**
+  (sleep / hibernate / shut down / exit, with a 30 s cancellable countdown).
+- **Batch links** `file[1-20].zip`, `img[001-120].jpg`, `[a-f].txt`.
+- Queue + priorities, tray, clipboard monitoring, drag & drop, single instance + CLI, light/dark theme.
 
-Next: BitTorrent (libtorrent), browser extension + native messaging host, HLS/DASH + yt-dlp/ffmpeg,
-scheduler, batch downloads, tags with default folders, auto-retry rules, import/export, remote control,
-installer.
+Next: browser extension + native messaging host, HLS/DASH + yt-dlp/ffmpeg, tags with default folders,
+auto-retry rules, import/export, remote control, installer.

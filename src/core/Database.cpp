@@ -120,6 +120,23 @@ QList<DownloadRecord> Database::loadDownloads()
         r.priority = q.value(18).toInt();
         out.append(r);
     }
+
+    QSqlQuery s(m_db);
+    if (s.exec(QStringLiteral("SELECT downloadId, days, fromTime, toTime FROM downloadsScheduleRecords"))) {
+        QHash<qint64, ScheduleWindow> sched;
+        while (s.next()) {
+            ScheduleWindow w;
+            w.days = s.value(1).toInt();
+            w.fromMin = s.value(2).toInt();
+            w.toMin = s.value(3).toInt();
+            sched.insert(s.value(0).toLongLong(), w);
+        }
+        for (DownloadRecord& r : out)
+            if (sched.contains(r.id)) {
+                r.scheduled = true;
+                r.schedule = sched.value(r.id);
+            }
+    }
     return out;
 }
 
@@ -152,6 +169,19 @@ void Database::save(const DownloadRecord& r)
     q.addBindValue(r.priority);
     if (!q.exec())
         qWarning() << "save download:" << q.lastError().text();
+
+    QSqlQuery s(m_db);
+    if (r.scheduled) {
+        s.prepare(QStringLiteral("INSERT OR REPLACE INTO downloadsScheduleRecords (downloadId, days, fromTime, toTime) VALUES (?,?,?,?)"));
+        s.addBindValue(r.id);
+        s.addBindValue(r.schedule.days);
+        s.addBindValue(r.schedule.fromMin);
+        s.addBindValue(r.schedule.toMin);
+    } else {
+        s.prepare(QStringLiteral("DELETE FROM downloadsScheduleRecords WHERE downloadId = ?"));
+        s.addBindValue(r.id);
+    }
+    s.exec();
 }
 
 void Database::saveProgress(qint64 id, qint64 received, const QByteArray& resumeData)
@@ -170,6 +200,10 @@ void Database::remove(qint64 id)
     q.prepare(QStringLiteral("DELETE FROM downloads WHERE id = ?"));
     q.addBindValue(id);
     q.exec();
+    QSqlQuery s(m_db);
+    s.prepare(QStringLiteral("DELETE FROM downloadsScheduleRecords WHERE downloadId = ?"));
+    s.addBindValue(id);
+    s.exec();
 }
 
 qint64 Database::maxId()

@@ -12,6 +12,15 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 
+#ifdef Q_OS_WIN
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <powrprof.h>
+#include <shlobj.h>
+#endif
+
+#include "core/BatchLinks.h"
 #include "core/Download.h"
 #include "core/DownloadManager.h"
 #include "core/FileNamer.h"
@@ -61,6 +70,11 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         emit downloadCompleted(d->title(), d->filePath());
     });
     connect(m_mgr, &DownloadManager::statsUpdated, this, &AppController::updateStats);
+    connect(m_mgr, &DownloadManager::trafficModeChanged, this, &AppController::trafficModeChanged);
+    connect(m_mgr, &DownloadManager::allDownloadsFinished, this, [this] {
+        if (m_whenDone != 0)
+            emit whenDoneCountdown(m_whenDone);
+    });
     for (Download* d : m_mgr->downloads()) {
         connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
         connect(d, &Download::titleChanged, this, &AppController::scheduleRecount);
@@ -108,13 +122,19 @@ void AppController::setSearch(const QString& s)
 }
 
 int AppController::trafficMode() const { return m_mgr->trafficMode(); }
-void AppController::setTrafficMode(int m)
+void AppController::setTrafficMode(int m) { m_mgr->setTrafficMode(m); }
+bool AppController::trafficScheduled() const { return m_mgr->trafficModeScheduled(); }
+
+void AppController::setWhenDone(int a)
 {
-    if (m == m_mgr->trafficMode())
+    a = qBound(0, a, 4);
+    if (a == m_whenDone)
         return;
-    m_mgr->setTrafficMode(m);
-    emit trafficModeChanged();
+    m_whenDone = a;
+    emit whenDoneChanged();
 }
+
+bool AppController::torrentSupport() const { return !m_mgr->moduleFor(QStringLiteral("magnet:?xt=urn:btih:0000000000000000000000000000000000000000")).isEmpty(); }
 
 #define UI_SETTING(getter, setter, Type, key, def, conv)                 \
     Type AppController::getter() const { return m_ui.value(QStringLiteral(key), def).conv(); } \
@@ -185,10 +205,11 @@ QString AppController::version() const { return QStringLiteral(FLUXDM_VERSION); 
 
 // ------------------------------------------------------------------ actions
 
-QString AppController::addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start)
+QString AppController::addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
+                                    const QVariantMap& schedule)
 {
     static const QRegularExpression ws(QStringLiteral("\\s+"));
-    const QStringList urls = text.split(ws, Qt::SkipEmptyParts);
+    const QStringList urls = BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts));
     if (urls.isEmpty())
         return tr("Enter at least one link.");
     QString dir = folder.trimmed();
@@ -200,9 +221,14 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
         if (!m_mgr->canHandle(u))
             return tr("Unsupported link: %1").arg(u);
 
+    const bool sched = schedule.value(QStringLiteral("enabled")).toBool();
+    const ScheduleWindow w = ScheduleWindow::fromMap(schedule);
+    if (sched)
+        m_ui.setValue(QStringLiteral("lastSchedule"), w.toMap());
     Download* last = nullptr;
     for (const QString& u : urls)
-        last = m_mgr->add(u, QDir::toNativeSeparators(dir), urls.size() == 1 ? fileName.trimmed() : QString(), start);
+        last = m_mgr->add(u, QDir::toNativeSeparators(dir), urls.size() == 1 ? fileName.trimmed() : QString(), start || sched,
+                          {}, {}, {}, sched ? &w : nullptr);
     rememberFolder(dir);
     if (last)
         select(last->id());
@@ -226,7 +252,9 @@ void AppController::togglePause(qint64 id)
     Download* d = byId(id);
     if (!d)
         return;
-    if (d->running() || d->queued())
+    if (d->completed() && d->seeding())
+        m_mgr->stopSeeding(d);
+    else if (d->running() || d->queued())
         m_mgr->pause(d);
     else
         m_mgr->resume(d);
@@ -333,14 +361,18 @@ void AppController::recount()
 
 void AppController::updateStats()
 {
-    double speed = 0;
+    double speed = 0, up = 0;
     int active = 0;
-    for (Download* d : m_mgr->downloads())
+    for (Download* d : m_mgr->downloads()) {
         if (d->running()) {
             speed += d->speed();
             ++active;
         }
+        if (d->running() || d->seeding())
+            up += d->uploadSpeed();
+    }
     m_totalSpeed = speed;
+    m_totalUpload = up;
     m_activeCount = active;
     emit statsChanged();
 }
@@ -429,4 +461,130 @@ void AppController::handleExternalArgs(const QStringList& args)
         addDownloads(urls.join(QLatin1Char('\n')), defaultFolder(), {}, true);
     else
         emit addDialogRequested(urls.join(QLatin1Char('\n')));
+}
+
+// ------------------------------------------------------------------ links / torrents
+
+int AppController::countLinks(const QString& text) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    return int(BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts)).size());
+}
+
+bool AppController::isTorrentLink(const QString& text) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    const QStringList l = text.split(ws, Qt::SkipEmptyParts);
+    return !l.isEmpty() && m_mgr->moduleFor(l.first()) == QLatin1String("downloadsbt");
+}
+
+void AppController::stopSeeding(qint64 id) { m_mgr->stopSeeding(byId(id)); }
+void AppController::setFileWanted(qint64 id, int index, bool wanted) { m_mgr->setFileWanted(byId(id), index, wanted); }
+
+// ------------------------------------------------------------------ scheduling
+
+QVariantList AppController::trafficRules() const
+{
+    QVariantList out;
+    for (const TrafficRule& r : m_mgr->trafficRules())
+        out << r.toMap();
+    return out;
+}
+
+void AppController::setTrafficRules(const QVariantList& rules)
+{
+    QList<TrafficRule> list;
+    for (const QVariant& v : rules)
+        list << TrafficRule::fromMap(v.toMap());
+    m_mgr->setTrafficRules(list);
+}
+
+QVariantMap AppController::downloadSchedule(qint64 id) const
+{
+    Download* d = byId(id);
+    QVariantMap m = d && d->scheduled() ? d->rec.schedule.toMap() : defaultSchedule();
+    m[QStringLiteral("enabled")] = d && d->scheduled();
+    return m;
+}
+
+void AppController::setDownloadSchedule(qint64 id, bool enabled, const QVariantMap& window)
+{
+    const ScheduleWindow w = ScheduleWindow::fromMap(window);
+    if (enabled)
+        m_ui.setValue(QStringLiteral("lastSchedule"), w.toMap());
+    m_mgr->setSchedule(byId(id), enabled, w);
+}
+
+QVariantMap AppController::defaultSchedule() const
+{
+    // Last used window, else FDM's classic "night" window 01:00-07:00 every day.
+    QVariantMap m = m_ui.value(QStringLiteral("lastSchedule")).toMap();
+    if (m.isEmpty())
+        m = ScheduleWindow{0x7F, 60, 7 * 60}.toMap();
+    m[QStringLiteral("enabled")] = false;
+    return m;
+}
+
+QString AppController::scheduleText(const QVariantMap& window) const { return ScheduleWindow::fromMap(window).text(); }
+
+void AppController::performWhenDone(int action)
+{
+    setWhenDone(0); // one-shot, like FDM
+#ifdef Q_OS_WIN
+    switch (action) {
+    case 1: SetSuspendState(FALSE, FALSE, FALSE); return;
+    case 2: SetSuspendState(TRUE, FALSE, FALSE); return;
+    case 3:
+        m_mgr->shutdown();
+        QProcess::startDetached(QStringLiteral("shutdown.exe"), {QStringLiteral("/s"), QStringLiteral("/t"), QStringLiteral("0")});
+        QCoreApplication::quit();
+        return;
+    default: break;
+    }
+#endif
+    if (action == 4 || action == 3)
+        QCoreApplication::quit();
+}
+
+// ------------------------------------------------------------------ BitTorrent settings
+
+int AppController::uploadLimitKBps() const { return int(m_mgr->uploadLimitKBps()); }
+void AppController::setUploadLimitKBps(int kbps) { m_mgr->setUploadLimitKBps(kbps); }
+double AppController::seedRatio() const { return m_mgr->seedRatio(); }
+void AppController::setSeedRatio(double r) { m_mgr->setSeedRatio(r); }
+
+bool AppController::torrentAssociated() const
+{
+#ifdef Q_OS_WIN
+    QSettings reg(QStringLiteral("HKEY_CURRENT_USER\\Software\\Classes"), QSettings::NativeFormat);
+    const QString exe = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+    return reg.value(QStringLiteral("magnet/shell/open/command/Default")).toString().contains(exe, Qt::CaseInsensitive);
+#else
+    return false;
+#endif
+}
+
+void AppController::setTorrentAssociated(bool on)
+{
+#ifdef Q_OS_WIN
+    QSettings reg(QStringLiteral("HKEY_CURRENT_USER\\Software\\Classes"), QSettings::NativeFormat);
+    const QString cmd = QStringLiteral("\"%1\" \"%2\"").arg(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()), QStringLiteral("%1"));
+    if (on) {
+        reg.setValue(QStringLiteral("magnet/Default"), QStringLiteral("URL:Magnet link"));
+        reg.setValue(QStringLiteral("magnet/URL Protocol"), QString());
+        reg.setValue(QStringLiteral("magnet/shell/open/command/Default"), cmd);
+        reg.setValue(QStringLiteral(".torrent/Default"), QStringLiteral("FluxDM.torrent"));
+        reg.setValue(QStringLiteral("FluxDM.torrent/Default"), QStringLiteral("BitTorrent file"));
+        reg.setValue(QStringLiteral("FluxDM.torrent/shell/open/command/Default"), cmd);
+    } else if (torrentAssociated()) {
+        reg.remove(QStringLiteral("magnet"));
+        reg.remove(QStringLiteral("FluxDM.torrent"));
+        if (reg.value(QStringLiteral(".torrent/Default")).toString() == QLatin1String("FluxDM.torrent"))
+            reg.remove(QStringLiteral(".torrent"));
+    }
+    reg.sync();
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+#else
+    Q_UNUSED(on);
+#endif
 }

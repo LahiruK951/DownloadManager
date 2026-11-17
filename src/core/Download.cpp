@@ -32,7 +32,7 @@ qint64 Download::eta() const
 QString Download::stateText() const
 {
     switch (rec.state) {
-    case Queued: return tr("Queued");
+    case Queued: return waitingForSchedule() ? tr("Scheduled") : tr("Queued");
     case Starting: return tr("Connecting");
     case Downloading: return tr("Downloading");
     case Paused: return tr("Paused");
@@ -86,8 +86,39 @@ void Download::setTitle(const QString& title)
     emit titleChanged();
 }
 
+double Download::ratio() const
+{
+    const qint64 base = rec.total > 0 ? rec.total : rec.received;
+    return base > 0 ? double(m_uploaded) / double(base) : 0.0;
+}
+
+void Download::setSeeding(bool on)
+{
+    if (m_seeding == on)
+        return;
+    m_seeding = on;
+    if (!on) {
+        m_uploadSpeed = 0;
+        m_peers = m_seeds = 0;
+    }
+    emit changed();
+}
+
 void Download::applyStats(const TaskStats& st)
 {
+    if (!st.files.isEmpty()) {
+        m_files = st.files;
+        emit filesChanged();
+    }
+    m_uploadSpeed = st.uploadSpeed;
+    m_uploaded = qMax(m_uploaded, st.uploaded);
+    m_seeds = st.seeds;
+    m_peers = st.peers;
+    if (completed()) { // still seeding after completion
+        m_seeding = st.seeding;
+        emit changed();
+        return;
+    }
     if (!running())
         return;
     if (st.total >= 0)

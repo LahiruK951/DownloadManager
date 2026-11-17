@@ -132,6 +132,19 @@ Rectangle {
                             text: !panel.download ? "" : panel.download.resumable === 1 ? qsTr("Yes")
                                   : panel.download.resumable === 0 ? qsTr("No") : qsTr("Unknown")
                         }
+                        InfoLabel { text: qsTr("Seeds / peers"); visible: panel.download && panel.download.isTorrent }
+                        InfoValue {
+                            visible: panel.download && panel.download.isTorrent
+                            text: panel.download ? panel.download.seeds + " / " + panel.download.peers : ""
+                        }
+                        InfoLabel { text: qsTr("Uploaded"); visible: panel.download && panel.download.isTorrent }
+                        InfoValue {
+                            visible: panel.download && panel.download.isTorrent
+                            text: panel.download ? App.fmtSize(panel.download.uploaded) + "  ·  " + qsTr("ratio") + " "
+                                  + panel.download.ratio.toFixed(2) + "  ·  ↑ " + App.fmtSpeed(panel.download.uploadSpeed) : ""
+                        }
+                        InfoLabel { text: qsTr("Schedule"); visible: panel.download && panel.download.scheduled }
+                        InfoValue { visible: panel.download && panel.download.scheduled; text: panel.download ? panel.download.scheduleText : "" }
                         InfoLabel { text: qsTr("Added") }
                         InfoValue { text: panel.download ? App.fmtDate(panel.download.created) : "" }
                         InfoLabel { text: qsTr("Completed"); visible: panel.download && panel.download.completed }
@@ -141,48 +154,61 @@ Rectangle {
             }
 
             // ---------------------------------------------------- Files
-            Item {
-                RowLayout {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: 16
-                    spacing: 12
-                    visible: panel.download !== null
-                    Text {
-                        text: panel.download ? Theme.categoryGlyph(panel.download.category) : ""
-                        font.family: Theme.iconFont
-                        font.pixelSize: 18
-                        color: panel.download ? Theme.categoryColor(panel.download.category) : Theme.text
+            ListView {
+                id: filesView
+                clip: true
+                topMargin: 8
+                ScrollBar.vertical: ScrollBar {}
+                readonly property bool multi: panel.download !== null && panel.download.files.length > 0
+                model: !panel.download ? []
+                       : multi ? panel.download.files
+                       : [{ name: panel.download.title, size: panel.download.total, done: panel.download.received, wanted: true, index: -1 }]
+                delegate: RowLayout {
+                    id: fileRow
+                    required property var modelData
+                    width: filesView.width - 32
+                    x: 16
+                    height: 30
+                    spacing: 10
+                    CheckBox {
+                        visible: filesView.multi
+                        checked: fileRow.modelData.wanted
+                        enabled: panel.download && !panel.download.completed
+                        onToggled: App.setFileWanted(panel.download.id, fileRow.modelData.index, checked)
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 600
+                        ToolTip.text: qsTr("Download this file")
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: panel.download ? panel.download.title : ""
-                        color: Theme.text
+                        text: fileRow.modelData.name
+                        color: fileRow.modelData.wanted ? Theme.text : Theme.textDisabled
                         elide: Text.ElideMiddle
                         font.pixelSize: 13
                     }
                     Text {
-                        text: panel.download && panel.download.total >= 0 ? App.fmtSize(panel.download.total) : ""
+                        text: fileRow.modelData.size >= 0 ? App.fmtSize(fileRow.modelData.size) : ""
                         color: Theme.textDim
                         font.pixelSize: 13
+                        Layout.preferredWidth: 80
+                        horizontalAlignment: Text.AlignRight
                     }
                     ProgressTrack {
                         Layout.preferredWidth: 140
-                        value: panel.download ? panel.download.progress : 0
+                        value: fileRow.modelData.size > 0 ? fileRow.modelData.done / fileRow.modelData.size
+                               : (panel.download && panel.download.completed ? 1 : -1)
                         active: panel.download ? panel.download.running : false
                         failed: panel.download ? panel.download.failed : false
                     }
                     Text {
                         Layout.preferredWidth: 44
                         horizontalAlignment: Text.AlignRight
-                        text: panel.download && panel.download.progress >= 0 ? Math.floor(panel.download.progress * 100) + "%" : ""
+                        text: fileRow.modelData.size > 0 ? Math.floor(100 * fileRow.modelData.done / fileRow.modelData.size) + "%" : ""
                         color: Theme.textDim
                         font.pixelSize: 13
                     }
                 }
             }
-
             // ---------------------------------------------------- Log
             ListView {
                 id: logView

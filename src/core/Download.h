@@ -38,6 +38,19 @@ class Download : public QObject {
     Q_PROPERTY(QVariantList segments READ segments NOTIFY changed)
     Q_PROPERTY(QStringList log READ log NOTIFY logChanged)
     Q_PROPERTY(int priority READ priority NOTIFY changed)
+    // scheduling
+    Q_PROPERTY(bool scheduled READ scheduled NOTIFY changed)
+    Q_PROPERTY(QString scheduleText READ scheduleText NOTIFY changed)
+    Q_PROPERTY(bool waitingForSchedule READ waitingForSchedule NOTIFY changed)
+    // BitTorrent
+    Q_PROPERTY(bool isTorrent READ isTorrent CONSTANT)
+    Q_PROPERTY(bool seeding READ seeding NOTIFY changed)
+    Q_PROPERTY(double uploadSpeed READ uploadSpeed NOTIFY changed)
+    Q_PROPERTY(qint64 uploaded READ uploaded NOTIFY changed)
+    Q_PROPERTY(double ratio READ ratio NOTIFY changed)
+    Q_PROPERTY(int seeds READ seeds NOTIFY changed)
+    Q_PROPERTY(int peers READ peers NOTIFY changed)
+    Q_PROPERTY(QVariantList files READ files NOTIFY filesChanged)
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -76,11 +89,26 @@ public:
     QStringList log() const { return m_log; }
     int priority() const { return rec.priority; }
 
+    bool scheduled() const { return rec.scheduled; }
+    QString scheduleText() const { return rec.scheduled ? rec.schedule.text() : QString(); }
+    bool inScheduleWindow(const QDateTime& now) const { return !rec.scheduled || rec.schedule.contains(now); }
+    bool waitingForSchedule() const { return queued() && !inScheduleWindow(QDateTime::currentDateTime()); }
+
+    bool isTorrent() const { return rec.moduleUid == QLatin1String("downloadsbt"); }
+    bool seeding() const { return m_seeding; }
+    double uploadSpeed() const { return m_uploadSpeed; }
+    qint64 uploaded() const { return m_uploaded; }
+    double ratio() const;
+    int seeds() const { return m_seeds; }
+    int peers() const { return m_peers; }
+    QVariantList files() const { return m_files; }
+
     void setState(State s, const QString& error = {});
     void setTitle(const QString& title);
     void applyStats(const TaskStats& st);
     void setSegmentsFromResumeData();
     void clearLive();
+    void setSeeding(bool on);
     void addLog(const QString& line);
     void notify() { emit changed(); }
 
@@ -89,10 +117,17 @@ signals:
     void logChanged();
     void stateChanged();
     void titleChanged();
+    void filesChanged();
 
 private:
     double m_speed = 0;
     int m_connections = 0;
     QList<qint64> m_segs; // triples begin,end,done
     QStringList m_log;
+    bool m_seeding = false;
+    double m_uploadSpeed = 0;
+    qint64 m_uploaded = 0;
+    int m_seeds = 0;
+    int m_peers = 0;
+    QVariantList m_files;
 };

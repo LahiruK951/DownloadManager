@@ -6,6 +6,7 @@
       "name": "curl",
       "default-features": false,
       "features": [ "ssl", "sspi" ]
-    }
+    },
+    "libtorrent"
   ]
 }

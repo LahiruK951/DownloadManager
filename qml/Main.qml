@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
+import QtQuick.Dialogs
 
 ApplicationWindow {
     id: win
@@ -66,9 +67,13 @@ ApplicationWindow {
             win.bringToFront()
             addDialog.openWith(urls)
         }
+        function onWhenDoneCountdown(action) {
+            win.bringToFront()
+            whenDoneDialog.start(action)
+        }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -81,6 +86,7 @@ ApplicationWindow {
         onDeleteClicked: if (App.selected) deleteDialog.openFor(App.selected)
         onSettingsClicked: settingsDialog.open()
         onAboutClicked: aboutDialog.open()
+        onOpenTorrentClicked: torrentFileDialog.open()
     }
 
     footer: StatusBar {}
@@ -105,6 +111,7 @@ ApplicationWindow {
                 SplitView.fillHeight: true
                 SplitView.minimumHeight: 120
                 onRequestDelete: (d) => deleteDialog.openFor(d)
+                onRequestSchedule: (d) => scheduleDialog.openFor(d)
             }
 
             BottomPanel {
@@ -129,8 +136,23 @@ ApplicationWindow {
         }
     }
 
+    Component.onCompleted: {
+        if (App.devOpen === "settings") settingsDialog.open()
+        else if (App.devOpen === "add") addDialog.openWith("https://example.com/part[01-12].zip")
+        else if (App.devOpen === "menu") topBar.openMenu()
+    }
+
     AddDownloadDialog { id: addDialog }
     SettingsDialog { id: settingsDialog }
     DeleteDialog { id: deleteDialog }
     AboutDialog { id: aboutDialog }
+    ScheduleDialog { id: scheduleDialog }
+    WhenDoneDialog { id: whenDoneDialog }
+    FileDialog {
+        id: torrentFileDialog
+        title: qsTr("Open torrent file")
+        nameFilters: [qsTr("Torrent files (*.torrent)")]
+        fileMode: FileDialog.OpenFiles
+        onAccepted: addDialog.openWith(selectedFiles.map(u => App.urlToLocal(u)).join("\n"))
+    }
 }

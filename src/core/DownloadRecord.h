@@ -3,6 +3,8 @@
 #include <QDateTime>
 #include <QString>
 
+#include "core/Schedule.h"
+
 // Persistent part of a download; one row of the `downloads` table
 // (column naming follows FDM's schema where an equivalent exists).
 struct DownloadRecord {
@@ -25,4 +27,6 @@ struct DownloadRecord {
     qint64 received = 0;
     int resumable = -1;         // resumeSupport: -1 unknown, 0 no, 1 yes
     int priority = 1;           // 0 low, 1 normal, 2 high
+    bool scheduled = false;     // downloadsScheduleRecords row present
+    ScheduleWindow schedule;
 };

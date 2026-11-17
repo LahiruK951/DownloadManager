@@ -7,6 +7,8 @@
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QQuickWindow>
+#include <QRandomGenerator>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -17,6 +19,9 @@
 #include "ui/AppController.h"
 #include "ui/AppIcon.h"
 #include "ui/TrayIcon.h"
+#ifdef FLUXDM_HAS_TORRENT
+#include "engines/bt/BtEngine.h"
+#endif
 
 static QString instanceName()
 {
@@ -66,6 +71,14 @@ int main(int argc, char* argv[])
     int rc = 0;
     {
         DownloadManager mgr(&db);
+#ifdef FLUXDM_HAS_TORRENT
+        int btPort = db.setting(QStringLiteral("BtListenPort"), 0).toInt();
+        if (btPort <= 0) { // stable random port, like FDM
+            btPort = QRandomGenerator::global()->bounded(20000, 60000);
+            db.setSetting(QStringLiteral("BtListenPort"), btPort);
+        }
+        mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), btPort));
+#endif
         mgr.load();
         AppController ctl(&mgr, dataDir);
         AppController::s_instance = &ctl;
@@ -93,6 +106,16 @@ int main(int argc, char* argv[])
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                          [] { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
         engine.loadFromModule("FluxDM", "Main");
+
+        // Developer aid: FLUXDM_DEV_GRAB=<png> saves a render of the window and exits.
+        const QString grabPath = qEnvironmentVariable("FLUXDM_DEV_GRAB");
+        if (!grabPath.isEmpty())
+            QTimer::singleShot(3000, &app, [&engine, grabPath] {
+                if (!engine.rootObjects().isEmpty())
+                    if (auto* w = qobject_cast<QQuickWindow*>(engine.rootObjects().first()))
+                        w->grabWindow().save(grabPath);
+                QCoreApplication::quit();
+            });
 
         if (!args.isEmpty())
             QTimer::singleShot(300, &ctl, [&ctl, args] { ctl.handleExternalArgs(args); });

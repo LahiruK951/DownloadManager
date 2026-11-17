@@ -17,7 +17,7 @@ Rectangle {
         Text { text: Theme.icons.down; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.accent }
         Text { text: App.fmtSpeed(App.totalSpeed); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 90 }
         Text { text: Theme.icons.up; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.success }
-        Text { text: App.fmtSpeed(0); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 80 }
+        Text { text: App.fmtSpeed(App.totalUpload); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 80 }
         Text {
             text: App.activeCount > 0 ? App.activeCount + " " + qsTr("active") : ""
             color: Theme.textDim
@@ -26,6 +26,30 @@ Rectangle {
 
         Item { Layout.fillWidth: true }
 
+        Text {
+            visible: App.whenDone !== 0
+            text: Theme.icons.power
+            font.family: Theme.iconFont
+            font.pixelSize: 12
+            color: Theme.warning
+        }
+        Text {
+            visible: App.whenDone !== 0
+            text: ["", qsTr("Sleep"), qsTr("Hibernate"), qsTr("Shut down"), qsTr("Exit")][App.whenDone] + " " + qsTr("when done")
+            font.pixelSize: 12
+            color: Theme.warning
+            Layout.rightMargin: 10
+        }
+        Text {
+            visible: App.trafficScheduled
+            text: Theme.icons.clock
+            font.family: Theme.iconFont
+            font.pixelSize: 13
+            color: Theme.accent
+            HoverHandler { id: clockHover }
+            ToolTip.visible: clockHover.hovered
+            ToolTip.text: qsTr("Traffic mode is set by your schedule. Pick a mode to override it until the scheduled period ends.")
+        }
         Text { text: qsTr("Traffic mode"); color: Theme.textDim; font.pixelSize: 12; Layout.rightMargin: 4 }
 
         Rectangle {
@@ -39,7 +63,7 @@ Rectangle {
                 anchors.centerIn: parent
                 spacing: 0
                 Repeater {
-                    model: [qsTr("Low"), qsTr("Medium"), qsTr("High")]
+                    model: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
                     delegate: AbstractButton {
                         id: modeBtn
                         required property string modelData

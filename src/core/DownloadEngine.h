@@ -18,6 +18,9 @@ public:
     virtual void stop(qint64 id) = 0;
     virtual void setSpeedLimit(qint64 bytesPerSec) = 0;   // 0 = unlimited
     virtual void setMaxConnections(int perDownload) = 0;
+    virtual void setUploadLimit(qint64 /*bytesPerSec*/) {}
+    virtual void setSeedRatio(double /*ratio*/) {}
+    virtual void setFileWanted(qint64 /*id*/, int /*index*/, bool /*wanted*/) {}
     // Stops everything synchronously and returns final resume data per task.
     virtual QHash<qint64, QByteArray> shutdown() = 0;
 

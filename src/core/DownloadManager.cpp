@@ -2,8 +2,12 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QNetworkProxyFactory>
+#include <QDir>
 #include <QUrl>
+#include <QUrlQuery>
 #include <algorithm>
 
 #include "core/Database.h"
@@ -14,6 +18,8 @@
 namespace {
 QString systemProxyFor(const QString& url)
 {
+    if (!url.startsWith(QLatin1String("http"), Qt::CaseInsensitive) && !url.startsWith(QLatin1String("ftp"), Qt::CaseInsensitive))
+        return {};
     const auto proxies = QNetworkProxyFactory::systemProxyForQuery(QNetworkProxyQuery(QUrl(url)));
     for (const auto& p : proxies) {
         if (p.type() == QNetworkProxy::HttpProxy)
@@ -28,17 +34,22 @@ QString systemProxyFor(const QString& url)
 DownloadManager::DownloadManager(Database* db, QObject* parent)
     : QObject(parent), m_db(db)
 {
-    m_engines.append(new WwwEngine(this));
-    for (DownloadEngine* e : m_engines) {
-        connect(e, &DownloadEngine::meta, this, &DownloadManager::onMeta);
-        connect(e, &DownloadEngine::stats, this, &DownloadManager::onStats);
-        connect(e, &DownloadEngine::resumeData, this, &DownloadManager::onResumeData);
-        connect(e, &DownloadEngine::finished, this, &DownloadManager::onFinished);
-        connect(e, &DownloadEngine::failed, this, &DownloadManager::onFailed);
-        connect(e, &DownloadEngine::stopped, this, &DownloadManager::onStopped);
-        connect(e, &DownloadEngine::log, this, &DownloadManager::onLog);
-    }
-    m_mode = qBound(0, m_db->setting(QStringLiteral("TumMode"), int(TrafficMode::High)).toInt(), 2);
+    m_manualMode = qBound(0, m_db->setting(QStringLiteral("TumMode"), int(TrafficMode::High)).toInt(), 2);
+    m_effectiveMode = m_manualMode;
+    const QJsonArray rules = QJsonDocument::fromJson(m_db->setting(QStringLiteral("TumSchedule")).toString().toUtf8()).array();
+    for (const auto& v : rules)
+        m_rules.append(TrafficRule::fromMap(v.toObject().toVariantMap()));
+
+    addEngine(new WwwEngine(this));
+
+    // Schedules are minute-granular; a 15 s tick keeps transitions prompt.
+    m_clock.setInterval(15000);
+    connect(&m_clock, &QTimer::timeout, this, [this] {
+        evaluateTrafficRules();
+        schedule();
+    });
+    m_clock.start();
+    evaluateTrafficRules();
     applyLimits();
 }
 
@@ -46,6 +57,21 @@ DownloadManager::~DownloadManager()
 {
     if (!m_shuttingDown)
         shutdown();
+}
+
+void DownloadManager::addEngine(DownloadEngine* e)
+{
+    e->setParent(this);
+    // Specialised engines (e.g. BitTorrent for .torrent URLs) take precedence over the generic one.
+    m_engines.prepend(e);
+    connect(e, &DownloadEngine::meta, this, &DownloadManager::onMeta);
+    connect(e, &DownloadEngine::stats, this, &DownloadManager::onStats);
+    connect(e, &DownloadEngine::resumeData, this, &DownloadManager::onResumeData);
+    connect(e, &DownloadEngine::finished, this, &DownloadManager::onFinished);
+    connect(e, &DownloadEngine::failed, this, &DownloadManager::onFailed);
+    connect(e, &DownloadEngine::stopped, this, &DownloadManager::onStopped);
+    connect(e, &DownloadEngine::log, this, &DownloadManager::onLog);
+    applyLimits();
 }
 
 QString DownloadManager::defaultUserAgent()
@@ -63,11 +89,26 @@ void DownloadManager::load()
         m_list.append(d);
     }
     schedule();
+    // Completed torrents keep seeding across restarts until the ratio is reached.
+    for (Download* d : m_list)
+        if (d->completed() && d->isTorrent() && !d->rec.resumeData.isEmpty())
+            if (DownloadEngine* e = engineByUid(d->rec.moduleUid)) {
+                TaskParams p;
+                p.id = d->id();
+                p.url = d->rec.url;
+                p.destDir = d->rec.destDir;
+                p.resumeData = d->rec.resumeData;
+                p.seedOnly = true;
+                d->setSeeding(true);
+                e->start(p);
+            }
 }
 
 DownloadEngine* DownloadManager::engineFor(const QString& url) const
 {
-    const QUrl u(url.trimmed(), QUrl::TolerantMode);
+    const QString t = url.trimmed();
+    const QUrl u = t.contains(QLatin1String("://")) || t.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive)
+                       ? QUrl(t, QUrl::TolerantMode) : QUrl::fromLocalFile(t);
     for (DownloadEngine* e : m_engines)
         if (e->canHandle(u))
             return e;
@@ -84,6 +125,12 @@ DownloadEngine* DownloadManager::engineByUid(const QString& uid) const
 
 bool DownloadManager::canHandle(const QString& url) const { return engineFor(url) != nullptr; }
 
+QString DownloadManager::moduleFor(const QString& url) const
+{
+    DownloadEngine* e = engineFor(url);
+    return e ? e->moduleUid() : QString();
+}
+
 Download* DownloadManager::find(qint64 id) const
 {
     for (Download* d : m_list)
@@ -93,7 +140,8 @@ Download* DownloadManager::find(qint64 id) const
 }
 
 Download* DownloadManager::add(const QString& url, const QString& destDir, const QString& fileName, bool start,
-                               const QString& referrer, const QString& cookies, const QString& userAgent)
+                               const QString& referrer, const QString& cookies, const QString& userAgent,
+                               const ScheduleWindow* sched)
 {
     DownloadEngine* e = engineFor(url);
     if (!e)
@@ -104,19 +152,30 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
     r.url = url.trimmed();
     r.destDir = destDir;
     r.preferredName = fileName.trimmed();
-    r.title = !r.preferredName.isEmpty() ? r.preferredName : FileNamer::fromUrl(QUrl(r.url));
+    if (!r.preferredName.isEmpty())
+        r.title = r.preferredName;
+    else if (r.url.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive))
+        r.title = QUrlQuery(QUrl(r.url)).queryItemValue(QStringLiteral("dn"), QUrl::FullyDecoded);
+    else
+        r.title = FileNamer::fromUrl(QUrl(r.url));
     if (r.title.isEmpty())
-        r.title = QUrl(r.url).host();
+        r.title = r.url.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive) ? tr("Magnet link") : QUrl(r.url).host();
     r.referrer = referrer;
     r.cookies = cookies;
     r.userAgent = userAgent;
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
+    if (sched) {
+        r.scheduled = true;
+        r.schedule = *sched;
+    }
 
     auto* d = new Download(r, this);
     m_list.prepend(d);
     persist(d);
     d->addLog(tr("Added %1").arg(r.url));
+    if (r.scheduled)
+        d->addLog(tr("Scheduled: %1").arg(r.schedule.text()));
     emit downloadAdded(d);
     schedule();
     return d;
@@ -130,7 +189,18 @@ void DownloadManager::schedule()
 {
     if (m_shuttingDown)
         return;
-    const int maxDownloads = limits(m_mode).maxDownloads;
+    const QDateTime now = QDateTime::currentDateTime();
+    const int maxDownloads = limits(m_effectiveMode).maxDownloads;
+
+    // Scheduled downloads whose window closed go back to waiting.
+    for (Download* d : m_list)
+        if (d->running() && !d->inScheduleWindow(now)) {
+            stopDownload(d);
+            d->setState(Download::Queued);
+            d->addLog(tr("Outside the schedule window (%1); waiting").arg(d->scheduleText()));
+            persist(d);
+        }
+
     int running = int(std::count_if(m_list.begin(), m_list.end(), [](Download* d) { return d->running(); }));
 
     // Too many running after switching to a lower mode: send the newest back to the queue.
@@ -147,7 +217,7 @@ void DownloadManager::schedule()
 
     QList<Download*> queue;
     for (Download* d : m_list)
-        if (d->queued())
+        if (d->queued() && d->inScheduleWindow(now))
             queue.append(d);
     std::stable_sort(queue.begin(), queue.end(), [](Download* a, Download* b) {
         if (a->priority() != b->priority())
@@ -160,6 +230,22 @@ void DownloadManager::schedule()
         startDownload(d);
         ++running;
     }
+    for (Download* d : m_list)
+        if (d->queued() && d->scheduled())
+            d->notify(); // refresh "Scheduled"/"Queued" text
+    checkAllDone();
+}
+
+void DownloadManager::checkAllDone()
+{
+    // "When done" fires once after the last active download finishes
+    // (scheduled downloads still waiting for their window don't count).
+    const bool active = std::any_of(m_list.begin(), m_list.end(), [](Download* d) {
+        return d->running() || (d->queued() && !d->waitingForSchedule());
+    });
+    if (m_hadActive && !active)
+        emit allDownloadsFinished();
+    m_hadActive = active;
 }
 
 void DownloadManager::startDownload(Download* d)
@@ -180,7 +266,7 @@ void DownloadManager::startDownload(Download* d)
     p.userAgent = d->rec.userAgent.isEmpty() ? defaultUserAgent() : d->rec.userAgent;
     p.proxy = systemProxyFor(d->rec.url);
     p.resumeData = d->rec.resumeData;
-    p.maxConnections = limits(m_mode).maxConnections;
+    p.maxConnections = limits(m_effectiveMode).maxConnections;
     d->setState(Download::Starting);
     d->addLog(tr("Starting"));
     persist(d);
@@ -189,12 +275,13 @@ void DownloadManager::startDownload(Download* d)
 
 void DownloadManager::stopDownload(Download* d)
 {
-    if (!d->running())
+    if (!d->running() && !d->seeding())
         return;
     if (DownloadEngine* e = engineByUid(d->rec.moduleUid)) {
         ++d->pendingStops;
         e->stop(d->id());
     }
+    d->setSeeding(false);
 }
 
 void DownloadManager::pause(Download* d)
@@ -217,6 +304,14 @@ void DownloadManager::resume(Download* d)
     schedule();
 }
 
+void DownloadManager::stopSeeding(Download* d)
+{
+    if (!d || !d->seeding())
+        return;
+    stopDownload(d);
+    d->addLog(tr("Seeding stopped"));
+}
+
 void DownloadManager::restart(Download* d)
 {
     if (!d)
@@ -224,7 +319,7 @@ void DownloadManager::restart(Download* d)
     stopDownload(d);
     if (!d->rec.filePath.isEmpty()) {
         QFile::remove(d->rec.filePath + FileNamer::kPartSuffix);
-        if (d->completed())
+        if (d->completed() && QFileInfo(d->rec.filePath).isFile())
             QFile::remove(d->rec.filePath);
     }
     d->rec.resumeData.clear();
@@ -245,12 +340,15 @@ void DownloadManager::remove(Download* d, bool deleteFiles)
     if (!d)
         return;
     stopDownload(d);
-    if (deleteFiles && !d->rec.filePath.isEmpty()) {
-        QFile::remove(d->rec.filePath + FileNamer::kPartSuffix);
-        if (d->completed())
-            QFile::remove(d->rec.filePath);
-    } else if (!d->completed() && !d->rec.filePath.isEmpty()) {
-        QFile::remove(d->rec.filePath + FileNamer::kPartSuffix); // unfinished data is useless without the record
+    if (!d->rec.filePath.isEmpty()) {
+        const QFileInfo fi(d->rec.filePath);
+        if (deleteFiles || !d->completed()) {
+            QFile::remove(d->rec.filePath + FileNamer::kPartSuffix);
+            if (d->isTorrent() && fi.isDir())
+                QDir(d->rec.filePath).removeRecursively(); // multi-file torrent folder
+            else if (deleteFiles || d->isTorrent())
+                QFile::remove(d->rec.filePath);
+        }
     }
     m_db->remove(d->id());
     m_list.removeOne(d);
@@ -269,6 +367,28 @@ void DownloadManager::setPriority(Download* d, int priority)
     schedule();
 }
 
+void DownloadManager::setSchedule(Download* d, bool enabled, const ScheduleWindow& w)
+{
+    if (!d)
+        return;
+    d->rec.scheduled = enabled;
+    d->rec.schedule = w;
+    d->addLog(enabled ? tr("Scheduled: %1").arg(w.text()) : tr("Schedule removed"));
+    if (enabled && d->paused())
+        d->setState(Download::Queued); // a schedule implies "start when the window opens"
+    d->notify();
+    persist(d);
+    schedule();
+}
+
+void DownloadManager::setFileWanted(Download* d, int index, bool wanted)
+{
+    if (!d)
+        return;
+    if (DownloadEngine* e = engineByUid(d->rec.moduleUid))
+        e->setFileWanted(d->id(), index, wanted);
+}
+
 void DownloadManager::pauseAll()
 {
     for (Download* d : m_list)
@@ -277,6 +397,7 @@ void DownloadManager::pauseAll()
             d->setState(Download::Paused);
             persist(d);
         }
+    m_hadActive = false;
 }
 
 void DownloadManager::resumeAll()
@@ -289,7 +410,7 @@ void DownloadManager::resumeAll()
     schedule();
 }
 
-// ------------------------------------------------------------------ traffic mode
+// ------------------------------------------------------------------ traffic modes
 
 TrafficMode::Limits DownloadManager::limits(int mode) const
 {
@@ -308,7 +429,7 @@ void DownloadManager::setLimits(int mode, const TrafficMode::Limits& l)
     m_db->setSetting(p + QStringLiteral("_MaxDownloads"), l.maxDownloads);
     m_db->setSetting(p + QStringLiteral("_MaxConnections"), l.maxConnections);
     m_db->setSetting(p + QStringLiteral("_MaxDownloadSpeed"), l.speedLimitKBps);
-    if (mode == m_mode) {
+    if (mode == m_effectiveMode) {
         applyLimits();
         schedule();
     }
@@ -317,21 +438,83 @@ void DownloadManager::setLimits(int mode, const TrafficMode::Limits& l)
 void DownloadManager::setTrafficMode(int mode)
 {
     mode = qBound(0, mode, 2);
-    if (mode == m_mode)
-        return;
-    m_mode = mode;
+    m_manualMode = mode;
     m_db->setSetting(QStringLiteral("TumMode"), mode);
-    applyLimits();
-    schedule();
+    // Clicking a mode while a schedule rule is active overrides that rule until its window ends.
+    if (m_activeRule >= 0)
+        m_overriddenRule = m_activeRule;
+    evaluateTrafficRules();
+}
+
+void DownloadManager::setTrafficRules(const QList<TrafficRule>& rules)
+{
+    m_rules = rules;
+    QJsonArray arr;
+    for (const TrafficRule& r : rules)
+        arr.append(QJsonObject::fromVariantMap(r.toMap()));
+    m_db->setSetting(QStringLiteral("TumSchedule"), QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
+    m_activeRule = m_overriddenRule = -1;
+    evaluateTrafficRules();
+}
+
+void DownloadManager::evaluateTrafficRules()
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    int active = -1;
+    for (int i = 0; i < m_rules.size(); ++i)
+        if (m_rules[i].enabled && m_rules[i].window.contains(now)) {
+            active = i;
+            break;
+        }
+    if (active != m_activeRule) {
+        m_activeRule = active;
+        if (m_overriddenRule != active)
+            m_overriddenRule = -1; // the overridden window ended
+    }
+    const int mode = trafficModeScheduled() ? m_rules[m_activeRule].mode : m_manualMode;
+    const bool modeChanged = mode != m_effectiveMode;
+    m_effectiveMode = mode;
+    if (modeChanged) {
+        applyLimits();
+        schedule();
+    }
+    emit trafficModeChanged();
 }
 
 void DownloadManager::applyLimits()
 {
-    const TrafficMode::Limits l = limits(m_mode);
+    const TrafficMode::Limits l = limits(m_effectiveMode);
     for (DownloadEngine* e : m_engines) {
         e->setSpeedLimit(qint64(l.speedLimitKBps) * 1024);
         e->setMaxConnections(l.maxConnections);
+        e->setUploadLimit(uploadLimitKBps() * 1024);
+        e->setSeedRatio(seedRatio());
     }
+}
+
+qint64 DownloadManager::uploadLimitKBps() const
+{
+    // In snail (Low) mode uploads are throttled too, like FDM.
+    const qint64 user = m_db->setting(QStringLiteral("MaxUploadSpeed"), 0).toLongLong();
+    if (m_effectiveMode == TrafficMode::Low) {
+        const qint64 lowCap = qMax<qint64>(16, limits(TrafficMode::Low).speedLimitKBps / 4);
+        return user > 0 ? qMin(user, lowCap) : lowCap;
+    }
+    return user;
+}
+
+void DownloadManager::setUploadLimitKBps(qint64 kbps)
+{
+    m_db->setSetting(QStringLiteral("MaxUploadSpeed"), qMax<qint64>(0, kbps));
+    applyLimits();
+}
+
+double DownloadManager::seedRatio() const { return m_db->setting(QStringLiteral("MaxURatio"), 1.0).toDouble(); }
+
+void DownloadManager::setSeedRatio(double r)
+{
+    m_db->setSetting(QStringLiteral("MaxURatio"), qMax(0.0, r));
+    applyLimits();
 }
 
 void DownloadManager::shutdown()
@@ -339,6 +522,7 @@ void DownloadManager::shutdown()
     if (m_shuttingDown)
         return;
     m_shuttingDown = true;
+    m_clock.stop();
     for (DownloadEngine* e : m_engines) {
         const auto finals = e->shutdown();
         for (auto it = finals.begin(); it != finals.end(); ++it) {
@@ -356,7 +540,7 @@ void DownloadManager::shutdown()
 void DownloadManager::onMeta(qint64 id, const QString& fileName, const QString& filePath, qint64 total, bool resumable)
 {
     Download* d = find(id);
-    if (!d || !d->running())
+    if (!d || !(d->running() || d->seeding()))
         return;
     d->rec.filePath = filePath;
     d->rec.total = total;
@@ -380,7 +564,7 @@ void DownloadManager::onStats(const TaskStats& st)
 void DownloadManager::onResumeData(qint64 id, const QByteArray& data)
 {
     Download* d = find(id);
-    if (!d || !d->running())
+    if (!d || !(d->running() || d->seeding()) || data.isEmpty())
         return;
     d->rec.resumeData = data;
     m_db->saveProgress(id, d->rec.received, data);
@@ -389,7 +573,7 @@ void DownloadManager::onResumeData(qint64 id, const QByteArray& data)
 void DownloadManager::onFinished(qint64 id, const QString& filePath)
 {
     Download* d = find(id);
-    if (!d)
+    if (!d || !d->running())
         return;
     d->rec.filePath = filePath;
     d->setTitle(QFileInfo(filePath).fileName());
@@ -397,8 +581,11 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         d->rec.total = d->rec.received;
     d->rec.received = d->rec.total;
     d->rec.finished = QDateTime::currentDateTime();
-    d->rec.resumeData.clear();
+    if (!d->isTorrent())
+        d->rec.resumeData.clear(); // torrents keep it to seed after restart
     d->setState(Download::Completed);
+    if (d->isTorrent())
+        d->setSeeding(true);
     persist(d);
     emit downloadFinished(d);
     emit statsUpdated();
@@ -426,6 +613,13 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         return;
     if (d->pendingStops > 0)
         --d->pendingStops;
+    if (d->completed()) { // seeding ended (ratio reached or stopped by the user)
+        d->setSeeding(false);
+        d->rec.resumeData.clear(); // don't resume seeding on the next start
+        persist(d);
+        emit statsUpdated();
+        return;
+    }
     // If the download was already restarted, this stale data belongs to the old task.
     if (!d->running() && d->pendingStops == 0 && !resumeData.isEmpty() && d->rec.state != Download::Queued) {
         d->rec.resumeData = resumeData;
@@ -433,7 +627,7 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         d->notify();
         m_db->saveProgress(id, d->rec.received, resumeData);
     } else if (d->rec.state == Download::Queued && !resumeData.isEmpty() && !d->rec.resumeData.isEmpty()) {
-        // Re-queued by a traffic-mode switch: keep the freshest resume point.
+        // Re-queued by a traffic-mode/schedule switch: keep the freshest resume point.
         d->rec.resumeData = resumeData;
         m_db->saveProgress(id, d->rec.received, resumeData);
     }

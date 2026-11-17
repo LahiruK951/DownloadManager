@@ -27,6 +27,8 @@ QtObject {
                                        ? "Segoe Fluent Icons" : "Segoe MDL2 Assets"
 
     readonly property var icons: ({
+        power: String.fromCharCode(0xE7E8), calendar: String.fromCharCode(0xE787),
+        upload: String.fromCharCode(0xE898),
         add: "", play: "", pause: "", del: "", search: "",
         menu: "", folder: "", open: "", settings: "", refresh: "",
         close: "", down: "", up: "", copy: "", link: "",

@@ -20,6 +20,8 @@ add_library(fluxcore STATIC
     src/core/Database.h               src/core/Database.cpp
     src/core/FileNamer.h              src/core/FileNamer.cpp
     src/core/TrafficMode.h
+    src/core/Schedule.h
+    src/core/BatchLinks.h
     # module "downloadswww": HTTP/HTTPS/FTP via libcurl
     src/engines/www/FileWriter.h      src/engines/www/FileWriter.cpp
     src/engines/www/HttpTask.h        src/engines/www/HttpTask.cpp
@@ -30,7 +32,18 @@ target_include_directories(fluxcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl)
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
 if(MSVC)
-    target_compile_options(fluxcore PUBLIC /utf-8 /W3)
+    target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
+endif()
+
+# module "downloadsbt": BitTorrent via libtorrent-rasterbar (optional)
+find_package(LibtorrentRasterbar CONFIG QUIET)
+if(LibtorrentRasterbar_FOUND)
+    message(STATUS "BitTorrent support: libtorrent ${LibtorrentRasterbar_VERSION}")
+    target_sources(fluxcore PRIVATE src/engines/bt/BtEngine.h src/engines/bt/BtEngine.cpp)
+    target_link_libraries(fluxcore PUBLIC LibtorrentRasterbar::torrent-rasterbar)
+    target_compile_definitions(fluxcore PUBLIC FLUXDM_HAS_TORRENT)
+else()
+    message(STATUS "BitTorrent support: disabled (libtorrent not found)")
 endif()
 
 # ---------------------------------------------------------------- application
@@ -58,6 +71,9 @@ set(FLUXDM_QML_FILES
     qml/SettingsDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
+    qml/ScheduleEditor.qml
+    qml/ScheduleDialog.qml
+    qml/WhenDoneDialog.qml
 )
 # Place every QML file at the module root so they all see the module's types (App, Theme, ...).
 foreach(f IN LISTS FLUXDM_QML_FILES)
@@ -76,6 +92,9 @@ qt_add_qml_module(fluxdm
 
 target_link_libraries(fluxdm PRIVATE fluxcore Qt6::Widgets Qt6::Quick Qt6::QuickControls2 Qt6::Qml)
 target_include_directories(fluxdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/ui) # for qmltyperegistrar
+if(WIN32)
+    target_link_libraries(fluxdm PRIVATE PowrProf Shell32)
+endif()
 set_target_properties(fluxdm PROPERTIES OUTPUT_NAME "FluxDM")
 
 # ---------------------------------------------------------------- tests

@@ -8,8 +8,10 @@ Rectangle {
     signal deleteClicked()
     signal settingsClicked()
     signal aboutClicked()
+    signal openTorrentClicked()
 
     function focusSearch() { search.forceActiveFocus(); search.selectAll() }
+    function openMenu() { mainMenu.popup(menuBtn, 0, menuBtn.height) }
 
     implicitHeight: 56
     color: Theme.surface
@@ -94,7 +96,22 @@ Rectangle {
             Menu {
                 id: mainMenu
                 MenuItem { text: qsTr("Add download…"); onTriggered: bar.addClicked() }
+                MenuItem { text: qsTr("Open torrent file…"); visible: App.torrentSupport; height: visible ? implicitHeight : 0; onTriggered: bar.openTorrentClicked() }
                 MenuSeparator {}
+                Menu {
+                    title: qsTr("When all downloads are done")
+                    Repeater {
+                        model: [qsTr("Do nothing"), qsTr("Sleep"), qsTr("Hibernate"), qsTr("Shut down"), qsTr("Exit FluxDM")]
+                        MenuItem {
+                            required property string modelData
+                            required property int index
+                            text: modelData
+                            checkable: true
+                            checked: App.whenDone === index
+                            onTriggered: App.whenDone = index
+                        }
+                    }
+                }
                 MenuItem {
                     text: qsTr("Compact view")
                     checkable: true

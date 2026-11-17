@@ -11,13 +11,19 @@ Dialog {
     width: Math.min(640, parent.width - 40)
     padding: 20
 
-    readonly property var urls: urlsField.text.split(/\s+/).filter(s => s.length > 0)
+    readonly property int linkCount: App.countLinks(urlsField.text)
+    readonly property bool torrent: App.isTorrentLink(urlsField.text)
 
     function openWith(text) {
         urlsField.text = text || ""
         nameField.text = ""
         errorText.text = ""
         startBox.checked = true
+        const s = App.defaultSchedule()
+        schedBox.checked = false
+        schedEditor.days = s.days
+        schedEditor.fromMin = s.from
+        schedEditor.toMin = s.to
         open()
         folderField.editText = App.defaultFolder
         urlsField.forceActiveFocus()
@@ -25,7 +31,8 @@ Dialog {
     }
 
     function submit() {
-        const err = App.addDownloads(urlsField.text, folderField.editText, nameField.text, startBox.checked)
+        const err = App.addDownloads(urlsField.text, folderField.editText, nameField.text, startBox.checked,
+                                     { enabled: schedBox.checked, days: schedEditor.days, from: schedEditor.fromMin, to: schedEditor.toMin })
         if (err === "") close()
         else errorText.text = err
     }
@@ -42,14 +49,17 @@ Dialog {
     contentItem: ColumnLayout {
         spacing: 8
 
-        Label { text: qsTr("Link (one per line for several)"); color: Theme.textDim }
+                Label {
+            text: qsTr("Link, magnet or .torrent (one per line; ranges like file[1-20].zip expand)")
+            color: Theme.textDim
+        }
         ScrollView {
             Layout.fillWidth: true
             Layout.preferredHeight: 84
             TextArea {
                 id: urlsField
                 wrapMode: TextArea.WrapAnywhere
-                placeholderText: "https://example.com/file.zip"
+                placeholderText: "https://example.com/file.zip   magnet:?xt=urn:btih:…"
                 color: Theme.text
                 placeholderTextColor: Theme.textDisabled
                 selectByMouse: true
@@ -73,11 +83,11 @@ Dialog {
             Button { text: qsTr("Browse…"); onClicked: folderDlg.open() }
         }
 
-        Label { text: qsTr("File name (optional)"); color: Theme.textDim; Layout.topMargin: 6; visible: dlg.urls.length <= 1 }
+        Label { text: qsTr("File name (optional)"); color: Theme.textDim; Layout.topMargin: 6; visible: dlg.linkCount <= 1 && !dlg.torrent }
         TextField {
             id: nameField
             Layout.fillWidth: true
-            visible: dlg.urls.length <= 1
+            visible: dlg.linkCount <= 1 && !dlg.torrent
             placeholderText: qsTr("Taken from the server")
             color: Theme.text
             placeholderTextColor: Theme.textDisabled
@@ -85,7 +95,9 @@ Dialog {
             onAccepted: dlg.submit()
         }
 
-        CheckBox { id: startBox; text: qsTr("Start downloading immediately"); checked: true; Layout.topMargin: 4 }
+        CheckBox { id: startBox; text: qsTr("Start downloading immediately"); checked: true; Layout.topMargin: 4; enabled: !schedBox.checked }
+        CheckBox { id: schedBox; text: qsTr("Schedule: download only during this time") }
+        ScheduleEditor { id: schedEditor; visible: schedBox.checked; Layout.leftMargin: 28 }
 
         Text {
             id: errorText
@@ -105,9 +117,9 @@ Dialog {
             spacing: 8
             Button { text: qsTr("Cancel"); onClicked: dlg.close() }
             Button {
-                text: dlg.urls.length > 1 ? qsTr("Download %1 files").arg(dlg.urls.length) : qsTr("Download")
+                text: dlg.linkCount > 1 ? qsTr("Download %1 files").arg(dlg.linkCount) : qsTr("Download")
                 highlighted: true
-                enabled: dlg.urls.length > 0
+                enabled: dlg.linkCount > 0
                 onClicked: dlg.submit()
             }
         }
