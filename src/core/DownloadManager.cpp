@@ -623,6 +623,30 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
     if (d->rec.moduleUid == QLatin1String("downloadsm3u") && filePath.endsWith(QLatin1String(".ts"), Qt::CaseInsensitive)
         && convertStreams())
         convertToMp4(d);
+    if (d->rec.moduleUid == QLatin1String("downloadswww") && FileNamer::looksLikeTorrentFile(filePath))
+        openDownloadedTorrent(d);
+}
+
+void DownloadManager::openDownloadedTorrent(Download* d)
+{
+    // Links like ".../torrent/download/<hash>" deliver a .torrent file without saying so in the URL.
+    // Like FDM, start it as a torrent instead of leaving the small .torrent file in the list.
+    QString path = d->rec.filePath;
+    if (!path.endsWith(QLatin1String(".torrent"), Qt::CaseInsensitive)) {
+        const QString renamed = FileNamer::uniquePath(QFileInfo(path).absolutePath(), QFileInfo(path).fileName() + QStringLiteral(".torrent"));
+        if (QFile::rename(path, renamed))
+            path = renamed;
+    }
+    if (!canHandle(path)) {
+        d->addLog(tr("This is a .torrent file, but BitTorrent support is not available"));
+        return;
+    }
+    Download* t = add(path, d->rec.destDir, {}, true, d->rec.url);
+    if (!t)
+        return;
+    t->addLog(tr("Started from the torrent file downloaded from %1").arg(d->rec.url));
+    const qint64 oldId = d->id();
+    QTimer::singleShot(0, this, [this, oldId] { remove(find(oldId), false); });
 }
 
 void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray& resumeData)

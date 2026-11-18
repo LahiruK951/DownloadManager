@@ -1,6 +1,6 @@
 # Configure + build FluxDM with MSVC/Ninja, deploy Qt runtime, optionally run tests or the app.
 param(
-    [ValidateSet("msvc-release", "msvc-debug")][string]$Preset = "msvc-release",
+    [ValidateSet("msvc-release", "msvc-debug", "msvc-sandbox")][string]$Preset = "msvc-release",
     [switch]$ConfigureOnly,
     [switch]$Test,
     [switch]$Run

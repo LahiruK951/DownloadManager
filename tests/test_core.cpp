@@ -140,6 +140,20 @@ private slots:
         QCOMPARE(FileNamer::category("noext"), QStringLiteral("Other"));
     }
 
+    void torrentFileDetection()
+    {
+        QTemporaryDir dir;
+        auto write = [&](const char* name, const QByteArray& data) {
+            QFile f(dir.filePath(name));
+            f.open(QIODevice::WriteOnly);
+            f.write(data);
+            return dir.filePath(name);
+        };
+        QVERIFY(FileNamer::looksLikeTorrentFile(write("3C3B5CB1", "d8:announce35:udp://tracker.example:1337/announce4:infod6:lengthi1e4:name1:a12:piece lengthi16384eee")));
+        QVERIFY(!FileNamer::looksLikeTorrentFile(write("page.html", "<!doctype html><html><body>not a torrent at all</body></html>")));
+        QVERIFY(!FileNamer::looksLikeTorrentFile(write("data.bin", makeData(4096))));
+    }
+
     void uniquePath()
     {
         QTemporaryDir dir;

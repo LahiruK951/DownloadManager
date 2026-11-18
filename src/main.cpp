@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
             db.setSetting(QStringLiteral("BtListenPort"), btPort);
         }
         // Dev profiles (screenshots) stay off the network: loopback only, no DHT.
-        const bool offline = qEnvironmentVariableIsSet("FLUXDM_DATA_DIR");
+        const bool offline = qEnvironmentVariableIsSet("FLUXDM_DATA_DIR") && !qEnvironmentVariableIsSet("FLUXDM_ONLINE");
         mgr.addEngine(new BtEngine(QDir(dataDir).filePath(QStringLiteral("bt")), offline ? 0 : btPort, offline));
 #endif
         mgr.addEngine(new HlsEngine); // .m3u8 links: takes precedence over plain HTTP

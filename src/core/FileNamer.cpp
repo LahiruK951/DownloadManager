@@ -120,4 +120,17 @@ QString category(const QString& fileName)
     return map.value(QFileInfo(fileName).suffix().toLower(), QStringLiteral("Other"));
 }
 
+bool looksLikeTorrentFile(const QString& path)
+{
+    const QFileInfo fi(path);
+    if (!fi.isFile() || fi.size() < 32 || fi.size() > 32 * 1024 * 1024)
+        return false;
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+    const QByteArray head = f.read(256 * 1024);
+    // A torrent is a bencoded dictionary with an "info" dictionary (and usually "announce").
+    return head.startsWith('d') && (head.contains("4:infod") || head.contains("8:announce"));
+}
+
 } // namespace FileNamer

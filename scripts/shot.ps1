@@ -5,7 +5,7 @@
 param(
     [string[]]$Views = @("main", "panel", "panel-files", "panel-log", "add", "settings", "menu", "delete", "whendone"),
     [string[]]$Themes = @("light", "dark"),
-    [string]$Preset = "msvc-release",
+    [string]$Preset = "msvc-release",   # msvc-sandbox while the main build is in use
     [double]$Scale = 1.0
 )
 $ErrorActionPreference = "Stop"

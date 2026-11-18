@@ -14,6 +14,12 @@
       }
     },
     {
+      "name": "msvc-sandbox",
+      "inherits": "msvc-release",
+      "displayName": "MSVC x64 release, separate folder (build while the main build is running)",
+      "binaryDir": "${sourceDir}/build/sandbox"
+    },
+    {
       "name": "msvc-debug",
       "inherits": "msvc-release",
       "displayName": "MSVC x64 Debug",
@@ -23,7 +29,8 @@
   ],
   "buildPresets": [
     { "name": "msvc-release", "configurePreset": "msvc-release" },
-    { "name": "msvc-debug", "configurePreset": "msvc-debug" }
+    { "name": "msvc-debug", "configurePreset": "msvc-debug" },
+    { "name": "msvc-sandbox", "configurePreset": "msvc-sandbox" }
   ],
   "testPresets": [
     { "name": "msvc-release", "configurePreset": "msvc-release", "output": { "outputOnFailure": true } },

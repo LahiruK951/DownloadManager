@@ -90,6 +90,7 @@ private:
     void runAutoRetries();
     void checkMissingFiles();
     void convertToMp4(Download* d);
+    void openDownloadedTorrent(Download* d);
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;
 
