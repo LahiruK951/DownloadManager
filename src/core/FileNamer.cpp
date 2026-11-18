@@ -51,6 +51,10 @@ QString fromContentDisposition(const QByteArray& header)
             if (!dec.isEmpty())
                 v = dec;
         }
+        // Some servers form-encode spaces as '+' ("Movie+-+Part+1.mp4"). Decode only when it is
+        // unambiguous: no real spaces, several '+', and no "++" (keeps "a+b.txt", "C++.pdf").
+        if (!v.contains(QLatin1Char(' ')) && v.count(QLatin1Char('+')) >= 2 && !v.contains(QLatin1String("++")))
+            v.replace(QLatin1Char('+'), QLatin1Char(' '));
         return v;
     }
     return {};

@@ -14,6 +14,8 @@ class Download : public QObject {
     Q_PROPERTY(qint64 id READ id CONSTANT)
     Q_PROPERTY(QString title READ title NOTIFY changed)
     Q_PROPERTY(QString url READ url NOTIFY changed)
+    Q_PROPERTY(QString referrer READ referrer NOTIFY changed)
+    Q_PROPERTY(QString sourceUrl READ sourceUrl NOTIFY changed) // what to show as "Address"
     Q_PROPERTY(QString filePath READ filePath NOTIFY changed)
     Q_PROPERTY(QString destDir READ destDir NOTIFY changed)
     Q_PROPERTY(qint64 total READ total NOTIFY changed)
@@ -72,6 +74,14 @@ public:
     qint64 id() const { return rec.id; }
     QString title() const { return rec.title; }
     QString url() const { return rec.url; }
+    QString referrer() const { return rec.referrer; }
+    // A torrent started from a downloaded .torrent file has a local path as its URL;
+    // the web link it came from (kept as referrer) is more useful to show.
+    QString sourceUrl() const
+    {
+        const bool local = !rec.url.contains(QLatin1String("://")) && !rec.url.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive);
+        return local && !rec.referrer.isEmpty() ? rec.referrer : (local ? QDir::toNativeSeparators(rec.url) : rec.url);
+    }
     QString filePath() const { return QDir::toNativeSeparators(rec.filePath); }
     QString destDir() const { return QDir::toNativeSeparators(rec.destDir); }
     qint64 total() const { return rec.total; }

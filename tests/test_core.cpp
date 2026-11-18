@@ -126,6 +126,10 @@ private slots:
         QCOMPARE(FileNamer::fromContentDisposition("attachment; filename=\"x.bin\"; filename*=UTF-8''%E2%82%AC%20rates.pdf"),
                  QString::fromUtf8("\xE2\x82\xAC rates.pdf"));
         QCOMPARE(FileNamer::fromContentDisposition(""), QString());
+        QCOMPARE(FileNamer::fromContentDisposition("attachment; filename=\"SITE.COM+-+[abc]+Clip+(720).mp4\""),
+                 QStringLiteral("SITE.COM - [abc] Clip (720).mp4"));
+        QCOMPARE(FileNamer::fromContentDisposition("attachment; filename=\"a+b.txt\""), QStringLiteral("a+b.txt"));
+        QCOMPARE(FileNamer::fromContentDisposition("attachment; filename=\"C++Primer+5th+ed.pdf\""), QStringLiteral("C++Primer+5th+ed.pdf"));
     }
 
     void namesAndCategories()

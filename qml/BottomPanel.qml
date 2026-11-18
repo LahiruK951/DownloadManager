@@ -166,7 +166,7 @@ Rectangle {
                             color: panel.d && panel.d.failed ? Theme.error : Theme.text
                         }
                         InfoLabel { text: qsTr("Address") }
-                        InfoValue { text: panel.d ? panel.d.url : ""; color: Theme.accent }
+                        InfoValue { text: panel.d ? panel.d.sourceUrl : ""; color: Theme.accent }
                         InfoLabel { text: qsTr("Saved to") }
                         InfoValue { text: panel.d ? (panel.d.filePath || panel.d.destDir) : "" }
                         InfoLabel { text: qsTr("Size") }
