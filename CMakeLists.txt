@@ -86,6 +86,7 @@ set(FLUXDM_QML_FILES
     qml/StatePill.qml
     qml/Toast.qml
     qml/SpeedLimitDialog.qml
+    qml/RenameDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

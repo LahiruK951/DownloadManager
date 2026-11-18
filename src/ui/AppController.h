@@ -158,6 +158,8 @@ public:
     Q_INVOKABLE void resumeSelected();
     Q_INVOKABLE void removeSelected(bool deleteFiles);
     Q_INVOKABLE void copySelectedLinks();
+    Q_INVOKABLE QString openSelected();              // opens the finished files; status text or ""
+    Q_INVOKABLE void setPrioritySelected(int priority);
     int selectionCount() const { return int(m_sel.size()); }
     int selectionRev() const { return m_selRev; }
     Q_INVOKABLE void pause(qint64 id);
@@ -176,9 +178,15 @@ public:
     Q_INVOKABLE QString ffmpegFound() const; // resolved path or ""
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
-    Q_INVOKABLE void openFile(qint64 id);
+    Q_INVOKABLE QString openFile(qint64 id);         // error text or ""; falls back to "Open with"
+    Q_INVOKABLE QString openWith(qint64 id);         // Windows "Open with" chooser; error text or ""
     Q_INVOKABLE void openFolder(qint64 id);
+    Q_INVOKABLE void openPage(qint64 id);            // the web page the download came from
+    Q_INVOKABLE bool hasPage(qint64 id) const;
     Q_INVOKABLE void copyLink(qint64 id);
+    Q_INVOKABLE void copyPath(qint64 id);
+    Q_INVOKABLE QString rename(qint64 id, const QString& newName); // error text or ""
+    Q_INVOKABLE bool canRename(qint64 id) const;
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
 
@@ -214,9 +222,12 @@ signals:
     void hiddenToTray();
     void whenDoneChanged();
     void whenDoneCountdown(int action);
+    void notice(const QString& text); // short message for the toast
 
 private:
     Download* byId(qint64 id) const;
+    QString doOpen(qint64 id);
+    QString doOpenWith(qint64 id);
     void scheduleRecount();
     void recount();
     void updateStats();

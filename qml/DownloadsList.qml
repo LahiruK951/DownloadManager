@@ -10,6 +10,14 @@ Item {
     signal requestDeleteSelection()
     signal requestSpeedLimit(var download)
     signal requestMove()
+    signal requestRename(var download)
+
+    // Developer aid (screenshots): pop up the context menu of row `i`.
+    function showContextMenu(i) {
+        list.positionViewAtIndex(i, ListView.Contain)
+        const it = list.itemAtIndex(i)
+        if (it) it.showMenu()
+    }
     signal requestOpenTorrent()
 
     ListView {
@@ -28,13 +36,20 @@ Item {
             onRequestDeleteSelection: root.requestDeleteSelection()
             onRequestSpeedLimit: (d) => root.requestSpeedLimit(d)
             onRequestMove: root.requestMove()
+            onRequestRename: (d) => root.requestRename(d)
         }
 
         focus: true
         Keys.onUpPressed: move(-1)
         Keys.onDownPressed: move(1)
         Keys.onSpacePressed: if (App.selected) App.togglePause(App.selected.id)
-        Keys.onReturnPressed: if (App.selected && App.selected.completed) App.openFile(App.selected.id)
+        Keys.onReturnPressed: if (App.selected) { if (App.selectionCount > 1) App.openSelected(); else App.openFile(App.selected.id) }
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_F2 && App.selected && App.selectionCount === 1 && App.canRename(App.selected.id)) {
+                root.requestRename(App.selected)
+                event.accepted = true
+            }
+        }
 
         function move(delta) {
             const n = list.count

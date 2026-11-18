@@ -11,6 +11,7 @@ Rectangle {
     signal requestDeleteSelection()
     signal requestSpeedLimit(var download)
     signal requestMove()
+    signal requestRename(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -258,12 +259,26 @@ Rectangle {
         visible: !row.isSelected
     }
 
+    // Finished, on disk and not being remuxed/moved: "Open" has something to act on.
+    readonly property bool canOpen: d.completed && !d.fileMissing && !d.converting && !d.moving
+
+    // Developer aid (screenshots): show this row's context menu.
+    function showMenu() { (App.selectionCount > 1 ? multiCtx : ctx).popup(row, row.width - 300, row.height / 2) }
+
     FMenu {
         id: multiCtx
         FMenuItem { text: qsTr("%1 downloads selected").arg(App.selectionCount); enabled: false }
         FMenuSeparator {}
+        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); onTriggered: App.openSelected() }
         FMenuItem { glyph: Theme.icons.play; text: qsTr("Resume"); onTriggered: App.resumeSelected() }
         FMenuItem { glyph: Theme.icons.pause; text: qsTr("Pause"); onTriggered: App.pauseSelected() }
+        FMenu {
+            title: qsTr("Priority")
+            FMenuItem { text: qsTr("High"); onTriggered: App.setPrioritySelected(2) }
+            FMenuItem { text: qsTr("Normal"); onTriggered: App.setPrioritySelected(1) }
+            FMenuItem { text: qsTr("Low"); onTriggered: App.setPrioritySelected(0) }
+        }
+        FMenuSeparator {}
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy links"); onTriggered: App.copySelectedLinks() }
         FMenuItem { glyph: String.fromCharCode(0xE8DE); text: qsTr("Move to…"); onTriggered: row.requestMove() }
         FMenuSeparator {}
@@ -272,13 +287,19 @@ Rectangle {
 
     FMenu {
         id: ctx
-        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.d.completed && !row.d.fileMissing; onTriggered: App.openFile(row.d.id) }
+        FMenuItem { glyph: Theme.icons.open; text: qsTr("Open"); enabled: row.canOpen; onTriggered: App.openFile(row.d.id) }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE7AC) // OpenWith
+            text: qsTr("Open with…")
+            enabled: row.canOpen
+            onTriggered: App.openWith(row.d.id)
+        }
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
         FMenuItem {
-            glyph: String.fromCharCode(0xE8DE) // MoveToFolder
-            text: qsTr("Move to…")
-            enabled: !row.d.running && !row.d.seeding && !row.d.moving
-            onTriggered: row.requestMove()
+            glyph: Theme.icons.globe
+            text: qsTr("Open download page")
+            visible: App.hasPage(row.d.id)
+            onTriggered: App.openPage(row.d.id)
         }
         FMenuSeparator {}
         FMenuItem {
@@ -306,7 +327,27 @@ Rectangle {
             onTriggered: row.requestSpeedLimit(row.d)
         }
         FMenuItem { glyph: Theme.icons.refresh; text: row.d.fileMissing ? qsTr("Download again") : qsTr("Restart"); onTriggered: App.restart(row.d.id) }
+        FMenuSeparator {}
+        FMenuItem {
+            glyph: String.fromCharCode(0xE8AC) // Rename
+            text: qsTr("Rename…")
+            visible: !row.d.isTorrent
+            enabled: row.canOpen
+            onTriggered: row.requestRename(row.d)
+        }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE8DE) // MoveToFolder
+            text: qsTr("Move to…")
+            enabled: !row.d.running && !row.d.seeding && !row.d.moving
+            onTriggered: row.requestMove()
+        }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE8C8) // Copy
+            text: qsTr("Copy file path")
+            enabled: row.d.filePath !== "" || row.d.destDir !== ""
+            onTriggered: App.copyPath(row.d.id)
+        }
         FMenu {
             title: qsTr("Priority")
             FMenuItem { text: qsTr("High"); checkable: true; checked: row.d.priority === 2; onTriggered: App.setPriority(row.d.id, 2) }

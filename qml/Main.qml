@@ -67,13 +67,14 @@ ApplicationWindow {
             win.bringToFront()
             addDialog.openWith(urls)
         }
+        function onNotice(text) { toast.show(text) }
         function onWhenDoneCountdown(action) {
             win.bringToFront()
             whenDoneDialog.start(action)
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -112,12 +113,14 @@ ApplicationWindow {
             }
 
             DownloadsList {
+                id: downloadsList
                 SplitView.fillHeight: true
                 SplitView.minimumHeight: 120
                 onRequestDelete: (d) => deleteDialog.openFor(d)
                 onRequestDeleteSelection: deleteDialog.openForSelection()
                 onRequestSpeedLimit: (d) => speedLimitDialog.openFor(d)
                 onRequestMove: moveDialog.open()
+                onRequestRename: (d) => renameDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -168,6 +171,8 @@ ApplicationWindow {
         else if (v === "speedlimit") { App.select(App.downloads.idAt(0)); speedLimitDialog.openFor(App.selected) }
         else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
+        else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
+        else if (v.startsWith("rename")) { App.select(App.downloads.idAt(Number(v.split(":")[1] || 0))); renameDialog.openFor(App.selected) }
         else if (v.startsWith("export:")) toast.show(App.exportDownloads(App.toUrl(v.substring(7))))
         else if (v.startsWith("import:")) { toast.show(App.importDownloads(App.toUrl(v.substring(7)))); App.filter = "active" }
         else if (v.startsWith("search:")) App.search = v.substring(7)
@@ -180,6 +185,7 @@ ApplicationWindow {
     AboutDialog { id: aboutDialog }
     ScheduleDialog { id: scheduleDialog }
     SpeedLimitDialog { id: speedLimitDialog }
+    RenameDialog { id: renameDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
@@ -212,6 +218,17 @@ ApplicationWindow {
             App.bottomPanelOpen = true
             const e = App.moveSelected(App.toUrl(App.devOpen.substring(5)))
             toast.show(e !== "" ? e : qsTr("Moved"))
+        }
+    }
+    Timer {
+        id: devMenuTimer
+        interval: 600 // rows must exist before their menu can be shown
+        onTriggered: {
+            const v = App.devOpen
+            const i = v === "ctx-multi" ? 0 : Number(v.split(":")[1] || 0)
+            App.select(App.downloads.idAt(i))
+            if (v === "ctx-multi") { App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(2)) }
+            downloadsList.showContextMenu(i)
         }
     }
     Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }

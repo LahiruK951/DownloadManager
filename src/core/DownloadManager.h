@@ -38,6 +38,9 @@ public:
     void setSpeedLimit(Download* d, int kbps);
     QString moveTo(Download* d, const QString& newDir); // returns error text or ""; may finish asynchronously
     static bool canMove(const Download* d);
+    // Rename a finished file on disk (not torrents: libtorrent owns their names). Error text or "".
+    QString rename(Download* d, const QString& newName);
+    static bool canRename(const Download* d);
 
     // Stream post-processing: remux HLS .ts to .mp4 with ffmpeg (FDM ships ffmpeg; we find one).
     bool convertStreams() const;

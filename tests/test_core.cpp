@@ -185,6 +185,65 @@ private slots:
         QCOMPARE(d.category(), QStringLiteral("Other"));
     }
 
+    void renameFinishedDownload()
+    {
+        QTemporaryDir dir;
+        const QString folder = QDir::toNativeSeparators(dir.path());
+        auto touch = [&](const QString& name) {
+            QFile f(QDir(dir.path()).filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("data");
+        };
+        touch(QStringLiteral("clip.mp4"));
+        touch(QStringLiteral("taken.mp4"));
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            DownloadRecord done;
+            done.id = 1;
+            done.url = QStringLiteral("https://example.com/clip.mp4");
+            done.destDir = folder;
+            done.title = QStringLiteral("clip.mp4");
+            done.filePath = QDir(folder).filePath(done.title);
+            done.state = Download::Completed;
+            db.save(done);
+            DownloadRecord running = done;
+            running.id = 2;
+            running.title = QStringLiteral("other.mp4");
+            running.filePath = QDir(folder).filePath(running.title);
+            running.state = Download::Paused;
+            db.save(running);
+            DownloadManager mgr(&db);
+            mgr.load();
+            Download* d = mgr.find(1);
+            QVERIFY(d);
+            QVERIFY(DownloadManager::canRename(d));
+            QVERIFY(!DownloadManager::canRename(mgr.find(2))); // not finished
+            QVERIFY(!mgr.rename(mgr.find(2), QStringLiteral("x.mp4")).isEmpty());
+
+            QVERIFY(!mgr.rename(d, QStringLiteral("bad:name.mp4")).isEmpty()); // invalid characters
+            QVERIFY(!mgr.rename(d, QStringLiteral("   ")).isEmpty());
+            QVERIFY(!mgr.rename(d, QStringLiteral("taken.mp4")).isEmpty()); // never overwrite
+            QVERIFY(QFile::exists(QDir(dir.path()).filePath("clip.mp4")));
+
+            QCOMPARE(mgr.rename(d, QStringLiteral("  My Clip (720).mp4 ")), QString());
+            QCOMPARE(d->title(), QStringLiteral("My Clip (720).mp4"));
+            QVERIFY(QFile::exists(QDir(dir.path()).filePath("My Clip (720).mp4")));
+            QVERIFY(!QFile::exists(QDir(dir.path()).filePath("clip.mp4")));
+            QCOMPARE(QFileInfo(d->filePath()).fileName(), QStringLiteral("My Clip (720).mp4"));
+
+            QCOMPARE(mgr.rename(d, QStringLiteral("MY CLIP (720).mp4")), QString()); // case-only change
+            QCOMPARE(d->title(), QStringLiteral("MY CLIP (720).mp4"));
+        }
+        Database db; // the new name was saved
+        QVERIFY(db.open(dir.path()));
+        const QList<DownloadRecord> all = db.loadDownloads();
+        const auto it = std::find_if(all.begin(), all.end(), [](const DownloadRecord& r) { return r.id == 1; });
+        QVERIFY(it != all.end());
+        QCOMPARE(it->title, QStringLiteral("MY CLIP (720).mp4"));
+        QCOMPARE(QFileInfo(it->filePath).fileName(), QStringLiteral("MY CLIP (720).mp4"));
+    }
+
     void contentCategoryPersists()
     {
         QTemporaryDir dir;

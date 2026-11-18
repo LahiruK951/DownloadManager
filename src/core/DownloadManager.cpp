@@ -758,6 +758,52 @@ bool DownloadManager::canMove(const Download* d)
     return d && !d->running() && !d->seeding() && !d->moving();
 }
 
+bool DownloadManager::canRename(const Download* d)
+{
+    return d && d->completed() && !d->isTorrent() && !d->moving() && !d->converting() && !d->fileMissing()
+        && !d->rec.filePath.isEmpty();
+}
+
+QString DownloadManager::rename(Download* d, const QString& newNameIn)
+{
+    if (!canRename(d))
+        return tr("Only finished downloads can be renamed");
+    const QString newName = newNameIn.trimmed();
+    if (newName.isEmpty())
+        return tr("Enter a file name");
+    if (FileNamer::sanitize(newName) != newName)
+        return tr("A file name can't contain any of these characters: \\ / : * ? \" < > |");
+    const QString oldPath = d->rec.filePath;
+    if (!QFileInfo::exists(oldPath)) {
+        d->setFileMissing(true);
+        return tr("The file was moved or deleted");
+    }
+    const QString newPath = QDir::toNativeSeparators(QFileInfo(oldPath).dir().filePath(newName));
+    if (newName == QFileInfo(oldPath).fileName())
+        return {};
+    // A case-only change ("a.mp4" -> "A.mp4") is the same file on Windows, not a collision.
+    const bool sameFile = newPath.compare(QDir::toNativeSeparators(oldPath), Qt::CaseInsensitive) == 0;
+    if (!sameFile && (QFileInfo::exists(newPath) || QFileInfo::exists(newPath + FileNamer::kPartSuffix)))
+        return tr("%1 already exists in this folder").arg(newName);
+    if (!QDir().rename(oldPath, newPath))
+        return tr("Cannot rename the file (is it open in another program?)");
+
+    d->rec.filePath = QDir::toNativeSeparators(newPath);
+    d->rec.preferredName = newName; // "Restart" downloads under the new name too
+    QJsonObject rd = QJsonDocument::fromJson(d->rec.resumeData).object();
+    if (rd.contains(QStringLiteral("finalPath"))) {
+        rd[QStringLiteral("finalPath")] = d->rec.filePath;
+        rd[QStringLiteral("partPath")] = d->rec.filePath + FileNamer::kPartSuffix;
+        rd[QStringLiteral("fileName")] = newName;
+        d->rec.resumeData = QJsonDocument(rd).toJson(QJsonDocument::Compact);
+    }
+    d->addLog(tr("Renamed to %1").arg(newName));
+    d->setTitle(newName);
+    d->notify();
+    persist(d);
+    return {};
+}
+
 QString DownloadManager::moveTo(Download* d, const QString& newDirIn)
 {
     if (!d)

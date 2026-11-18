@@ -366,7 +366,7 @@ void AppController::copySelectedLinks()
     QStringList links;
     for (qint64 id : m_sel)
         if (Download* d = byId(id))
-            links << d->url();
+            links << d->sourceUrl();
     m_lastClip = links.join(QLatin1Char('\n'));
     QGuiApplication::clipboard()->setText(m_lastClip);
 }
@@ -394,11 +394,132 @@ void AppController::setDownloadSpeedLimit(qint64 id, int kbps) { m_mgr->setSpeed
 void AppController::pauseAll() { m_mgr->pauseAll(); }
 void AppController::resumeAll() { m_mgr->resumeAll(); }
 
-void AppController::openFile(qint64 id)
+// What "Open" would act on, or an error explaining why it can't.
+static QString openablePath(Download* d, QString* error)
 {
-    Download* d = byId(id);
-    if (d && d->completed() && QFileInfo::exists(d->filePath()))
-        QDesktopServices::openUrl(QUrl::fromLocalFile(d->filePath()));
+    if (!d)
+        return {};
+    if (!d->completed()) {
+        *error = QCoreApplication::translate("AppController", "The download hasn't finished yet");
+        return {};
+    }
+    if (d->converting() || d->moving()) {
+        *error = QCoreApplication::translate("AppController", "Wait until the file is ready");
+        return {};
+    }
+    const QString path = d->filePath();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        d->setFileMissing(true);
+        *error = QCoreApplication::translate("AppController", "The file was moved or deleted");
+        return {};
+    }
+    return path;
+}
+
+QString AppController::openFile(qint64 id)
+{
+    const QString err = doOpen(id);
+    if (!err.isEmpty())
+        emit notice(err);
+    return err;
+}
+
+QString AppController::openWith(qint64 id)
+{
+    const QString err = doOpenWith(id);
+    if (!err.isEmpty())
+        emit notice(err);
+    return err;
+}
+
+QString AppController::doOpen(qint64 id)
+{
+    QString error;
+    const QString path = openablePath(byId(id), &error);
+    if (path.isEmpty())
+        return error;
+    if (QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+        return {};
+    // No program is associated with this type: let the user pick one.
+    return QFileInfo(path).isFile() ? doOpenWith(id) : tr("Cannot open %1").arg(path);
+}
+
+QString AppController::doOpenWith(qint64 id)
+{
+    QString error;
+    const QString path = openablePath(byId(id), &error);
+    if (path.isEmpty())
+        return error;
+    if (!QFileInfo(path).isFile())
+        return tr("“Open with” works on files, not folders");
+#ifdef Q_OS_WIN
+    // OpenAs_RunDLL takes the rest of the command line as the path: pass it unquoted.
+    QProcess p;
+    p.setProgram(QStringLiteral("rundll32.exe"));
+    p.setNativeArguments(QStringLiteral("shell32.dll,OpenAs_RunDLL ") + QDir::toNativeSeparators(path));
+    return p.startDetached() ? QString() : tr("Cannot show the “Open with” dialog");
+#else
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(path)) ? QString() : tr("Cannot open %1").arg(path);
+#endif
+}
+
+static bool isWebLink(const QString& s)
+{
+    return s.startsWith(QLatin1String("http://"), Qt::CaseInsensitive) || s.startsWith(QLatin1String("https://"), Qt::CaseInsensitive);
+}
+
+// The referrer is the page the link was on (browser integration, HLS sniffing). For a torrent
+// fetched from the web it is the .torrent link itself, which is not a page.
+bool AppController::hasPage(qint64 id) const
+{
+    const Download* d = byId(id);
+    return d && !d->isTorrent() && isWebLink(d->referrer()) && d->referrer() != d->url();
+}
+
+void AppController::openPage(qint64 id)
+{
+    if (hasPage(id))
+        QDesktopServices::openUrl(QUrl(byId(id)->referrer()));
+}
+
+void AppController::copyPath(qint64 id)
+{
+    if (Download* d = byId(id)) {
+        m_lastClip = d->filePath().isEmpty() ? d->destDir() : d->filePath();
+        QGuiApplication::clipboard()->setText(m_lastClip);
+    }
+}
+
+QString AppController::rename(qint64 id, const QString& newName) { return m_mgr->rename(byId(id), newName); }
+bool AppController::canRename(qint64 id) const { return DownloadManager::canRename(byId(id)); }
+
+QString AppController::openSelected()
+{
+    constexpr int kMax = 10; // don't launch a wall of players by accident
+    int opened = 0, skipped = 0;
+    for (qint64 id : m_sel) {
+        Download* d = byId(id);
+        if (!d || !d->completed() || opened >= kMax) {
+            ++skipped;
+            continue;
+        }
+        if (doOpen(id).isEmpty())
+            ++opened;
+        else
+            ++skipped;
+    }
+    const QString msg = opened == 0 ? tr("None of the selected downloads can be opened yet")
+        : skipped ? tr("Opened %1, skipped %2 (not finished, missing, or over %3)").arg(opened).arg(skipped).arg(kMax)
+        : QString();
+    if (!msg.isEmpty())
+        emit notice(msg);
+    return msg;
+}
+
+void AppController::setPrioritySelected(int priority)
+{
+    for (qint64 id : m_sel)
+        m_mgr->setPriority(byId(id), priority);
 }
 
 void AppController::openFolder(qint64 id)
@@ -421,9 +542,9 @@ void AppController::openFolder(qint64 id)
 
 void AppController::copyLink(qint64 id)
 {
-    if (Download* d = byId(id)) {
-        m_lastClip = d->url();
-        QGuiApplication::clipboard()->setText(d->url());
+    if (Download* d = byId(id)) { // a torrent from a downloaded .torrent: its web link, not the temp file
+        m_lastClip = d->sourceUrl();
+        QGuiApplication::clipboard()->setText(m_lastClip);
     }
 }
 
