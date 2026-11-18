@@ -2,6 +2,7 @@
 #include <QByteArray>
 #include <QString>
 #include <QUrl>
+#include <QVariantList>
 
 namespace FileNamer {
 inline const QString kPartSuffix = QStringLiteral(".fluxpart");
@@ -16,4 +17,7 @@ QString uniquePath(const QString& dir, const QString& name, const QString& partS
 bool looksLikeTorrentFile(const QString& path);
 // FDM-style automatic tag: Video, Music, Archive, Docs, Programs, Pictures or Other.
 QString category(const QString& fileName);
+// Category of a multi-file download ([{name, size}], e.g. a torrent): the one holding the most
+// bytes, so a movie with subtitles and a poster is Video. "" when the list is empty.
+QString categoryOfFiles(const QVariantList& files);
 } // namespace FileNamer

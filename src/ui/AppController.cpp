@@ -63,7 +63,7 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
 
     connect(m_mgr, &DownloadManager::downloadAdded, this, [this](Download* d) {
         connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
-        connect(d, &Download::titleChanged, this, &AppController::scheduleRecount);
+        connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
         scheduleRecount();
     });
     connect(m_mgr, &DownloadManager::downloadRemoved, this, [this](Download* d) {
@@ -90,7 +90,7 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     });
     for (Download* d : m_mgr->downloads()) {
         connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
-        connect(d, &Download::titleChanged, this, &AppController::scheduleRecount);
+        connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
     }
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, &AppController::onClipboardChanged);
     m_lastClip = QGuiApplication::clipboard()->text().trimmed(); // don't react to what was there before start

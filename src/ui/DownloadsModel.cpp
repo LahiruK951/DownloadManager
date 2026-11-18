@@ -29,6 +29,7 @@ void DownloadsModel::track(Download* d)
 {
     connect(d, &Download::stateChanged, this, [this, d] { rowChanged(d); });
     connect(d, &Download::titleChanged, this, [this, d] { rowChanged(d); });
+    connect(d, &Download::categoryChanged, this, [this, d] { rowChanged(d); });
 }
 
 void DownloadsModel::rowChanged(Download* d)

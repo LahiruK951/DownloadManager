@@ -583,8 +583,12 @@ void DownloadManager::onMeta(qint64 id, const QString& fileName, const QString& 
 
 void DownloadManager::onStats(const TaskStats& st)
 {
-    if (Download* d = find(st.id))
+    if (Download* d = find(st.id)) {
+        const QString cat = d->rec.contentCategory;
         d->applyStats(st);
+        if (d->rec.contentCategory != cat)
+            persist(d); // keep it when the torrent is not loaded (finished, or before metadata)
+    }
     emit statsUpdated();
 }
 

@@ -34,7 +34,7 @@ class Download : public QObject {
     Q_PROPERTY(bool completed READ completed NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(int resumable READ resumable NOTIFY changed)
-    Q_PROPERTY(QString category READ category NOTIFY changed)
+    Q_PROPERTY(QString category READ category NOTIFY categoryChanged)
     Q_PROPERTY(QDateTime created READ created CONSTANT)
     Q_PROPERTY(QDateTime finishedAt READ finishedAt NOTIFY changed)
     Q_PROPERTY(QVariantList segments READ segments NOTIFY changed)
@@ -145,6 +145,7 @@ signals:
     void stateChanged();
     void titleChanged();
     void filesChanged();
+    void categoryChanged(); // a multi-file download's content category became known
 
 private:
     double m_speed = 0;

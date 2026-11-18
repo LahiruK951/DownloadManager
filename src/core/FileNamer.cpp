@@ -124,6 +124,23 @@ QString category(const QString& fileName)
     return map.value(QFileInfo(fileName).suffix().toLower(), QStringLiteral("Other"));
 }
 
+QString categoryOfFiles(const QVariantList& files)
+{
+    QHash<QString, qint64> bytes;
+    for (const QVariant& v : files) {
+        const QVariantMap f = v.toMap();
+        bytes[category(f.value(QStringLiteral("name")).toString())] += qMax<qint64>(1, f.value(QStringLiteral("size")).toLongLong());
+    }
+    QString best;
+    qint64 most = -1;
+    for (auto it = bytes.cbegin(); it != bytes.cend(); ++it)
+        if (it.value() > most || (it.value() == most && it.key() < best)) { // tie: stable, alphabetical
+            best = it.key();
+            most = it.value();
+        }
+    return best;
+}
+
 bool looksLikeTorrentFile(const QString& path)
 {
     const QFileInfo fi(path);

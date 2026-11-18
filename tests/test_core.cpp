@@ -23,7 +23,10 @@
 #include <QProcess>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "core/Database.h"
 #include "core/FileNamer.h"
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include "core/Schedule.h"
 #include "engines/www/WwwEngine.h"
 
@@ -142,6 +145,83 @@ private slots:
         QCOMPARE(FileNamer::category("movie.MKV"), QStringLiteral("Video"));
         QCOMPARE(FileNamer::category("setup.exe"), QStringLiteral("Programs"));
         QCOMPARE(FileNamer::category("noext"), QStringLiteral("Other"));
+    }
+
+    static QVariantMap fileEntry(const QString& name, qint64 size)
+    {
+        return {{QStringLiteral("name"), name}, {QStringLiteral("size"), size}};
+    }
+
+    void multiFileCategory()
+    {
+        // A movie torrent: the video dominates the subtitles and the poster.
+        const QVariantList movie{fileEntry("Big Buck Bunny.en.srt", 140), fileEntry("Big Buck Bunny.mp4", 276134947),
+                                 fileEntry("poster.jpg", 310380)};
+        QCOMPARE(FileNamer::categoryOfFiles(movie), QStringLiteral("Video"));
+        // An album with a large cover scan is still Music.
+        const QVariantList album{fileEntry("01.flac", 30'000'000), fileEntry("02.flac", 28'000'000),
+                                 fileEntry("cover.png", 20'000'000)};
+        QCOMPARE(FileNamer::categoryOfFiles(album), QStringLiteral("Music"));
+        QCOMPARE(FileNamer::categoryOfFiles({}), QString());
+
+        // The Download picks it up from engine stats (multi-file only) and announces it.
+        DownloadRecord r;
+        r.moduleUid = QStringLiteral("downloadsbt");
+        r.title = QStringLiteral("Big Buck Bunny"); // folder name: no extension
+        r.state = Download::Downloading;
+        Download d(r);
+        QCOMPARE(d.category(), QStringLiteral("Other"));
+        QSignalSpy spy(&d, &Download::categoryChanged);
+        TaskStats st;
+        st.id = r.id;
+        st.files = movie;
+        d.applyStats(st);
+        QCOMPARE(d.category(), QStringLiteral("Video"));
+        QCOMPARE(spy.count(), 1);
+        d.applyStats(st); // unchanged: no repeat notification
+        QCOMPARE(spy.count(), 1);
+        st.files = QVariantList{fileEntry("only.iso", 100)}; // single file: the title decides
+        d.applyStats(st);
+        QCOMPARE(d.category(), QStringLiteral("Other"));
+    }
+
+    void contentCategoryPersists()
+    {
+        QTemporaryDir dir;
+        {   // A database from before the column existed: migration must add it.
+            QSqlDatabase old = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("old"));
+            old.setDatabaseName(QDir(dir.path()).filePath(QStringLiteral("db.sqlite")));
+            QVERIFY(old.open());
+            QSqlQuery q(old);
+            QVERIFY(q.exec(QStringLiteral(
+                "CREATE TABLE downloads (id INTEGER PRIMARY KEY, moduleUid TEXT, url TEXT, referrer TEXT,"
+                " cookies BLOB, userAgent TEXT, destinationPath TEXT, preferredFileTitle TEXT, title TEXT, filePath TEXT,"
+                " creationTime INTEGER, finishedTime INTEGER, resumeData BLOB, lastResult TEXT, state INTEGER,"
+                " totalBytes INTEGER, receivedBytes INTEGER, resumeSupport INTEGER, priority INTEGER, speedLimit INTEGER)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO downloads (id, title, state) VALUES (1, 'old.zip', 5)")));
+            old.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("old"));
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            const QList<DownloadRecord> before = db.loadDownloads();
+            QCOMPARE(before.size(), 1);
+            QCOMPARE(before.first().contentCategory, QString());
+            DownloadRecord r;
+            r.id = 2;
+            r.title = QStringLiteral("Some Show S01");
+            r.contentCategory = QStringLiteral("Video");
+            db.save(r);
+        }
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        const QList<DownloadRecord> all = db.loadDownloads();
+        QCOMPARE(all.size(), 2);
+        QCOMPARE(all.first().id, qint64(2));
+        QCOMPARE(all.first().contentCategory, QStringLiteral("Video"));
+        QCOMPARE(Download(all.first()).category(), QStringLiteral("Video"));
+        QCOMPARE(Download(all.last()).category(), QStringLiteral("Archive"));
     }
 
     void torrentFileDetection()

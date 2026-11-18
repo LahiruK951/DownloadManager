@@ -42,7 +42,10 @@ QString Download::stateText() const
     return {};
 }
 
-QString Download::category() const { return FileNamer::category(rec.title); }
+QString Download::category() const
+{
+    return rec.contentCategory.isEmpty() ? FileNamer::category(rec.title) : rec.contentCategory;
+}
 
 QVariantList Download::segments() const
 {
@@ -84,6 +87,7 @@ void Download::setTitle(const QString& title)
     rec.title = title;
     emit changed();
     emit titleChanged();
+    emit categoryChanged();
 }
 
 double Download::ratio() const
@@ -109,6 +113,12 @@ void Download::applyStats(const TaskStats& st)
     if (!st.files.isEmpty()) {
         m_files = st.files;
         emit filesChanged();
+        const QString cat = m_files.size() > 1 ? FileNamer::categoryOfFiles(m_files) : QString();
+        if (cat != rec.contentCategory) {
+            rec.contentCategory = cat;
+            emit changed();
+            emit categoryChanged();
+        }
     }
     m_uploadSpeed = st.uploadSpeed;
     m_uploaded = qMax(m_uploaded, st.uploaded);
