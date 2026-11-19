@@ -27,6 +27,7 @@
 #endif
 
 #include "core/BatchLinks.h"
+#include "core/BrowserHost.h"
 #include "core/Instance.h"
 #include "core/Download.h"
 #include "core/DownloadManager.h"
@@ -1242,12 +1243,20 @@ QString AppController::extensionDir() const
 
 void AppController::openExtensionDir() const { QDesktopServices::openUrl(QUrl::fromLocalFile(extensionDir())); }
 
+QString AppController::firefoxExtensionDir() const
+{
+    return QDir::toNativeSeparators(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("browser/firefox")));
+}
+
+void AppController::openFirefoxExtensionDir() const { QDesktopServices::openUrl(QUrl::fromLocalFile(firefoxExtensionDir())); }
+
 #ifdef Q_OS_WIN
 static const char* kBrowserKeys[] = {
     "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\NativeMessagingHosts",
     "HKEY_CURRENT_USER\\Software\\Microsoft\\Edge\\NativeMessagingHosts",
     "HKEY_CURRENT_USER\\Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts",
 };
+static const char* kFirefoxKey = "HKEY_CURRENT_USER\\Software\\Mozilla\\NativeMessagingHosts";
 #endif
 
 bool AppController::browserIntegrated() const
@@ -1275,13 +1284,7 @@ QString AppController::setBrowserIntegrated(bool on)
         QString extId = idFile.open(QIODevice::ReadOnly) ? QString::fromLatin1(idFile.readAll()).trimmed() : QString();
         if (extId.isEmpty())
             return tr("Browser extension files are missing (%1)").arg(extensionDir());
-        const QJsonObject manifest{
-            {QStringLiteral("name"), hostName},
-            {QStringLiteral("description"), QStringLiteral("FluxDM download manager")},
-            {QStringLiteral("path"), QDir::toNativeSeparators(host)},
-            {QStringLiteral("type"), QStringLiteral("stdio")},
-            {QStringLiteral("allowed_origins"), QJsonArray{QStringLiteral("chrome-extension://%1/").arg(extId)}},
-        };
+        const QJsonObject manifest = BrowserHost::chromiumManifest(hostName, QDir::toNativeSeparators(host), extId);
         QFile f(manifestPath);
         if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
             return tr("Cannot write %1").arg(manifestPath);
@@ -1291,12 +1294,27 @@ QString AppController::setBrowserIntegrated(bool on)
             QSettings reg(QString::fromLatin1(key), QSettings::NativeFormat);
             reg.setValue(hostName + QStringLiteral("/Default"), QDir::toNativeSeparators(manifestPath));
         }
+        // Firefox: its own manifest (allowed by add-on ID) under the Mozilla key.
+        const QString geckoId = BrowserHost::geckoId(QDir(firefoxExtensionDir()).filePath(QStringLiteral("manifest.json")));
+        if (!geckoId.isEmpty()) {
+            const QString ffPath = QDir(Instance::profileDir()).filePath(QStringLiteral("nativehost-firefox.json"));
+            QFile ff(ffPath);
+            if (ff.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                ff.write(QJsonDocument(BrowserHost::firefoxManifest(hostName, QDir::toNativeSeparators(host), geckoId)).toJson());
+                ff.close();
+                QSettings reg(QString::fromLatin1(kFirefoxKey), QSettings::NativeFormat);
+                reg.setValue(hostName + QStringLiteral("/Default"), QDir::toNativeSeparators(ffPath));
+            }
+        }
     } else {
         for (const char* key : kBrowserKeys) {
             QSettings reg(QString::fromLatin1(key), QSettings::NativeFormat);
             reg.remove(hostName);
         }
+        QSettings ffReg(QString::fromLatin1(kFirefoxKey), QSettings::NativeFormat);
+        ffReg.remove(hostName);
         QFile::remove(manifestPath);
+        QFile::remove(QDir(Instance::profileDir()).filePath(QStringLiteral("nativehost-firefox.json")));
     }
     emit settingsChanged();
     return {};

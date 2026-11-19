@@ -1,4 +1,5 @@
-// FluxDM browser integration (Chrome / Edge / Brave, Manifest V3).
+// FluxDM browser integration (Chrome / Edge / Brave / Firefox 128+, Manifest V3).
+// Firefox runs this same file as a background script (see browser/firefox/manifest.json).
 // Catches browser downloads and hands them to FluxDM through the native host,
 // together with the cookies, referrer and user agent the server may require.
 

@@ -23,6 +23,7 @@ add_library(fluxcore STATIC
     src/core/Secret.h                 src/core/Secret.cpp
     src/core/Tag.h
     src/core/ProxySettings.h
+    src/core/BrowserHost.h
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -148,9 +149,15 @@ target_include_directories(fluxdm-nativehost PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 target_link_libraries(fluxdm-nativehost PRIVATE Qt6::Core Qt6::Network)
 target_compile_definitions(fluxdm-nativehost PRIVATE FLUXDM_VERSION="${PROJECT_VERSION}")
 # Ship the unpacked browser extension next to the app (Settings → Browser → open folder).
+# Firefox uses the same scripts with its own manifest (background scripts, add-on ID).
 add_custom_command(TARGET fluxdm POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/browser/chromium
-            $<TARGET_FILE_DIR:fluxdm>/browser/chromium)
+            $<TARGET_FILE_DIR:fluxdm>/browser/chromium
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/browser/chromium
+            $<TARGET_FILE_DIR:fluxdm>/browser/firefox
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/browser/firefox/manifest.json
+            $<TARGET_FILE_DIR:fluxdm>/browser/firefox/manifest.json
+    COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE_DIR:fluxdm>/browser/firefox/extension-id.txt)
 
 # ---------------------------------------------------------------- tests
 enable_testing()

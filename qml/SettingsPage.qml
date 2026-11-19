@@ -18,7 +18,7 @@ Popup {
         { title: qsTr("Traffic modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode. Switch modes from the status bar at the bottom of the window.") },
         { title: qsTr("Snail schedule"), glyph: Theme.icons.clock, desc: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.") },
         { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
-        { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge and Brave to FluxDM.") },
+        { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge, Brave and Firefox to FluxDM.") },
         { title: qsTr("Network"), glyph: String.fromCharCode(0xE968), desc: qsTr("Proxy and how many connections FluxDM opens to one server.") }
     ]
 
@@ -708,7 +708,7 @@ Popup {
                         Layout.fillWidth: true
                         SettingRow {
                             title: qsTr("Connect FluxDM to your browsers")
-                            description: qsTr("Registers the FluxDM helper for Chrome, Edge and Brave (your Windows account only).")
+                            description: qsTr("Registers the FluxDM helper for Chrome, Edge, Brave and Firefox (your Windows account only).")
                             FToggle {
                                 id: browserToggle
                                 onToggled: {
@@ -740,7 +740,7 @@ Popup {
                         }
                     }
                     SettingsCard {
-                        title: qsTr("Install the extension")
+                        title: qsTr("Install the extension: Chrome, Edge, Brave")
                         description: qsTr("One-time setup in each browser:")
                         Layout.fillWidth: true
                         Repeater {
@@ -778,6 +778,54 @@ Popup {
                             description: App.extensionDir()
                             divider: false
                             FButton { glyph: Theme.icons.folder; text: qsTr("Open folder"); onClicked: App.openExtensionDir() }
+                        }
+                    }
+                    SettingsCard {
+                        title: qsTr("Install the extension: Firefox")
+                        description: qsTr("Firefox 128 or newer:")
+                        Layout.fillWidth: true
+                        Repeater {
+                            model: [
+                                qsTr("Open about:debugging#/runtime/this-firefox."),
+                                qsTr("Click Load Temporary Add-on… and choose manifest.json in the Firefox extension folder below."),
+                                qsTr("Turn on “Connect FluxDM to your browsers” above.")
+                            ]
+                            delegate: RowLayout {
+                                required property string modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                Layout.topMargin: 10
+                                spacing: 12
+                                Rectangle {
+                                    implicitWidth: 22
+                                    implicitHeight: 22
+                                    radius: 11
+                                    color: Theme.accentSoft
+                                    Text { anchors.centerIn: parent; text: index + 1; color: Theme.accent; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontBody
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 10
+                            text: qsTr("Firefox removes temporary add-ons when it restarts. To keep it installed, the extension has to be signed by Mozilla (free, on addons.mozilla.org).")
+                            color: Theme.textDim
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Theme.fontSmall
+                        }
+                        SettingRow {
+                            Layout.topMargin: 6
+                            title: qsTr("Firefox extension folder")
+                            description: App.firefoxExtensionDir()
+                            divider: false
+                            FButton { glyph: Theme.icons.folder; text: qsTr("Open folder"); onClicked: App.openFirefoxExtensionDir() }
                         }
                     }
                 }

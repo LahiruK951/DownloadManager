@@ -32,6 +32,7 @@
 #include "core/MediaConvert.h"
 #include "core/ProxySettings.h"
 #include "core/TorrentFolderWatcher.h"
+#include "core/BrowserHost.h"
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -1580,6 +1581,29 @@ private slots:
     }
 #endif
 
+    void browserHostManifests()
+    {
+        const QJsonObject c = BrowserHost::chromiumManifest("com.fluxdm.nativehost", "C:\\FluxDM\\fluxdm-nativehost.exe", "abcdef");
+        QCOMPARE(c.value("allowed_origins").toArray().first().toString(), QStringLiteral("chrome-extension://abcdef/"));
+        QVERIFY(!c.contains("allowed_extensions"));
+        const QJsonObject f = BrowserHost::firefoxManifest("com.fluxdm.nativehost", "C:\\FluxDM\\fluxdm-nativehost.exe", "browser-integration@fluxdm");
+        QCOMPARE(f.value("allowed_extensions").toArray().first().toString(), QStringLiteral("browser-integration@fluxdm"));
+        QVERIFY(!f.contains("allowed_origins"));
+        QCOMPARE(f.value("type").toString(), QStringLiteral("stdio"));
+
+        // The build ships a Firefox copy of the extension: same scripts, its own manifest.
+        const QDir app(QCoreApplication::applicationDirPath());
+        const QString ff = app.filePath("browser/firefox"), cr = app.filePath("browser/chromium");
+        const QString id = BrowserHost::geckoId(QDir(ff).filePath("manifest.json"));
+        QVERIFY2(QRegularExpression("^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$").match(id).hasMatch(), qPrintable(id)); // Mozilla's ID format
+        const QJsonObject m = QJsonDocument::fromJson(readAll(QDir(ff).filePath("manifest.json"))).object();
+        QCOMPARE(m.value("background").toObject().value("scripts").toArray().first().toString(), QStringLiteral("background.js"));
+        QVERIFY(!m.contains("key")); // the Chromium signing key has no meaning in Firefox
+        for (const char* file : {"background.js", "popup.js", "popup.html", "icons/48.png"})
+            QVERIFY2(readAll(QDir(ff).filePath(file)) == readAll(QDir(cr).filePath(file)) && !readAll(QDir(ff).filePath(file)).isEmpty(), file);
+        QVERIFY(!QFile::exists(QDir(ff).filePath("extension-id.txt")));
+    }
+
     void nativeHostForwardsToApp()
     {
         // Isolated channel: the host computes the same name from FLUXDM_DATA_DIR.
@@ -1601,10 +1625,10 @@ private slots:
             return QJsonDocument::fromJson(raw.mid(4, n)).object();
         };
 
-        // 1) ping with no app running
+        // 1) ping with no app running; Firefox starts hosts with (manifest path, add-on id) arguments
         {
             QProcess p;
-            p.start(host);
+            p.start(host, {"C:\\Users\\x\\nativehost-firefox.json", "browser-integration@fluxdm"});
             QVERIFY(p.waitForStarted());
             p.write(frame({{"cmd", "ping"}}));
             p.closeWriteChannel();

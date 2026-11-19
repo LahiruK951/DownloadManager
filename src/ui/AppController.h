@@ -164,6 +164,8 @@ public:
     Q_INVOKABLE QString setBrowserIntegrated(bool on); // returns error text or ""
     Q_INVOKABLE QString extensionDir() const;
     Q_INVOKABLE void openExtensionDir() const;
+    Q_INVOKABLE QString firefoxExtensionDir() const;
+    Q_INVOKABLE void openFirefoxExtensionDir() const;
     Q_INVOKABLE QString suggestedName(const QString& url) const;
     QString handleBrowserRequest(const QVariantMap& request); // returns error text or ""
     Q_INVOKABLE void select(qint64 id);              // single selection (plain click)
