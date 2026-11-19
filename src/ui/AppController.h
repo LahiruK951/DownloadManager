@@ -187,6 +187,8 @@ public:
     Q_INVOKABLE void copySelectedLinks();
     Q_INVOKABLE QString openSelected();              // opens the finished files; status text or ""
     Q_INVOKABLE void setPrioritySelected(int priority);
+    Q_INVOKABLE void moveInQueue(qint64 id, const QString& where);   // top | up | down | bottom
+    Q_INVOKABLE void moveSelectionInQueue(const QString& where);
     int selectionCount() const { return int(m_sel.size()); }
     int selectionRev() const { return m_selRev; }
     Q_INVOKABLE void pause(qint64 id);

@@ -129,7 +129,7 @@ bool DownloadsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex&) c
 
 void DownloadsFilterModel::setSortOrder(const QString& key, bool descending)
 {
-    static const QStringList keys = {QStringLiteral("added"), QStringLiteral("name"), QStringLiteral("size"), QStringLiteral("status")};
+    static const QStringList keys = {QStringLiteral("added"), QStringLiteral("name"), QStringLiteral("size"), QStringLiteral("status"), QStringLiteral("queue")};
     m_sortKey = keys.contains(key) ? key : QStringLiteral("added");
     m_sortDesc = descending;
     sort(0, m_sortDesc ? Qt::DescendingOrder : Qt::AscendingOrder);
@@ -163,6 +163,12 @@ bool DownloadsFilterModel::lessThan(const QModelIndex& left, const QModelIndex& 
         c = a->total() < b->total() ? -1 : (a->total() > b->total() ? 1 : 0);
     else if (m_sortKey == QLatin1String("status"))
         c = statusRank(a) - statusRank(b);
+    else if (m_sortKey == QLatin1String("queue")) { // unfinished in queue order, finished after them
+        if (a->completed() != b->completed())
+            c = a->completed() ? 1 : -1;
+        else if (!a->completed())
+            c = a->queueOrder() < b->queueOrder() ? -1 : (a->queueOrder() > b->queueOrder() ? 1 : 0);
+    }
     if (m_sortKey == QLatin1String("added"))
         return a->id() < b->id(); // ids grow with time
     if (c != 0)

@@ -38,6 +38,10 @@ public:
     void restart(Download* d);
     void remove(Download* d, bool deleteFiles);
     void setPriority(Download* d, int priority);
+    // Manual queue order among unfinished downloads (FDM: user-defined order). where:
+    // "top", "up", "down", "bottom". Several at once keep their relative order.
+    void moveInQueue(const QList<Download*>& ds, const QString& where);
+    QList<Download*> queueOrder() const; // unfinished downloads, first to start first
     void setSchedule(Download* d, bool enabled, const ScheduleWindow& w);
     void setFileWanted(Download* d, int index, bool wanted);
     void setSpeedLimit(Download* d, int kbps);
@@ -126,6 +130,7 @@ signals:
     void trafficModeChanged();
     void allDownloadsFinished();
     void tagsChanged();
+    void queueReordered();
     void conversionFinished(Download* d, const QString& output, const QString& error);
 
 private:

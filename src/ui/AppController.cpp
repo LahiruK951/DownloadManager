@@ -76,6 +76,8 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
         emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
     });
+    // Re-sort the list when the queue changes (only matters when sorted by queue order).
+    connect(m_mgr, &DownloadManager::queueReordered, this, [this] { m_proxy->invalidate(); });
     connect(m_mgr, &DownloadManager::tagsChanged, this, [this] {
         // a deleted tag can't stay the active filter
         if (filter().startsWith(QLatin1String("tag:")) && m_mgr->tag(filter().mid(4).toInt()).id == 0)
@@ -845,6 +847,21 @@ QString AppController::openSelected()
     if (!msg.isEmpty())
         emit notice(msg);
     return msg;
+}
+
+void AppController::moveInQueue(qint64 id, const QString& where)
+{
+    if (Download* d = byId(id))
+        m_mgr->moveInQueue({d}, where);
+}
+
+void AppController::moveSelectionInQueue(const QString& where)
+{
+    QList<Download*> ds;
+    for (qint64 id : m_sel)
+        if (Download* d = byId(id))
+            ds << d;
+    m_mgr->moveInQueue(ds, where);
 }
 
 void AppController::setPrioritySelected(int priority)

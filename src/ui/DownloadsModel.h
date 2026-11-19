@@ -33,7 +33,7 @@ public:
     void setSearch(const QString& s);
     QString filter() const { return m_filter; }
     QString search() const { return m_search; }
-    // key: "added" (default), "name", "size" or "status"; ties fall back to newest first.
+    // key: "added" (default), "name", "size", "status" or "queue"; ties fall back to newest first.
     void setSortOrder(const QString& key, bool descending);
     QString sortKey() const { return m_sortKey; }
     bool sortDescending() const { return m_sortDesc; }

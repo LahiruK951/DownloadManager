@@ -25,7 +25,8 @@ Rectangle {
         { key: "added", label: qsTr("Date added"), asc: qsTr("Oldest first"), desc: qsTr("Newest first") },
         { key: "name", label: qsTr("Name"), asc: qsTr("A to Z"), desc: qsTr("Z to A") },
         { key: "size", label: qsTr("Size"), asc: qsTr("Smallest first"), desc: qsTr("Largest first") },
-        { key: "status", label: qsTr("Status"), asc: qsTr("Active first"), desc: qsTr("Finished first") }
+        { key: "status", label: qsTr("Status"), asc: qsTr("Active first"), desc: qsTr("Finished first") },
+        { key: "queue", label: qsTr("Queue order"), asc: qsTr("Queue order"), desc: qsTr("Queue order, reversed") }
     ]
     signal newTagRequested()
     signal editTagRequested(var tag)
@@ -137,6 +138,7 @@ Rectangle {
         FMenuItem { text: root.sortKeys[1].label; checkable: true; checked: App.sortKey === "name"; onTriggered: App.setSort("name", false) }
         FMenuItem { text: root.sortKeys[2].label; checkable: true; checked: App.sortKey === "size"; onTriggered: App.setSort("size", true) }
         FMenuItem { text: root.sortKeys[3].label; checkable: true; checked: App.sortKey === "status"; onTriggered: App.setSort("status", false) }
+        FMenuItem { text: root.sortKeys[4].label; checkable: true; checked: App.sortKey === "queue"; onTriggered: App.setSort("queue", false) }
         FMenuSeparator {}
         FMenuItem {
             text: root.currentSort.asc

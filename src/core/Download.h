@@ -65,6 +65,7 @@ class Download : public QObject {
     Q_PROPERTY(QVariantList pendingFiles READ pendingFiles NOTIFY changed) // the files to pick from
     Q_PROPERTY(bool sequential READ sequential NOTIFY changed)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // user tag ids
+    Q_PROPERTY(qint64 queueOrder READ queueOrder NOTIFY changed)
     Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
 
 public:
@@ -152,6 +153,7 @@ public:
         return l;
     }
     bool hasTag(int id) const { return rec.tags.contains(id); }
+    qint64 queueOrder() const { return rec.queueOrder ? rec.queueOrder : rec.id; }
     void setTags(const QList<int>& ids)
     {
         if (ids == rec.tags)

@@ -33,6 +33,7 @@ struct DownloadRecord {
     bool pickFiles = false;     // torrent: ask which files to download once the list is known
     bool sequential = false;    // torrent: download in order
     QList<int> tags;            // user tag ids (downloadsTags)
+    qint64 queueOrder = 0;      // FDM downloadOrder: position in the queue (default: the id)
     QString contentCategory;    // from the file list of a multi-file download; "" = use the title
     bool scheduled = false;     // downloadsScheduleRecords row present
     ScheduleWindow schedule;

@@ -995,6 +995,91 @@ private slots:
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
     }
 
+    void manualQueueOrder()
+    {
+        QTemporaryDir dir;
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            for (int i = 1; i <= 4; ++i) {
+                DownloadRecord r;
+                r.id = i;
+                r.title = QStringLiteral("f%1.bin").arg(i);
+                r.state = Download::Paused;
+                db.save(r);
+            }
+            DownloadRecord done;
+            done.id = 5;
+            done.state = Download::Completed;
+            db.save(done);
+            DownloadManager mgr(&db);
+            mgr.load();
+            auto ids = [&] {
+                QList<qint64> l;
+                for (Download* d : mgr.queueOrder())
+                    l << d->id();
+                return l;
+            };
+            QCOMPARE(ids(), (QList<qint64>{1, 2, 3, 4})); // first come, first served; finished ones aren't queued
+            mgr.moveInQueue({mgr.find(3)}, "top");
+            QCOMPARE(ids(), (QList<qint64>{3, 1, 2, 4}));
+            mgr.moveInQueue({mgr.find(3)}, "up"); // already first
+            QCOMPARE(ids(), (QList<qint64>{3, 1, 2, 4}));
+            mgr.moveInQueue({mgr.find(1)}, "down");
+            QCOMPARE(ids(), (QList<qint64>{3, 2, 1, 4}));
+            mgr.moveInQueue({mgr.find(4), mgr.find(2)}, "top"); // a group keeps its relative order
+            QCOMPARE(ids(), (QList<qint64>{2, 4, 3, 1}));
+            mgr.moveInQueue({mgr.find(2), mgr.find(4)}, "down");
+            QCOMPARE(ids(), (QList<qint64>{3, 2, 4, 1}));
+            mgr.moveInQueue({mgr.find(3)}, "bottom");
+            QCOMPARE(ids(), (QList<qint64>{2, 4, 1, 3}));
+        }
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.load();
+        QList<qint64> again;
+        for (Download* d : mgr.queueOrder())
+            again << d->id();
+        QCOMPARE(again, (QList<qint64>{2, 4, 1, 3})); // saved
+
+        DownloadsModel model(&mgr);
+        DownloadsFilterModel proxy;
+        proxy.setSourceModel(&model);
+        proxy.setSortOrder("queue", false);
+        QCOMPARE(proxy.idAt(0), qint64(2));
+        QCOMPARE(proxy.idAt(4), qint64(5)); // finished ones last
+    }
+
+    void queueOrderDecidesWhatStarts()
+    {
+        RangeServer srv;
+        srv.data = makeData(2 * 1024 * 1024);
+        srv.chunk = 8 * 1024; // slow: the first download is still running when we look
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        for (int mode = 0; mode < 3; ++mode) {
+            TrafficMode::Limits l = mgr.limits(mode);
+            l.maxDownloads = 1;
+            mgr.setLimits(mode, l);
+        }
+        Download* busy = mgr.add(srv.url("/busy.bin"), dir.path(), {}, true); // takes the only slot
+        QTRY_VERIFY_WITH_TIMEOUT(busy->running(), 5000);
+        Download* a = mgr.add(srv.url("/a.bin"), dir.path(), {}, true);
+        Download* b = mgr.add(srv.url("/b.bin"), dir.path(), {}, true);
+        Download* c = mgr.add(srv.url("/c.bin"), dir.path(), {}, true);
+        QVERIFY(a->queued() && b->queued() && c->queued());
+        mgr.moveInQueue({c}, "top");
+        mgr.pause(busy); // the slot frees up: the first in the queue gets it
+        QTRY_VERIFY_WITH_TIMEOUT(c->running(), 5000);
+        QVERIFY(a->queued() && b->queued());
+    }
+
     void userTags()
     {
         QCOMPARE(Tag::parseExtensions(" ISO, .img;*.Zip  iso "), (QStringList{"iso", "img", "zip"}));

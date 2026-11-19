@@ -320,6 +320,13 @@ Rectangle {
         FMenuItem { glyph: Theme.icons.play; text: qsTr("Resume"); onTriggered: App.resumeSelected() }
         FMenuItem { glyph: Theme.icons.pause; text: qsTr("Pause"); onTriggered: App.pauseSelected() }
         FMenu {
+            title: qsTr("Queue")
+            FMenuItem { text: qsTr("Move to top"); onTriggered: App.moveSelectionInQueue("top") }
+            FMenuItem { text: qsTr("Move up"); onTriggered: App.moveSelectionInQueue("up") }
+            FMenuItem { text: qsTr("Move down"); onTriggered: App.moveSelectionInQueue("down") }
+            FMenuItem { text: qsTr("Move to bottom"); onTriggered: App.moveSelectionInQueue("bottom") }
+        }
+        FMenu {
             title: qsTr("Priority")
             FMenuItem { text: qsTr("High"); onTriggered: App.setPrioritySelected(2) }
             FMenuItem { text: qsTr("Normal"); onTriggered: App.setPrioritySelected(1) }
@@ -474,6 +481,13 @@ Rectangle {
             }
             FMenuSeparator { visible: App.tags.length > 0 }
             FMenuItem { text: qsTr("New tag…"); onTriggered: row.requestNewTag([row.d.id]) }
+        }
+        FMenu {
+            title: qsTr("Queue")
+            FMenuItem { text: qsTr("Move to top"); onTriggered: App.moveInQueue(row.d.id, "top") }
+            FMenuItem { text: qsTr("Move up"); onTriggered: App.moveInQueue(row.d.id, "up") }
+            FMenuItem { text: qsTr("Move down"); onTriggered: App.moveInQueue(row.d.id, "down") }
+            FMenuItem { text: qsTr("Move to bottom"); onTriggered: App.moveInQueue(row.d.id, "bottom") }
         }
         FMenu {
             title: qsTr("Priority")

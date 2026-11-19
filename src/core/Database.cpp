@@ -77,6 +77,10 @@ bool Database::open(const QString& dir, QString* error)
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN pickFiles INTEGER DEFAULT 0"));
         if (!cols.contains(QStringLiteral("sequential")))
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN sequential INTEGER DEFAULT 0"));
+        if (!cols.contains(QStringLiteral("downloadOrder"))) {
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN downloadOrder INTEGER"));
+            exec(QStringLiteral("UPDATE downloads SET downloadOrder = id")); // keep today's first-come order
+        }
         if (!cols.contains(QStringLiteral("contentCategory")))
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN contentCategory TEXT"));
     }
@@ -113,7 +117,7 @@ QList<DownloadRecord> Database::loadDownloads()
     if (!q.exec(QStringLiteral(
             "SELECT id, moduleUid, url, referrer, cookies, userAgent, destinationPath, preferredFileTitle, title,"
             " filePath, creationTime, finishedTime, resumeData, lastResult, state, totalBytes, receivedBytes,"
-            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential FROM downloads ORDER BY id DESC"))) {
+            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder FROM downloads ORDER BY id DESC"))) {
         qWarning() << q.lastError().text();
         return out;
     }
@@ -145,6 +149,7 @@ QList<DownloadRecord> Database::loadDownloads()
         r.existingFileReaction = q.value(21).toInt();
         r.pickFiles = q.value(22).toBool();
         r.sequential = q.value(23).toBool();
+        r.queueOrder = q.value(24).isNull() ? r.id : q.value(24).toLongLong();
         out.append(r);
     }
 
@@ -183,8 +188,8 @@ void Database::save(const DownloadRecord& r)
     q.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO downloads (id, moduleUid, url, referrer, cookies, userAgent, destinationPath,"
         " preferredFileTitle, title, filePath, creationTime, finishedTime, resumeData, lastResult, state,"
-        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     q.addBindValue(r.id);
     q.addBindValue(r.moduleUid);
     q.addBindValue(r.url);
@@ -209,6 +214,7 @@ void Database::save(const DownloadRecord& r)
     q.addBindValue(r.existingFileReaction);
     q.addBindValue(r.pickFiles ? 1 : 0);
     q.addBindValue(r.sequential ? 1 : 0);
+    q.addBindValue(r.queueOrder ? r.queueOrder : r.id);
     if (!q.exec())
         qWarning() << "save download:" << q.lastError().text();
 

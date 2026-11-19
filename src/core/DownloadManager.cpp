@@ -184,6 +184,10 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
     r.existingFileReaction = existingFileDefault();
     r.pickFiles = r.moduleUid == QLatin1String("downloadsbt") && chooseTorrentFiles();
     r.tags = tagsFor(r.title);
+    qint64 last = 0;
+    for (Download* x : m_list)
+        last = qMax(last, x->queueOrder());
+    r.queueOrder = qMax(last + 1, r.id); // the end of the queue
     r.userAgent = userAgent;
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
@@ -244,7 +248,7 @@ void DownloadManager::schedule()
     std::stable_sort(queue.begin(), queue.end(), [](Download* a, Download* b) {
         if (a->priority() != b->priority())
             return a->priority() > b->priority();
-        return a->id() < b->id(); // FIFO
+        return a->queueOrder() < b->queueOrder(); // the user's order (first come, first served by default)
     });
     for (Download* d : queue) {
         if (running >= maxDownloads)
@@ -1253,4 +1257,59 @@ void DownloadManager::setMaxConnectionsPerServer(int n)
     m_db->setSetting(QStringLiteral("MaxConnectionsPerServer"), qBound(0, n, 64));
     for (DownloadEngine* e : m_engines)
         e->setMaxConnectionsPerServer(maxConnectionsPerServer());
+}
+
+// ------------------------------------------------------------------ manual queue order
+
+QList<Download*> DownloadManager::queueOrder() const
+{
+    QList<Download*> q;
+    for (Download* d : m_list)
+        if (!d->completed())
+            q << d;
+    std::stable_sort(q.begin(), q.end(), [](Download* a, Download* b) { return a->queueOrder() < b->queueOrder(); });
+    return q;
+}
+
+void DownloadManager::moveInQueue(const QList<Download*>& ds, const QString& where)
+{
+    QList<Download*> q = queueOrder();
+    QList<Download*> moving;
+    for (Download* d : q) // in queue order, so a group keeps its relative order
+        if (ds.contains(d))
+            moving << d;
+    if (moving.isEmpty())
+        return;
+    if (where == QLatin1String("top") || where == QLatin1String("bottom")) {
+        for (Download* d : moving)
+            q.removeOne(d);
+        if (where == QLatin1String("top"))
+            q = moving + q;
+        else
+            q += moving;
+    } else if (where == QLatin1String("up")) {
+        for (Download* d : moving) {
+            const int i = int(q.indexOf(d));
+            if (i > 0 && !moving.contains(q[i - 1]))
+                q.swapItemsAt(i, i - 1);
+        }
+    } else if (where == QLatin1String("down")) {
+        for (int k = int(moving.size()) - 1; k >= 0; --k) {
+            const int i = int(q.indexOf(moving[k]));
+            if (i >= 0 && i + 1 < q.size() && !moving.contains(q[i + 1]))
+                q.swapItemsAt(i, i + 1);
+        }
+    } else {
+        return;
+    }
+    // Renumber the whole queue: positions stay small and unique.
+    for (int i = 0; i < q.size(); ++i) {
+        if (q[i]->rec.queueOrder != i + 1) {
+            q[i]->rec.queueOrder = i + 1;
+            q[i]->notify();
+            persist(q[i]);
+        }
+    }
+    emit queueReordered();
+    schedule();
 }
