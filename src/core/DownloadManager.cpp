@@ -1366,3 +1366,63 @@ void DownloadManager::moveInQueue(const QList<Download*>& ds, const QString& whe
     emit queueReordered();
     schedule();
 }
+
+// ------------------------------------------------------------------ import from Free Download Manager
+
+QPair<int, int> DownloadManager::importFdm(const QList<FdmImport::Item>& items)
+{
+    int added = 0, skipped = 0;
+    qint64 lastOrder = 0;
+    for (Download* x : m_list)
+        lastOrder = qMax(lastOrder, x->queueOrder());
+    for (const FdmImport::Item& it : items) {
+        const bool known = std::any_of(m_list.begin(), m_list.end(), [&](Download* d) { return d->rec.url == it.url; });
+        if (known) {
+            ++skipped;
+            continue;
+        }
+        DownloadRecord r;
+        r.id = ++m_nextId;
+        DownloadEngine* e = engineFor(it.url);
+        r.moduleUid = it.moduleUid == QLatin1String("downloadsbt") || !e ? it.moduleUid : e->moduleUid();
+        r.url = it.url;
+        r.referrer = it.referrer;
+        r.userAgent = it.userAgent;
+        r.destDir = it.destDir;
+        r.title = it.title.isEmpty() ? FileNamer::fromUrl(QUrl(it.url)) : it.title;
+        r.created = it.created;
+        r.priority = it.priority;
+        r.queueOrder = ++lastOrder + m_nextId; // after everything already queued
+        if (it.finished.isValid()) {
+            r.state = Download::Completed;
+            r.finished = it.finished;
+            r.filePath = QDir::toNativeSeparators(QDir(it.destDir).filePath(r.title));
+            const QFileInfo fi(r.filePath);
+            r.total = r.received = fi.isFile() ? fi.size() : -1;
+        } else {
+            r.state = Download::Paused;
+        }
+        for (const QString& name : it.tags) {
+            int id = 0;
+            for (const Tag& t : m_tags)
+                if (t.name.compare(name, Qt::CaseInsensitive) == 0)
+                    id = t.id;
+            if (id == 0) {
+                Tag t;
+                t.name = name;
+                t.color = it.tagColor(name).isEmpty() ? QStringLiteral("#539bf5") : it.tagColor(name);
+                id = saveTag(t);
+            }
+            if (id > 0 && !r.tags.contains(id))
+                r.tags << id;
+        }
+        auto* d = new Download(r, this);
+        m_list.prepend(d);
+        d->addLog(tr("Imported from Free Download Manager"));
+        persist(d);
+        emit downloadAdded(d);
+        ++added;
+    }
+    checkMissingFiles();
+    return {added, skipped};
+}

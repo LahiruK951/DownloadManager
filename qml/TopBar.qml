@@ -9,6 +9,7 @@ Rectangle {
     signal settingsClicked()
     signal aboutClicked()
     signal reportClicked()
+    signal fdmImportClicked()
     signal openTorrentClicked()
     signal importClicked()
     signal exportClicked()
@@ -110,6 +111,13 @@ Rectangle {
                 FMenuItem { glyph: Theme.icons.add; text: qsTr("Add download…"); onTriggered: bar.addClicked() }
                 FMenuItem { glyph: Theme.icons.link; text: qsTr("Open torrent file…"); visible: App.torrentSupport; height: visible ? implicitHeight : 0; onTriggered: bar.openTorrentClicked() }
                 FMenuItem { glyph: String.fromCharCode(0xE8B5); text: qsTr("Import downloads…"); onTriggered: bar.importClicked() }
+                FMenuItem {
+                    glyph: String.fromCharCode(0xE8B5)
+                    text: qsTr("Import from Free Download Manager…")
+                    visible: App.fdmAvailable()
+                    height: visible ? implicitHeight : 0
+                    onTriggered: bar.fdmImportClicked()
+                }
                 FMenuItem { glyph: String.fromCharCode(0xEDE1); text: qsTr("Export downloads…"); onTriggered: bar.exportClicked() }
                 FMenuSeparator {}
                 FMenu {

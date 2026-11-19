@@ -1624,6 +1624,22 @@ QString AppController::exportDownloads(const QUrl& file) const
     return tr("Exported %n download(s).", nullptr, int(items.size()));
 }
 
+bool AppController::fdmAvailable() const { return QFile::exists(FdmImport::defaultDatabase()); }
+
+QString AppController::importFromFdm()
+{
+    QString err;
+    const QList<FdmImport::Item> items = FdmImport::read(FdmImport::defaultDatabase(), &err);
+    if (!err.isEmpty())
+        return err;
+    const auto [added, skipped] = m_mgr->importFdm(items);
+    if (added == 0)
+        return skipped ? tr("All %1 downloads from Free Download Manager are already in the list.").arg(skipped)
+                       : tr("Free Download Manager's list is empty.");
+    return skipped ? tr("Imported %1 download(s) from Free Download Manager; %2 were already here.").arg(added).arg(skipped)
+                   : tr("Imported %1 download(s) from Free Download Manager.").arg(added);
+}
+
 QString AppController::importDownloads(const QUrl& file)
 {
     QFile f(file.toLocalFile());

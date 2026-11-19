@@ -28,6 +28,7 @@ add_library(fluxcore STATIC
     src/core/RemoteServer.h           src/core/RemoteServer.cpp
     src/core/Updater.h                src/core/Updater.cpp
     src/core/AttachmentCheck.h        src/core/AttachmentCheck.cpp
+    src/core/FdmImport.h              src/core/FdmImport.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp

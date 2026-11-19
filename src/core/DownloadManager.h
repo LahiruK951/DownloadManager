@@ -9,6 +9,7 @@
 #include "core/Tag.h"
 #include "core/MediaConvert.h"
 #include "core/ProxySettings.h"
+#include "core/FdmImport.h"
 #include "core/Schedule.h"
 #include "core/TrafficMode.h"
 
@@ -111,6 +112,9 @@ public:
     static QString convertibleFile(const Download* d); // the media file to convert, "" if none
 
     // Antivirus check of finished files (Windows attachment services; on by default).
+    // Free Download Manager's list: finished ones as completed entries, the rest paused (they
+    // start over: FDM's partial data can't be reused). Returns {added, skipped as duplicates}.
+    QPair<int, int> importFdm(const QList<FdmImport::Item>& items);
     bool antivirusCheck() const;
     void setAntivirusCheck(bool on);
 

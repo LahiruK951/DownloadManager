@@ -94,6 +94,7 @@ ApplicationWindow {
         onSettingsClicked: settingsDialog.open()
         onAboutClicked: aboutDialog.open()
         onReportClicked: reportDialog.openReport(false)
+        onFdmImportClicked: toast.show(App.importFromFdm())
         onOpenTorrentClicked: torrentFileDialog.open()
         onImportClicked: importDialog.open()
         onExportClicked: exportDialog.open()

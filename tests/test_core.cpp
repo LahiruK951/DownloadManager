@@ -38,6 +38,7 @@
 #include "core/RemoteServer.h"
 #include "core/Updater.h"
 #include "core/AttachmentCheck.h"
+#include "core/FdmImport.h"
 #include <QStandardPaths>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -1002,6 +1003,71 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void importFromFdm()
+    {
+        QTemporaryDir dir;
+        const QString fdm = dir.filePath("fdm-db.sqlite");
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "fake-fdm");
+            db.setDatabaseName(fdm);
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            // The columns FluxDM reads, as in FDM 6's db.sqlite.
+            QVERIFY(q.exec("CREATE TABLE downloads (id INTEGER PRIMARY KEY, moduleUid TEXT, url TEXT, referrer TEXT, userAgent TEXT,"
+                           " destinationPath TEXT, title TEXT, creationTime INTEGER, finishedTime INTEGER, priority INTEGER)"));
+            QVERIFY(q.exec("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT, color TEXT)"));
+            QVERIFY(q.exec("CREATE TABLE downloadsTags (downloadId INTEGER PRIMARY KEY, tagsIds TEXT)"));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO downloads VALUES (1, 'downloadswww', 'https://example.com/a.zip', '', '', '%1', 'a.zip', 1791483710, 1791483800, 2)")
+                               .arg(dir.path())));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO downloads VALUES (2, 'downloadsbt', 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Show', '', '', '%1', 'Show', 1791483900, 0, 1)")
+                               .arg(dir.path())));
+            QVERIFY(q.exec("INSERT INTO tags VALUES (7, 'Work', '#e5534b')"));
+            QVERIFY(q.exec("INSERT INTO downloadsTags VALUES (1, '7')"));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("fake-fdm");
+        {
+            QFile f(dir.filePath("a.zip"));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("12345");
+        }
+        QString err;
+        const QList<FdmImport::Item> items = FdmImport::read(fdm, &err);
+        QVERIFY2(err.isEmpty(), qPrintable(err));
+        QCOMPARE(items.size(), 2);
+        QCOMPARE(items[0].tags, QStringList{"Work"});
+        QCOMPARE(items[0].created, QDateTime::fromSecsSinceEpoch(1791483710));
+        QVERIFY(!items[1].finished.isValid());
+
+        Database db;
+        QVERIFY(db.open(dir.filePath("profile")));
+        DownloadManager mgr(&db);
+        mgr.load();
+        const auto [added, skipped] = mgr.importFdm(items);
+        QCOMPARE(added, 2);
+        QCOMPARE(skipped, 0);
+        Download* zip = nullptr;
+        Download* mag = nullptr;
+        for (Download* d : mgr.downloads())
+            (d->url().startsWith("magnet:") ? mag : zip) = d;
+        QVERIFY(zip && zip->completed() && zip->total() == 5 && zip->priority() == 2);
+        QCOMPARE(QFileInfo(zip->filePath()).fileName(), QStringLiteral("a.zip"));
+        QVERIFY(mag && mag->paused() && mag->isTorrent());
+        QCOMPARE(mgr.tags().size(), 1);
+        QVERIFY(zip->hasTag(mgr.tags().first().id));
+        QCOMPARE(mgr.tags().first().color, QStringLiteral("#e5534b"));
+        QCOMPARE(mgr.importFdm(items).second, 2); // a second import adds nothing
+        QCOMPARE(mgr.downloads().size(), 2);
+
+        QVERIFY(!FdmImport::read(dir.filePath("nope.sqlite"), &err).size() && !err.isEmpty());
+        // The real FDM list on this PC, if there is one: read through a copy, nothing printed.
+        if (QFile::exists(FdmImport::defaultDatabase())) {
+            err.clear();
+            FdmImport::read(FdmImport::defaultDatabase(), &err);
+            QVERIFY2(err.isEmpty(), qPrintable(err));
+        }
     }
 
     void antivirusAndMarkOfTheWeb()
