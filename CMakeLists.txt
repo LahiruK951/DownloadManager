@@ -19,6 +19,7 @@ add_library(fluxcore STATIC
     src/core/DownloadManager.h        src/core/DownloadManager.cpp
     src/core/Database.h               src/core/Database.cpp
     src/core/FileNamer.h              src/core/FileNamer.cpp
+    src/core/LinkCheck.h              src/core/LinkCheck.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h

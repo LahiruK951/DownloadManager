@@ -27,7 +27,7 @@ struct Segment {
     bool paused = false;
     QString fatal;
 
-    QByteArray contentDisposition, contentRange, etag, lastModified;
+    QByteArray contentDisposition, contentRange, etag, lastModified, contentType;
     char errbuf[CURL_ERROR_SIZE] = {};
     HttpTask* task = nullptr;
 

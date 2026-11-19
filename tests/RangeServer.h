@@ -16,6 +16,7 @@ public:
     int intervalMs = 2;      // tick interval
     int failStatus = 0;      // e.g. 404 to make every request fail
     QByteArray contentDisposition;
+    QByteArray contentType;  // e.g. "text/html" to imitate an expired file-host link
 
     int requests = 0;
     int rangedRequests = 0;
@@ -81,6 +82,8 @@ private:
                 hdr += "Accept-Ranges: bytes\r\n";
             if (!contentDisposition.isEmpty())
                 hdr += "Content-Disposition: " + contentDisposition + "\r\n";
+            if (!contentType.isEmpty())
+                hdr += "Content-Type: " + contentType + "\r\n";
             hdr += "Content-Length: " + QByteArray::number(e - b + 1) + "\r\nConnection: close\r\n\r\n";
             sock->write(hdr);
 

@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "core/FileNamer.h"
+#include "core/LinkCheck.h"
 #include "engines/www/CurlWorker.h"
 
 namespace {
@@ -233,6 +234,7 @@ size_t HttpTask::headerCb(char* ptr, size_t size, size_t nmemb, void* userdata)
         s->contentRange.clear();
         s->etag.clear();
         s->lastModified.clear();
+        s->contentType.clear();
         return len;
     }
     const int c = line.indexOf(':');
@@ -247,6 +249,8 @@ size_t HttpTask::headerCb(char* ptr, size_t size, size_t nmemb, void* userdata)
             s->etag = val;
         else if (key == "last-modified")
             s->lastModified = val;
+        else if (key == "content-type")
+            s->contentType = val;
     }
     return len;
 }
@@ -337,6 +341,16 @@ bool HttpTask::initMeta(Segment* s, long code)
     }
     m_etag = s->etag;
     m_lastModified = s->lastModified;
+
+    // A web page where a file was expected: an expired file-host link, a sign-in wall or a
+    // countdown/captcha page. Saving it as "file.zip" would only produce a broken file.
+    if (isHttp()
+        && LinkCheck::isUnexpectedWebPage(s->contentType, s->contentDisposition,
+                                          {m_p.fileName, FileNamer::fromUrl(QUrl(m_p.url)), FileNamer::fromUrl(QUrl(m_effUrl))})) {
+        s->fatal = LinkCheck::webPageText(QUrl(m_p.url));
+        m_fatalTask = true;
+        return false;
+    }
 
     QString name = m_p.fileName;
     if (name.isEmpty())
@@ -432,7 +446,7 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
     }
 
     const QString err = !s->fatal.isEmpty() ? s->fatal
-                        : code >= 400       ? QStringLiteral("HTTP error %1").arg(code)
+                        : code >= 400       ? LinkCheck::httpErrorText(code, QUrl(m_p.url))
                                             : curlErr;
     // Permanent client errors: don't hammer the server.
     if (code >= 400 && code < 500 && code != 408 && code != 429) {

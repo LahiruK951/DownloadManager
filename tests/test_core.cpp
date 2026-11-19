@@ -25,6 +25,7 @@
 #include <QJsonObject>
 #include "core/Database.h"
 #include "core/FileNamer.h"
+#include "core/LinkCheck.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include "core/Schedule.h"
@@ -468,6 +469,84 @@ private slots:
         const Outcome o = waitForEnd(fin, fail, 30000);
         QVERIFY(o.failed);
         QVERIFY2(o.error.contains("404"), qPrintable(o.error));
+    }
+
+    void linkCheckRules()
+    {
+        using LinkCheck::isUnexpectedWebPage;
+        const QStringList zip{QString(), QStringLiteral("game.zip")};
+        QVERIFY(isUnexpectedWebPage("text/html; charset=UTF-8", {}, zip));
+        QVERIFY(isUnexpectedWebPage("application/xhtml+xml", {}, {QStringLiteral("clip.mp4")}));
+        QVERIFY(!isUnexpectedWebPage("application/zip", {}, zip));                     // the real file
+        QVERIFY(!isUnexpectedWebPage("text/html", "attachment; filename=\"a.zip\"", zip)); // offered as a file
+        QVERIFY(!isUnexpectedWebPage("text/html", {}, {QStringLiteral("index.html"), QStringLiteral("view.php")}));
+        QVERIFY(!isUnexpectedWebPage("text/html", {}, {QStringLiteral("download"), QString()})); // no extension
+        QVERIFY(!isUnexpectedWebPage("text/plain", {}, zip));
+
+        const QDateTime now = QDateTime::fromSecsSinceEpoch(1'795'200'000);
+        const QUrl expired(QStringLiteral("https://cdn.example.com/f.zip?key=x&expire=1795113261&filename=f.zip"));
+        const QUrl valid(QStringLiteral("https://cdn.example.com/f.zip?Expires=1795300000"));
+        QCOMPARE(LinkCheck::linkExpiry(expired), QDateTime::fromSecsSinceEpoch(1795113261));
+        QVERIFY(!LinkCheck::linkExpiry(QUrl(QStringLiteral("https://x.com/f.zip?expires=3600"))).isValid()); // a duration
+        QVERIFY(LinkCheck::httpErrorText(403, expired, now).contains(QStringLiteral("expired on")));
+        QVERIFY(!LinkCheck::httpErrorText(403, valid, now).contains(QStringLiteral("expired on")));
+        QVERIFY(LinkCheck::httpErrorText(403, valid, now).startsWith(QStringLiteral("HTTP error 403: access denied")));
+        QVERIFY(LinkCheck::webPageText(expired, now).contains(QStringLiteral("expired on")));
+        // The friendlier texts keep the auto-retry classification.
+        QVERIFY(!DownloadManager::isRetriable(LinkCheck::httpErrorText(403, expired, now)));
+        QVERIFY(!DownloadManager::isRetriable(LinkCheck::httpErrorText(410, valid, now)));
+        QVERIFY(DownloadManager::isRetriable(LinkCheck::httpErrorText(503, valid, now)));
+        QVERIFY(DownloadManager::isRetriable(LinkCheck::httpErrorText(429, valid, now)));
+        QVERIFY(!DownloadManager::isRetriable(LinkCheck::webPageText(valid, now)));
+    }
+
+    void webPageInsteadOfFileFails()
+    {
+        RangeServer srv;
+        srv.data = QByteArray("<!doctype html><title>Download expired</title><p>Please go back.</p>").repeated(50);
+        srv.contentType = "text/html; charset=utf-8";
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(5, srv.url("/1/application/zip/abc.zip?key=k&expire=1700000000"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.contains("web page instead of the file"), qPrintable(o.error));
+        QVERIFY2(o.error.contains("expired on"), qPrintable(o.error));
+        QVERIFY(QDir(dir.path()).entryList(QDir::Files).isEmpty()); // no broken "abc.zip" left behind
+        QCOMPARE(srv.requests, 1); // not retried
+    }
+
+    void webPageWhenAskedDownloads()
+    {
+        RangeServer srv;
+        srv.data = QByteArray("<!doctype html><title>Docs</title>").repeated(100);
+        srv.contentType = "text/html";
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(6, srv.url("/manual/index.html"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == srv.data);
+    }
+
+    void expiredLinkErrorExplains()
+    {
+        RangeServer srv;
+        srv.data = makeData(1024);
+        srv.failStatus = 403;
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(7, srv.url("/video.mp4?expires=1700000000"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.startsWith("HTTP error 403: the link expired on"), qPrintable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(o.error));
     }
 
 #ifdef FLUXDM_HAS_TORRENT
