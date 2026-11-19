@@ -15,6 +15,8 @@ struct TaskParams {
     QString cookies;
     QString userAgent;
     QString proxy;         // "http://host:port" or empty
+    QString user;          // server login (HTTP auth / FTP); empty = none or in the URL
+    QString password;
     QByteArray resumeData; // engine-specific opaque blob
     int maxConnections = 8;
     bool seedOnly = false; // BitTorrent: data is complete, just seed

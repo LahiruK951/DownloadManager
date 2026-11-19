@@ -17,6 +17,8 @@ public:
     int failStatus = 0;      // e.g. 404 to make every request fail
     QByteArray contentDisposition;
     QByteArray contentType;  // e.g. "text/html" to imitate an expired file-host link
+    QByteArray basicAuth;    // "user:password" required (HTTP Basic), empty = open
+    int unauthorized = 0;    // 401 answers sent
 
     int requests = 0;
     int rangedRequests = 0;
@@ -48,6 +50,13 @@ private:
             disconnect(sock, &QTcpSocket::readyRead, nullptr, nullptr);
             ++requests;
 
+            if (!basicAuth.isEmpty() && !buf->contains("Authorization: Basic " + basicAuth.toBase64() + "\r\n")) {
+                ++unauthorized;
+                sock->write("HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"test\"\r\n"
+                            "Content-Length: 0\r\nConnection: close\r\n\r\n");
+                sock->disconnectFromHost();
+                return;
+            }
             if (failStatus) {
                 sock->write("HTTP/1.1 " + QByteArray::number(failStatus) + " Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                 sock->disconnectFromHost();

@@ -1,4 +1,5 @@
 #include "core/Database.h"
+#include "core/Secret.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -52,6 +53,7 @@ bool Database::open(const QString& dir, QString* error)
         "CREATE TABLE IF NOT EXISTS downloadsTagsDetails (tagId INTEGER PRIMARY KEY, defaultExtensions TEXT, defaultDownloadFolder TEXT)",
         "CREATE TABLE IF NOT EXISTS downloadsScheduleRecords (downloadId INTEGER PRIMARY KEY, days INTEGER, fromTime INTEGER, toTime INTEGER)",
         "CREATE TABLE IF NOT EXISTS Settings (Name TEXT PRIMARY KEY, Value TEXT)",
+        "CREATE TABLE IF NOT EXISTS networkPasswords (server TEXT PRIMARY KEY, user TEXT, password BLOB)",
     };
     for (const char* s : schema)
         if (!exec(QString::fromLatin1(s))) {
@@ -246,3 +248,44 @@ void Database::setSetting(const QString& name, const QVariant& value)
     q.addBindValue(value.toString());
     q.exec();
 }
+
+// ------------------------------------------------------------------ server logins
+
+bool Database::login(const QString& server, QString* user, QString* password)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("SELECT user, password FROM networkPasswords WHERE server = ?"));
+    q.addBindValue(server);
+    if (!q.exec() || !q.next())
+        return false;
+    *user = q.value(0).toString();
+    *password = Secret::unprotect(q.value(1).toByteArray());
+    return !user->isEmpty();
+}
+
+void Database::saveLogin(const QString& server, const QString& user, const QString& password)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("INSERT OR REPLACE INTO networkPasswords (server, user, password) VALUES (?,?,?)"));
+    q.addBindValue(server);
+    q.addBindValue(user);
+    q.addBindValue(Secret::protect(password));
+    if (!q.exec())
+        qWarning() << "save login:" << q.lastError().text();
+}
+
+void Database::removeLogin(const QString& server)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("DELETE FROM networkPasswords WHERE server = ?"));
+    q.addBindValue(server);
+    q.exec();
+}
+
+int Database::loginCount()
+{
+    QSqlQuery q(m_db);
+    return q.exec(QStringLiteral("SELECT COUNT(*) FROM networkPasswords")) && q.next() ? q.value(0).toInt() : 0;
+}
+
+void Database::clearLogins() { exec(QStringLiteral("DELETE FROM networkPasswords")); }

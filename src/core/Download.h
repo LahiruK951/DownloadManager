@@ -59,6 +59,7 @@ class Download : public QObject {
     Q_PROPERTY(int speedLimit READ speedLimit NOTIFY changed) // KB/s, 0 = none
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
     Q_PROPERTY(bool converting READ converting NOTIFY changed)
+    Q_PROPERTY(bool needsLogin READ needsLogin NOTIFY changed) // failed asking for a user name/password
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -126,6 +127,10 @@ public:
     int speedLimit() const { return rec.speedLimitKBps; }
     bool moving() const { return m_moving; }
     bool converting() const { return m_converting; }
+    bool needsLogin() const
+    {
+        return failed() && (rec.lastError.startsWith(QLatin1String("HTTP error 401")) || rec.lastError.startsWith(QLatin1String("Login ")));
+    }
     void setConverting(bool c) { if (m_converting != c) { m_converting = c; emit changed(); } }
     void setMoving(bool m) { if (m_moving != m) { m_moving = m; emit changed(); } }
     void setFileMissing(bool m) { if (m_missing != m) { m_missing = m; emit changed(); } }

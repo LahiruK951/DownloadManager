@@ -62,8 +62,7 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     connect(&m_recountTimer, &QTimer::timeout, this, &AppController::recount);
 
     connect(m_mgr, &DownloadManager::downloadAdded, this, [this](Download* d) {
-        connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
-        connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
+        watch(d);
         scheduleRecount();
     });
     connect(m_mgr, &DownloadManager::downloadRemoved, this, [this](Download* d) {
@@ -88,10 +87,8 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         if (m_whenDone != 0)
             emit whenDoneCountdown(m_whenDone);
     });
-    for (Download* d : m_mgr->downloads()) {
-        connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
-        connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
-    }
+    for (Download* d : m_mgr->downloads())
+        watch(d);
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, &AppController::onClipboardChanged);
     m_lastClip = QGuiApplication::clipboard()->text().trimmed(); // don't react to what was there before start
     recount();
@@ -488,6 +485,50 @@ void AppController::copyPath(qint64 id)
         m_lastClip = d->filePath().isEmpty() ? d->destDir() : d->filePath();
         QGuiApplication::clipboard()->setText(m_lastClip);
     }
+}
+
+void AppController::watch(Download* d)
+{
+    connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
+    connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
+    connect(d, &Download::stateChanged, this, [this, d] {
+        if (d->needsLogin())
+            emit loginRequired(d);
+    });
+}
+
+QString AppController::loginServer(qint64 id) const
+{
+    const Download* d = byId(id);
+    return d ? DownloadManager::loginServer(d->url()) : QString();
+}
+
+QString AppController::loginUser(qint64 id) const
+{
+    const Download* d = byId(id);
+    QString user, password;
+    if (d)
+        m_mgr->loginFor(d->url(), &user, &password);
+    return user;
+}
+
+void AppController::signIn(qint64 id, const QString& user, const QString& password, bool remember)
+{
+    Download* d = byId(id);
+    if (!d || user.trimmed().isEmpty())
+        return;
+    m_mgr->setLogin(d->url(), user.trimmed(), password, remember);
+    d->addLog(tr("Signing in as %1").arg(user.trimmed()));
+    m_mgr->resume(d);
+    emit settingsChanged(); // saved-login count
+}
+
+int AppController::savedLoginCount() const { return m_mgr->savedLoginCount(); }
+
+void AppController::forgetLogins()
+{
+    m_mgr->forgetLogins();
+    emit settingsChanged();
 }
 
 QString AppController::rename(qint64 id, const QString& newName) { return m_mgr->rename(byId(id), newName); }

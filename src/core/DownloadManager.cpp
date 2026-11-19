@@ -277,6 +277,8 @@ void DownloadManager::startDownload(Download* d)
     p.cookies = d->rec.cookies;
     p.userAgent = d->rec.userAgent.isEmpty() ? defaultUserAgent() : d->rec.userAgent;
     p.proxy = systemProxyFor(d->rec.url);
+    if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
+        loginFor(d->rec.url, &p.user, &p.password);
     p.resumeData = d->rec.resumeData;
     p.maxConnections = limits(m_effectiveMode).maxConnections;
     p.speedLimit = qint64(d->rec.speedLimitKBps) * 1024;
@@ -720,7 +722,7 @@ bool DownloadManager::isRetriable(const QString& error)
     // Permanent problems: retrying cannot help.
     static const QRegularExpression permanent(QStringLiteral(
         R"(HTTP error 4(0[0-7]|09|1\d|2[0-8]|3\d|4\d|5\d)\b|Disk write|Cannot create|Cannot allocate|Cannot rename|Unsupported|)"
-        R"(already being downloaded|web page instead|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
+        R"(already being downloaded|web page instead|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
         QRegularExpression::CaseInsensitiveOption);
     return !error.isEmpty() && !permanent.match(error).hasMatch();
 }
@@ -942,4 +944,49 @@ void DownloadManager::convertToMp4(Download* d)
                          QStringLiteral("-i"), src, QStringLiteral("-map"), QStringLiteral("0:v?"), QStringLiteral("-map"), QStringLiteral("0:a?"),
                          QStringLiteral("-c"), QStringLiteral("copy"),
                          QStringLiteral("-bsf:a"), QStringLiteral("aac_adtstoasc"), QStringLiteral("-movflags"), QStringLiteral("+faststart"), dst});
+}
+// ------------------------------------------------------------------ server logins
+
+QString DownloadManager::loginServer(const QString& url)
+{
+    const QUrl u(url);
+    if (u.host().isEmpty())
+        return {};
+    const QString scheme = u.scheme().toLower();
+    const int port = u.port(scheme == QLatin1String("https") ? 443 : scheme == QLatin1String("ftp") ? 21
+                            : scheme == QLatin1String("sftp") ? 22 : 80);
+    return QStringLiteral("%1://%2:%3").arg(scheme, u.host().toLower()).arg(port);
+}
+
+bool DownloadManager::loginFor(const QString& url, QString* user, QString* password) const
+{
+    const QString server = loginServer(url);
+    if (server.isEmpty())
+        return false;
+    if (m_sessionLogins.contains(server)) {
+        *user = m_sessionLogins.value(server).first;
+        *password = m_sessionLogins.value(server).second;
+        return true;
+    }
+    return m_db->login(server, user, password);
+}
+
+void DownloadManager::setLogin(const QString& url, const QString& user, const QString& password, bool remember)
+{
+    const QString server = loginServer(url);
+    if (server.isEmpty())
+        return;
+    m_sessionLogins.insert(server, {user, password});
+    if (remember)
+        m_db->saveLogin(server, user, password);
+    else
+        m_db->removeLogin(server); // "don't remember" also forgets an older saved one
+}
+
+int DownloadManager::savedLoginCount() const { return m_db->loginCount(); }
+
+void DownloadManager::forgetLogins()
+{
+    m_sessionLogins.clear();
+    m_db->clearLogins();
 }

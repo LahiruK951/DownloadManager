@@ -187,6 +187,11 @@ public:
     Q_INVOKABLE void copyPath(qint64 id);
     Q_INVOKABLE QString rename(qint64 id, const QString& newName); // error text or ""
     Q_INVOKABLE bool canRename(qint64 id) const;
+    Q_INVOKABLE QString loginServer(qint64 id) const;  // "https://host:443"
+    Q_INVOKABLE QString loginUser(qint64 id) const;    // known user name for that server, or ""
+    Q_INVOKABLE void signIn(qint64 id, const QString& user, const QString& password, bool remember);
+    Q_INVOKABLE int savedLoginCount() const;
+    Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
 
@@ -223,10 +228,12 @@ signals:
     void whenDoneChanged();
     void whenDoneCountdown(int action);
     void notice(const QString& text); // short message for the toast
+    void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 
 private:
     Download* byId(qint64 id) const;
     QString doOpen(qint64 id);
+    void watch(Download* d);
     QString doOpenWith(qint64 id);
     void scheduleRecount();
     void recount();

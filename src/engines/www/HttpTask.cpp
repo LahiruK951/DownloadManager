@@ -176,6 +176,14 @@ void HttpTask::startSegment(Segment* s)
     const QByteArray cookies = m_p.cookies.toUtf8();
     if (!cookies.isEmpty())
         curl_easy_setopt(h, CURLOPT_COOKIE, cookies.constData());
+    // Server login. curl only sends it to this host (not after a redirect elsewhere) and
+    // picks the method the server asks for: Basic, Digest, NTLM, Negotiate.
+    const QByteArray user = m_p.user.toUtf8(), pass = m_p.password.toUtf8();
+    if (!user.isEmpty()) {
+        curl_easy_setopt(h, CURLOPT_USERNAME, user.constData());
+        curl_easy_setopt(h, CURLOPT_PASSWORD, pass.constData());
+        curl_easy_setopt(h, CURLOPT_HTTPAUTH, long(CURLAUTH_ANY));
+    }
     const QByteArray proxy = m_p.proxy.toUtf8();
     if (!proxy.isEmpty())
         curl_easy_setopt(h, CURLOPT_PROXY, proxy.constData());
@@ -445,6 +453,11 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
         return;
     }
 
+    if (rc == CURLE_LOGIN_DENIED || (code == 401 && !m_p.user.isEmpty())) {
+        fail(m_p.user.isEmpty() ? QStringLiteral("Login required: the server asks for a user name and password")
+                                : QStringLiteral("Login failed: the server did not accept the user name or password"));
+        return;
+    }
     const QString err = !s->fatal.isEmpty() ? s->fatal
                         : code >= 400       ? LinkCheck::httpErrorText(code, QUrl(m_p.url))
                                             : curlErr;

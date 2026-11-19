@@ -20,6 +20,7 @@ add_library(fluxcore STATIC
     src/core/Database.h               src/core/Database.cpp
     src/core/FileNamer.h              src/core/FileNamer.cpp
     src/core/LinkCheck.h              src/core/LinkCheck.cpp
+    src/core/Secret.h                 src/core/Secret.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h
@@ -43,7 +44,7 @@ target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libc
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
-    target_link_libraries(fluxcore PUBLIC bcrypt)
+    target_link_libraries(fluxcore PUBLIC bcrypt crypt32)
 endif()
 
 # module "downloadsbt": BitTorrent via libtorrent-rasterbar (optional)
@@ -88,6 +89,7 @@ set(FLUXDM_QML_FILES
     qml/Toast.qml
     qml/SpeedLimitDialog.qml
     qml/RenameDialog.qml
+    qml/LoginDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

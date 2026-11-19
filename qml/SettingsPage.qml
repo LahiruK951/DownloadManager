@@ -246,6 +246,19 @@ Popup {
                         }
                     }
                     SettingRow {
+                        // re-read whenever settings change (signing in with "remember" emits it)
+                        readonly property int count: (App.defaultFolder, App.savedLoginCount())
+                        title: qsTr("Saved server logins")
+                        description: count === 0 ? qsTr("None. When a server asks for a user name and password, you can let FluxDM remember it.")
+                                   : count === 1 ? qsTr("1 server. Passwords are encrypted for your Windows account.")
+                                   : qsTr("%1 servers. Passwords are encrypted for your Windows account.").arg(count)
+                        FButton {
+                            text: qsTr("Forget all")
+                            enabled: parent.count > 0
+                            onClicked: App.forgetLogins()
+                        }
+                    }
+                    SettingRow {
                         title: qsTr("Convert video streams to MP4")
                         description: page.ffmpeg !== "" ? qsTr("Lossless remux with ffmpeg (%1).").arg(page.ffmpeg)
                                                         : qsTr("Needs ffmpeg: not found. Install it or set its path below; streams stay .ts until then.")

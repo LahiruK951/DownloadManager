@@ -6,7 +6,7 @@
 
 // Developer-only module: simulates downloads for demo:// URLs so the UI can be
 // exercised and screenshotted without any network. Query parameters:
-//   size=<bytes>  speed=<bytes/s>  start=<0..1>  conns=<n>  fail=1
+//   size=<bytes>  speed=<bytes/s>  start=<0..1>  conns=<n>  fail=1 (404) | fail=401 (login)
 // Registered only when FLUXDM_DEV_DEMO is set.
 class DemoEngine : public DownloadEngine {
     Q_OBJECT
@@ -29,6 +29,7 @@ private:
         double speed = 0;
         int conns = 8;
         bool fail = false;
+        bool failLogin = false;
         int ticks = 0;
     };
     void tick();

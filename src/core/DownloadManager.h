@@ -1,5 +1,7 @@
 #pragma once
+#include <QHash>
 #include <QList>
+#include <QPair>
 #include <QObject>
 #include <QTimer>
 
@@ -41,6 +43,13 @@ public:
     // Rename a finished file on disk (not torrents: libtorrent owns their names). Error text or "".
     QString rename(Download* d, const QString& newName);
     static bool canRename(const Download* d);
+
+    // Server logins, per "scheme://host:port". Kept for this session; saved when `remember`.
+    static QString loginServer(const QString& url);
+    bool loginFor(const QString& url, QString* user, QString* password) const;
+    void setLogin(const QString& url, const QString& user, const QString& password, bool remember);
+    int savedLoginCount() const;
+    void forgetLogins();
 
     // Stream post-processing: remux HLS .ts to .mp4 with ffmpeg (FDM ships ffmpeg; we find one).
     bool convertStreams() const;
@@ -106,6 +115,7 @@ private:
     void onLog(qint64 id, const QString& line);
 
     Database* m_db;
+    QHash<QString, QPair<QString, QString>> m_sessionLogins; // server -> user, password
     QList<DownloadEngine*> m_engines;
     QList<Download*> m_list; // newest first
     qint64 m_nextId = 0;

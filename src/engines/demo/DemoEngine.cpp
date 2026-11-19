@@ -39,7 +39,9 @@ void DemoEngine::start(const TaskParams& p)
     t.conns = qMax(1, q.queryItemValue(QStringLiteral("conns")).toInt());
     if (!q.hasQueryItem(QStringLiteral("conns")))
         t.conns = qMin(p.maxConnections, 8);
-    t.fail = q.queryItemValue(QStringLiteral("fail")) == QLatin1String("1");
+    const QString fail = q.queryItemValue(QStringLiteral("fail"));
+    t.fail = fail == QLatin1String("1") || fail == QLatin1String("401");
+    t.failLogin = fail == QLatin1String("401");
     const qint64 resumed = QJsonDocument::fromJson(p.resumeData).object().value(QStringLiteral("received")).toInteger(-1);
     t.received = resumed >= 0 ? double(resumed) : t.total * q.queryItemValue(QStringLiteral("start")).toDouble();
     m_tasks.insert(p.id, t);
@@ -68,7 +70,8 @@ void DemoEngine::tick()
         if (t.fail && t.ticks >= 2) {
             const QByteArray rd = resume(t);
             m_tasks.remove(id);
-            emit failed(id, tr("HTTP error 404 (Not Found)"), rd);
+            emit failed(id, t.failLogin ? QStringLiteral("HTTP error 401: the server requires a user name and password")
+                                        : tr("HTTP error 404 (Not Found)"), rd);
             continue;
         }
         double sp = t.speed * (0.85 + 0.3 * QRandomGenerator::global()->generateDouble());

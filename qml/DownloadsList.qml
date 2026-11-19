@@ -11,6 +11,7 @@ Item {
     signal requestSpeedLimit(var download)
     signal requestMove()
     signal requestRename(var download)
+    signal requestLogin(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -37,6 +38,7 @@ Item {
             onRequestSpeedLimit: (d) => root.requestSpeedLimit(d)
             onRequestMove: root.requestMove()
             onRequestRename: (d) => root.requestRename(d)
+            onRequestLogin: (d) => root.requestLogin(d)
         }
 
         focus: true

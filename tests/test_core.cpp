@@ -549,6 +549,106 @@ private slots:
         QVERIFY(!DownloadManager::isRetriable(o.error));
     }
 
+    void httpLogin()
+    {
+        RangeServer srv;
+        srv.data = makeData(600 * 1024);
+        srv.basicAuth = "alice:s3cret pass";
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+
+        TaskParams p = params(8, srv.url("/private/report.bin"), dir.path());
+        eng.start(p); // no login
+        Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.startsWith("HTTP error 401"), qPrintable(o.error));
+
+        fail.clear();
+        p.id = 9;
+        p.user = QStringLiteral("alice");
+        p.password = QStringLiteral("wrong");
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.startsWith("Login failed"), qPrintable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(o.error));
+
+        fail.clear();
+        p.id = 10;
+        p.password = QStringLiteral("s3cret pass");
+        p.maxConnections = 4; // every connection must authenticate
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == srv.data);
+    }
+
+    void savedLoginsAreProtected()
+    {
+        QTemporaryDir dir;
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            db.saveLogin(QStringLiteral("https://files.example.com:443"), QStringLiteral("alice"), QStringLiteral("p@ss-ünïcode"));
+            QCOMPARE(db.loginCount(), 1);
+        }
+        {   // never on disk as plain text (DPAPI on Windows)
+            QSqlDatabase raw = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("raw"));
+            raw.setDatabaseName(QDir(dir.path()).filePath(QStringLiteral("db.sqlite")));
+            QVERIFY(raw.open());
+            QSqlQuery q(raw);
+            QVERIFY(q.exec(QStringLiteral("SELECT password FROM networkPasswords")) && q.next());
+#ifdef Q_OS_WIN
+            QVERIFY(!q.value(0).toByteArray().contains("p@ss"));
+#endif
+            q.finish();
+            raw.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("raw"));
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        QString user, pass;
+        QVERIFY(db.login(QStringLiteral("https://files.example.com:443"), &user, &pass));
+        QCOMPARE(user, QStringLiteral("alice"));
+        QCOMPARE(pass, QStringLiteral("p@ss-ünïcode"));
+        QVERIFY(!db.login(QStringLiteral("https://other.example.com:443"), &user, &pass));
+        db.clearLogins();
+        QCOMPARE(db.loginCount(), 0);
+    }
+
+    void signInResumesDownload()
+    {
+        RangeServer srv;
+        srv.data = makeData(300 * 1024);
+        srv.basicAuth = "bob:hunter2";
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url("/files/data.bin"), dir.path(), {}, true);
+        QVERIFY(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 20000);
+        QVERIFY(d->needsLogin());
+        QVERIFY(!d->autoRetryAt.isValid()); // asking again won't help: no automatic retry
+
+        QCOMPARE(DownloadManager::loginServer(srv.url("/x")), QStringLiteral("http://127.0.0.1:%1").arg(QUrl(srv.url()).port()));
+        mgr.setLogin(d->url(), QStringLiteral("bob"), QStringLiteral("hunter2"), false); // this session only
+        QCOMPARE(db.loginCount(), 0);
+        mgr.resume(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+        QVERIFY(!d->needsLogin());
+        QVERIFY(readAll(d->filePath()) == srv.data);
+
+        // Another file on the same server reuses the login without asking.
+        Download* d2 = mgr.add(srv.url("/files/other.bin"), dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d2->completed(), 20000);
+    }
+
 #ifdef FLUXDM_HAS_TORRENT
     void torrentFromLocalSeeder()
     {

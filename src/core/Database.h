@@ -25,6 +25,13 @@ public:
     QVariant setting(const QString& name, const QVariant& def = {});
     void setSetting(const QString& name, const QVariant& value);
 
+    // Saved server logins (FDM: networkPasswords). Passwords are stored protected (Secret).
+    bool login(const QString& server, QString* user, QString* password);
+    void saveLogin(const QString& server, const QString& user, const QString& password);
+    void removeLogin(const QString& server);
+    int loginCount();
+    void clearLogins();
+
 private:
     bool exec(const QString& sql);
     QSqlDatabase m_db;
