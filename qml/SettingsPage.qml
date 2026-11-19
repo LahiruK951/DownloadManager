@@ -260,6 +260,51 @@ Popup {
                             FToggle { checked: App.soundOnComplete; onToggled: App.soundOnComplete = checked }
                         }
                     }
+                    SettingsCard {
+                        title: qsTr("Updates")
+                        Layout.fillWidth: true
+                        SettingRow {
+                            title: qsTr("FluxDM %1").arg(App.version)
+                            description: App.updateStatus !== "" ? App.updateStatus
+                                         : App.updateUrl === "" ? qsTr("No update address is set, so FluxDM doesn't look for updates.")
+                                         : qsTr("Looks for a new version once a day.")
+                            RowLayout {
+                                spacing: 8
+                                FButton {
+                                    visible: App.updateState === 2
+                                    kind: "primary"
+                                    text: qsTr("Download")
+                                    onClicked: App.downloadUpdate()
+                                }
+                                FButton {
+                                    visible: App.updateState === 4
+                                    kind: "primary"
+                                    text: qsTr("Install and restart")
+                                    onClicked: App.installUpdate()
+                                }
+                                FButton {
+                                    text: qsTr("Check now")
+                                    enabled: App.updateUrl !== "" && App.updateState !== 1 && App.updateState !== 3
+                                    onClicked: App.checkForUpdates()
+                                }
+                            }
+                        }
+                        SettingRow {
+                            title: qsTr("Check automatically")
+                            FToggle { checked: App.autoCheckUpdates; onToggled: App.autoCheckUpdates = checked }
+                        }
+                        SettingRow {
+                            title: qsTr("Update address")
+                            description: qsTr("Where the release information (latest.json) is published. HTTPS only.")
+                            divider: false
+                            FTextField {
+                                implicitWidth: 320
+                                text: App.updateUrl
+                                placeholderText: "https://…/latest.json"
+                                onEditingFinished: App.updateUrl = text
+                            }
+                        }
+                    }
                 }
 
                 // ---------------- Downloads

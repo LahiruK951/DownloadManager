@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
             probe.disconnectFromServer();
             QThread::msleep(100);
         }
-    } else if (forwardToRunningInstance(args)) {
+    } else if (!args.contains(QStringLiteral("--uninstall-cleanup")) && forwardToRunningInstance(args)) {
         return 0;
     }
 
@@ -126,6 +126,14 @@ int main(int argc, char* argv[])
         if (demo)
             DevDemo::seed(mgr, QDir(dataDir).filePath(QStringLiteral("downloads")));
         AppController ctl(&mgr, dataDir);
+        // Run by the uninstaller: undo what FluxDM registered for this Windows account.
+        if (args.contains(QStringLiteral("--uninstall-cleanup"))) {
+            ctl.setBrowserIntegrated(false);
+            ctl.setTorrentAssociated(false);
+            mgr.shutdown();
+            AppLog::shutdown();
+            return 0;
+        }
         AppController::s_instance = &ctl;
         TrayIcon tray(&ctl);
 

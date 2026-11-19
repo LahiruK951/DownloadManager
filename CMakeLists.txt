@@ -26,6 +26,7 @@ add_library(fluxcore STATIC
     src/core/BrowserHost.h
     src/core/AppLog.h                 src/core/AppLog.cpp
     src/core/RemoteServer.h           src/core/RemoteServer.cpp
+    src/core/Updater.h                src/core/Updater.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -54,7 +55,9 @@ target_include_directories(fluxcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # The remote-control web page (served by RemoteServer from :/remote/index.html).
 qt_add_resources(fluxcore "remote_ui" PREFIX "/remote" BASE src/remote FILES src/remote/index.html)
 target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl)
-target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
+# Where "Check for updates" looks (latest.json from scripts\package.ps1 -Installer); empty = not set.
+set(FLUXDM_UPDATE_URL "" CACHE STRING "Update manifest URL (https://.../latest.json)")
+target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}" FLUXDM_UPDATE_URL="${FLUXDM_UPDATE_URL}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
     target_link_libraries(fluxcore PUBLIC bcrypt crypt32 dbghelp)

@@ -1,7 +1,9 @@
 # Build a portable release: dist\FluxDM-<version>-win64.zip
 #   scripts\package.ps1            (builds msvc-release first)
 #   scripts\package.ps1 -NoBuild
-param([switch]$NoBuild)
+#   scripts\package.ps1 -Installer [-UpdateBaseUrl https://example.org/fluxdm]
+#       also dist\FluxDM-<version>-setup.exe (Inno Setup 6) and dist\latest.json for the updater
+param([switch]$NoBuild, [switch]$Installer, [string]$UpdateBaseUrl = "")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $bin = Join-Path $root "build\release"
@@ -56,3 +58,22 @@ Remove-Item $zip -ErrorAction SilentlyContinue
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip
 $size = [Math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host "Packaged $zip ($size MB)"
+
+if ($Installer) {
+    $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+              "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $iscc) { $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source }
+    if (-not $iscc) {
+        throw "Inno Setup 6 not found. Install it (winget install JRSoftware.InnoSetup, or https://jrsoftware.org/isdl.php) and run again."
+    }
+    $dist = Join-Path $root "dist"
+    & $iscc /Q "/DAppVersion=$version" "/DSourceDir=$stage" "/DOutputDir=$dist" (Join-Path $root "installer\FluxDM.iss")
+    if ($LASTEXITCODE) { throw "ISCC failed ($LASTEXITCODE)" }
+    $setup = Join-Path $dist "FluxDM-$version-setup.exe"
+    $sha = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()
+    # The update manifest FluxDM's "Check for updates" reads (publish it next to the installer).
+    $url = if ($UpdateBaseUrl) { $UpdateBaseUrl.TrimEnd('/') + "/FluxDM-$version-setup.exe" } else { "FluxDM-$version-setup.exe" }
+    [ordered]@{ version = $version; url = $url; sha256 = $sha; notes = "" } | ConvertTo-Json |
+        Set-Content -Encoding utf8 (Join-Path $dist "latest.json")
+    Write-Host "Installer $setup (sha256 $sha), update manifest dist\latest.json"
+}

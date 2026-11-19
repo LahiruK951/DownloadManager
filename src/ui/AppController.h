@@ -2,6 +2,7 @@
 #include "core/SleepGuard.h"
 #include "core/TorrentFolderWatcher.h"
 #include "core/RemoteServer.h"
+#include "core/Updater.h"
 #include <QAbstractItemModel>
 #include <QDateTime>
 #include <QObject>
@@ -56,6 +57,11 @@ class AppController : public QObject {
     Q_PROPERTY(QString remoteCode READ remoteCode NOTIFY remoteChanged)
     Q_PROPERTY(QStringList remoteAddresses READ remoteAddresses NOTIFY remoteChanged)
     Q_PROPERTY(QString remoteError READ remoteError NOTIFY remoteChanged)
+    // Updates: state 0 idle, 1 checking, 2 update available, 3 downloading, 4 ready to install, 5 error
+    Q_PROPERTY(QString updateUrl READ updateUrl WRITE setUpdateUrl NOTIFY updateChanged)
+    Q_PROPERTY(bool autoCheckUpdates READ autoCheckUpdates WRITE setAutoCheckUpdates NOTIFY updateChanged)
+    Q_PROPERTY(int updateState READ updateState NOTIFY updateChanged)
+    Q_PROPERTY(QString updateStatus READ updateStatus NOTIFY updateChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
@@ -120,6 +126,15 @@ public:
     QStringList remoteAddresses() const;
     QString remoteError() const { return m_remoteError; }
     Q_INVOKABLE void newRemoteCode();
+    QString updateUrl() const;
+    void setUpdateUrl(const QString& url);
+    bool autoCheckUpdates() const;
+    void setAutoCheckUpdates(bool on);
+    int updateState() const { return m_updateState; }
+    QString updateStatus() const { return m_updateStatus; }
+    Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void downloadUpdate();
+    Q_INVOKABLE void installUpdate();
     // Report a problem: the text that would be shared, and ways to share it (nothing is sent).
     Q_INVOKABLE QString problemReport() const;
     Q_INVOKABLE void copyProblemReport();
@@ -313,6 +328,7 @@ signals:
     void notice(const QString& text); // short message for the toast
     void sortChanged();
     void remoteChanged();
+    void updateChanged();
     void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void filesRequired(QObject* download); // torrent waits for the user to pick files
@@ -337,6 +353,10 @@ private:
     SleepGuard m_sleepGuard; // keeps the PC awake while downloading
     TorrentFolderWatcher* m_torrentWatcher = nullptr;
     RemoteServer* m_remote = nullptr;
+    Updater* m_updater = nullptr;
+    int m_updateState = 0;
+    QString m_updateStatus, m_updateFile;
+    void setUpdate(int state, const QString& status);
     QString m_remoteError;
     void applyRemote();
     QList<qint64> m_playWhenReady; // playWhileDownloading() waiting for enough data

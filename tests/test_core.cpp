@@ -36,6 +36,8 @@
 #include "core/BrowserHost.h"
 #include "core/AppLog.h"
 #include "core/RemoteServer.h"
+#include "core/Updater.h"
+#include <QStandardPaths>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include "ui/DownloadsModel.h"
@@ -998,6 +1000,59 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void updater()
+    {
+        QVERIFY(Updater::compareVersions("0.2.0", "0.1.9") > 0);
+        QVERIFY(Updater::compareVersions("1.10", "1.9") > 0); // numbers, not text
+        QCOMPARE(Updater::compareVersions("1.0", "1.0.0"), 0);
+        QVERIFY(Updater::compareVersions("0.1.0", "0.1.1") < 0);
+        QVERIFY(Updater::allowedUrl(QUrl("https://example.org/latest.json")));
+        QVERIFY(!Updater::allowedUrl(QUrl("http://example.org/latest.json")));
+        QVERIFY(Updater::allowedUrl(QUrl("http://127.0.0.1:8080/latest.json")));
+
+        const QByteArray installer = makeData(200 * 1024);
+        const QString sha = QString::fromLatin1(QCryptographicHash::hash(installer, QCryptographicHash::Sha256).toHex());
+        HlsServer srv;
+        srv.files.insert("/rel/latest.json", QJsonDocument(QJsonObject{{"version", "9.9.0"}, {"url", "FluxDM-9.9.0-setup.exe"},
+                                                                         {"sha256", sha}, {"notes", "Faster"}}).toJson());
+        srv.files.insert("/rel/FluxDM-9.9.0-setup.exe", installer);
+        srv.files.insert("/old/latest.json", QJsonDocument(QJsonObject{{"version", "0.0.1"}, {"url", "x.exe"}, {"sha256", sha}}).toJson());
+        srv.files.insert("/bad/latest.json", QJsonDocument(QJsonObject{{"version", "9.9.0"}, {"url", "evil.exe"}, {"sha256", sha}}).toJson());
+        srv.files.insert("/bad/evil.exe", makeData(1000));
+        srv.files.insert("/broken/latest.json", "{\"version\": \"9.9.0\"}");
+        QVERIFY(srv.start());
+
+        Updater u("0.1.0");
+        QSignalSpy checked(&u, &Updater::checked), ready(&u, &Updater::ready), failed(&u, &Updater::failed);
+        u.check(QUrl(srv.url("/rel/latest.json")));
+        QVERIFY(checked.wait(5000));
+        QCOMPARE(checked.last().at(0).toBool(), true);
+        QCOMPARE(checked.last().at(1).toString(), QStringLiteral("9.9.0"));
+        QCOMPARE(u.notes(), QStringLiteral("Faster"));
+        u.download(); // the installer link is relative to the manifest
+        QVERIFY(ready.wait(5000));
+        QVERIFY(readAll(ready.last().at(0).toString()) == installer);
+        QFile::remove(ready.last().at(0).toString());
+
+        u.check(QUrl(srv.url("/old/latest.json")));
+        QVERIFY(checked.wait(5000));
+        QCOMPARE(checked.last().at(0).toBool(), false); // already newer
+
+        u.check(QUrl(srv.url("/bad/latest.json")));
+        QVERIFY(checked.wait(5000));
+        u.download();
+        QVERIFY(failed.wait(5000));
+        QVERIFY(failed.last().at(0).toString().contains("checksum"));
+        QVERIFY(!QFile::exists(QDir(QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("FluxDM-update"))
+                                    .filePath("FluxDM-9.9.0-setup.exe"))); // nothing left to run
+
+        u.check(QUrl(srv.url("/broken/latest.json")));
+        QVERIFY(failed.wait(5000));
+        QVERIFY(failed.last().at(0).toString().contains("incomplete"));
+        u.check(QUrl("http://updates.example.org/latest.json"));
+        QVERIFY(failed.last().at(0).toString().contains("HTTPS"));
     }
 
     void remoteControl()

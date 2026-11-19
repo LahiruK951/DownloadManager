@@ -74,6 +74,25 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         }
     });
     m_torrentWatcher->setFolder(torrentWatchFolder());
+    m_updater = new Updater(QStringLiteral(FLUXDM_VERSION), this);
+    connect(m_updater, &Updater::checked, this, [this](bool available, const QString& version, const QString&) {
+        m_ui.setValue(QStringLiteral("updateLastCheck"), QDateTime::currentDateTime());
+        setUpdate(available ? 2 : 0, available ? tr("FluxDM %1 is available.").arg(version)
+                                               : tr("FluxDM is up to date (%1).").arg(QStringLiteral(FLUXDM_VERSION)));
+    });
+    connect(m_updater, &Updater::progress, this, [this](qint64 got, qint64 total) {
+        if (total > 0)
+            setUpdate(3, tr("Downloading the update… %1%").arg(got * 100 / total));
+    });
+    connect(m_updater, &Updater::ready, this, [this](const QString& path) {
+        m_updateFile = path;
+        setUpdate(4, tr("FluxDM %1 is ready to install.").arg(m_updater->version()));
+    });
+    connect(m_updater, &Updater::failed, this, [this](const QString& err) { setUpdate(5, err); });
+    // A daily look, a little after start, when an update address is set.
+    if (autoCheckUpdates() && !updateUrl().isEmpty()
+        && m_ui.value(QStringLiteral("updateLastCheck")).toDateTime().secsTo(QDateTime::currentDateTime()) > 86400)
+        QTimer::singleShot(15000, this, [this] { checkForUpdates(); });
     // Remote control: links added from a phone go through the same path as the Add dialog.
     m_remote = new RemoteServer(m_mgr, this);
     m_remote->setAddHandler([this](const QString& url) { return addDownloads(url, QString(), QString(), true, {}, -1); });
@@ -391,6 +410,58 @@ void AppController::chooseFiles(qint64 id, const QVariantList& wantedIndexes)
 
 void AppController::setSequential(qint64 id, bool on) { m_mgr->setSequential(byId(id), on); }
 QVariantMap AppController::torrentDetails(qint64 id) const { return m_mgr->details(byId(id)); }
+
+QString AppController::updateUrl() const
+{
+    return m_ui.value(QStringLiteral("updateUrl"), QStringLiteral(FLUXDM_UPDATE_URL)).toString();
+}
+
+void AppController::setUpdateUrl(const QString& url)
+{
+    m_ui.setValue(QStringLiteral("updateUrl"), url.trimmed());
+    emit updateChanged();
+}
+
+bool AppController::autoCheckUpdates() const { return m_ui.value(QStringLiteral("autoCheckUpdates"), true).toBool(); }
+
+void AppController::setAutoCheckUpdates(bool on)
+{
+    m_ui.setValue(QStringLiteral("autoCheckUpdates"), on);
+    emit updateChanged();
+}
+
+void AppController::setUpdate(int state, const QString& status)
+{
+    m_updateState = state;
+    m_updateStatus = status;
+    emit updateChanged();
+}
+
+void AppController::checkForUpdates()
+{
+    if (updateUrl().isEmpty()) {
+        setUpdate(5, tr("No update address is set."));
+        return;
+    }
+    setUpdate(1, tr("Checking…"));
+    m_updater->check(QUrl(updateUrl()));
+}
+
+void AppController::downloadUpdate()
+{
+    setUpdate(3, tr("Downloading the update…"));
+    m_updater->download();
+}
+
+void AppController::installUpdate()
+{
+    if (m_updateFile.isEmpty())
+        return;
+    if (Updater::install(m_updateFile))
+        QCoreApplication::quit(); // the installer replaces the files and starts FluxDM again
+    else
+        setUpdate(5, tr("Couldn't start the installer."));
+}
 
 bool AppController::remoteEnabled() const { return m_ui.value(QStringLiteral("remoteEnabled"), false).toBool(); }
 int AppController::remotePort() const { return m_ui.value(QStringLiteral("remotePort"), 6810).toInt(); }
