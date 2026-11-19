@@ -59,6 +59,18 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     m_proxy->setSortOrder(m_ui.value(QStringLiteral("sortKey"), QStringLiteral("added")).toString(),
                           m_ui.value(QStringLiteral("sortDescending"), true).toBool());
 
+    // Watch folder for .torrent files: added without asking (FDM's behaviour).
+    m_torrentWatcher = new TorrentFolderWatcher(QDir(dataDir).filePath(QStringLiteral("torrents")), this);
+    connect(m_torrentWatcher, &TorrentFolderWatcher::torrentAdded, this, [this](const QString& copy, const QString& name) {
+        // Silent (FDM: ForceSilentDownloadsFromTorrentFolder): all files, no "choose files" question.
+        if (Download* d = m_mgr->add(copy, QDir::toNativeSeparators(defaultFolder()), {}, false)) {
+            d->rec.pickFiles = false;
+            d->addLog(tr("Added from the watched folder: %1").arg(name));
+            m_mgr->resume(d);
+            emit notice(tr("Added %1 from the watched folder").arg(name));
+        }
+    });
+    m_torrentWatcher->setFolder(torrentWatchFolder());
     connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
         emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
     });
@@ -335,6 +347,18 @@ int AppController::selectionTagState(int tagId) const
         if (const Download* d = byId(id); d && d->hasTag(tagId))
             ++with;
     return with == 0 ? 0 : (with == m_sel.size() ? 2 : 1);
+}
+
+QString AppController::torrentWatchFolder() const { return m_ui.value(QStringLiteral("torrentWatchFolder")).toString(); }
+
+void AppController::setTorrentWatchFolder(const QString& folder)
+{
+    const QString f = folder.trimmed().isEmpty() ? QString() : QDir::toNativeSeparators(folder.trimmed());
+    if (f == torrentWatchFolder())
+        return;
+    m_ui.setValue(QStringLiteral("torrentWatchFolder"), f);
+    m_torrentWatcher->setFolder(f);
+    emit settingsChanged();
 }
 
 bool AppController::chooseTorrentFiles() const { return m_mgr->chooseTorrentFiles(); }

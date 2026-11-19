@@ -31,6 +31,7 @@
 #include "core/SleepGuard.h"
 #include "core/MediaConvert.h"
 #include "core/ProxySettings.h"
+#include "core/TorrentFolderWatcher.h"
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -695,6 +696,44 @@ private slots:
         QVERIFY(!d->converting());
         QCOMPARE(done.first().at(2).toString(), QString());
         QVERIFY(QFile::exists(dir.filePath("song.mp3")));
+    }
+
+    void torrentWatchFolder()
+    {
+        QTemporaryDir watched, keep;
+        TorrentFolderWatcher w(keep.path());
+        QSignalSpy added(&w, &TorrentFolderWatcher::torrentAdded);
+        w.setFolder(watched.path());
+        auto put = [&](const QString& name, const QByteArray& data) {
+            QFile f(QDir(watched.path()).filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(data);
+        };
+        const QByteArray torrent = "d8:announce30:udp://tracker.example.org:13374:infod6:lengthi1024e4:name5:a.bin12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee";
+        put("movie.torrent", torrent);
+        put("broken.torrent", "this is not a torrent file at all, just text");
+        w.scanNow(); // first look: sizes noted, nothing taken while a file may still be written
+        QCOMPARE(added.count(), 0);
+        w.scanNow(); // unchanged: taken
+        QCOMPARE(added.count(), 1);
+        QCOMPARE(added.first().at(1).toString(), QStringLiteral("movie.torrent"));
+        const QString copy = added.first().at(0).toString();
+        QCOMPARE(QFileInfo(copy).absolutePath(), QDir(keep.path()).absolutePath());
+        QCOMPARE(readAll(copy), torrent);
+        QVERIFY(QFile::exists(QDir(watched.path()).filePath("movie.torrent.added")));
+        QVERIFY(!QFile::exists(QDir(watched.path()).filePath("movie.torrent")));
+        QVERIFY(QFile::exists(QDir(watched.path()).filePath("broken.torrent"))); // not a torrent: left alone
+        w.scanNow();
+        w.scanNow();
+        QCOMPARE(added.count(), 1); // never twice
+
+        // The file system notification path works too (no manual scans).
+        put("second.torrent", torrent);
+        QTRY_COMPARE_WITH_TIMEOUT(added.count(), 2, 10000);
+        w.setFolder({}); // off
+        put("third.torrent", torrent);
+        QTest::qWait(1500);
+        QCOMPARE(added.count(), 2);
     }
 
     void proxySettings()

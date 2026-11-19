@@ -1,5 +1,6 @@
 #pragma once
 #include "core/SleepGuard.h"
+#include "core/TorrentFolderWatcher.h"
 #include <QAbstractItemModel>
 #include <QDateTime>
 #include <QObject>
@@ -47,6 +48,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
+    Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
     Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
     Q_PROPERTY(bool sortDescending READ sortDescending NOTIFY sortChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
@@ -97,6 +99,8 @@ public:
     bool preventSleep() const;
     bool chooseTorrentFiles() const;
     QVariantList tags() const;
+    QString torrentWatchFolder() const;
+    void setTorrentWatchFolder(const QString& folder);
     void setChooseTorrentFiles(bool on);
     QString sortKey() const;
     bool sortDescending() const;
@@ -295,6 +299,7 @@ private:
     DownloadsFilterModel* m_proxy;
     QSettings m_ui;
     SleepGuard m_sleepGuard; // keeps the PC awake while downloading
+    TorrentFolderWatcher* m_torrentWatcher = nullptr;
     QList<qint64> m_playWhenReady; // playWhileDownloading() waiting for enough data
     QPointer<Download> m_selected;
     QList<qint64> m_sel; // multi-selection (includes the current item)

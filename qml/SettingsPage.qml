@@ -555,6 +555,17 @@ Popup {
                         FToggle { checked: App.chooseTorrentFiles; onToggled: App.chooseTorrentFiles = checked }
                     }
                     SettingRow {
+                        title: qsTr("Watch a folder for .torrent files")
+                        description: App.torrentWatchFolder !== ""
+                                     ? qsTr("New .torrent files in %1 are added right away and renamed to .torrent.added.").arg(App.torrentWatchFolder)
+                                     : qsTr("Off. Pick a folder, e.g. where your browser saves .torrent files.")
+                        RowLayout {
+                            spacing: 8
+                            FButton { text: App.torrentWatchFolder !== "" ? qsTr("Change…") : qsTr("Choose…"); onClicked: watchDlg.open() }
+                            FButton { visible: App.torrentWatchFolder !== ""; kind: "ghost"; text: qsTr("Stop"); onClicked: App.torrentWatchFolder = "" }
+                        }
+                    }
+                    SettingRow {
                         title: qsTr("Open magnet links and .torrent files with FluxDM")
                         description: qsTr("Registers FluxDM for your Windows account only.")
                         divider: false
@@ -800,5 +811,11 @@ Popup {
             folderField.text = App.urlToLocal(selectedFolder)
             App.defaultFolder = folderField.text
         }
+    }
+
+    FolderDialog {
+        id: watchDlg
+        title: qsTr("Folder to watch for .torrent files")
+        onAccepted: App.torrentWatchFolder = App.urlToLocal(selectedFolder)
     }
 }
