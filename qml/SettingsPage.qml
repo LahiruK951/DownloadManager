@@ -219,6 +219,11 @@ Popup {
                             FToggle { checked: App.monitorClipboard; onToggled: App.monitorClipboard = checked }
                         }
                         SettingRow {
+                            title: qsTr("Keep the computer awake while downloading")
+                            description: qsTr("Windows won't go to sleep until downloads finish. The screen can still turn off.")
+                            FToggle { checked: App.preventSleep; onToggled: App.preventSleep = checked }
+                        }
+                        SettingRow {
                             title: qsTr("Notify when a download completes")
                             FToggle { checked: App.notifyOnComplete; onToggled: App.notifyOnComplete = checked }
                         }

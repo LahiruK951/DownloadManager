@@ -21,6 +21,7 @@ add_library(fluxcore STATIC
     src/core/FileNamer.h              src/core/FileNamer.cpp
     src/core/LinkCheck.h              src/core/LinkCheck.cpp
     src/core/Secret.h                 src/core/Secret.cpp
+    src/core/SleepGuard.h             src/core/SleepGuard.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h

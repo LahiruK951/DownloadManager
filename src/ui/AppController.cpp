@@ -160,6 +160,17 @@ UI_SETTING(compactView, setCompactView, bool, "compactView", false, toBool)
 UI_SETTING(closeButtonHidesApp, setCloseButtonHidesApp, bool, "closeButtonHidesApp", true, toBool)
 UI_SETTING(monitorClipboard, setMonitorClipboard, bool, "monitorClipboard", true, toBool)
 UI_SETTING(notifyOnComplete, setNotifyOnComplete, bool, "notifyOnComplete", true, toBool)
+
+bool AppController::preventSleep() const { return m_ui.value(QStringLiteral("preventSleep"), true).toBool(); }
+
+void AppController::setPreventSleep(bool on)
+{
+    if (preventSleep() == on)
+        return;
+    m_ui.setValue(QStringLiteral("preventSleep"), on);
+    m_sleepGuard.setActive(on && m_activeCount > 0);
+    emit settingsChanged();
+}
 UI_SETTING(soundOnComplete, setSoundOnComplete, bool, "soundOnComplete", true, toBool)
 UI_SETTING(bottomPanelOpen, setBottomPanelOpen, bool, "bottomPanelOpened", true, toBool)
 UI_SETTING(bottomPanelTab, setBottomPanelTab, int, "bottomPanelCurrentTab", 0, toInt)
@@ -692,6 +703,8 @@ void AppController::updateStats()
     m_totalSpeed = speed;
     m_totalUpload = up;
     m_activeCount = active;
+    // Downloading (not just seeding) keeps the computer awake; released as soon as nothing runs.
+    m_sleepGuard.setActive(active > 0 && preventSleep());
     emit statsChanged();
 }
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "core/SleepGuard.h"
 #include <QAbstractItemModel>
 #include <QDateTime>
 #include <QObject>
@@ -43,6 +44,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool compactView READ compactView WRITE setCompactView NOTIFY settingsChanged)
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
+    Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
     Q_PROPERTY(bool soundOnComplete READ soundOnComplete WRITE setSoundOnComplete NOTIFY settingsChanged)
     Q_PROPERTY(QString defaultFolder READ defaultFolder WRITE setDefaultFolder NOTIFY settingsChanged)
@@ -88,6 +90,8 @@ public:
     bool closeButtonHidesApp() const;
     void setCloseButtonHidesApp(bool v);
     bool monitorClipboard() const;
+    bool preventSleep() const;
+    void setPreventSleep(bool on);
     void setMonitorClipboard(bool v);
     bool notifyOnComplete() const;
     void setNotifyOnComplete(bool v);
@@ -252,6 +256,7 @@ private:
     DownloadsModel* m_model;
     DownloadsFilterModel* m_proxy;
     QSettings m_ui;
+    SleepGuard m_sleepGuard; // keeps the PC awake while downloading
     QPointer<Download> m_selected;
     QList<qint64> m_sel; // multi-selection (includes the current item)
     int m_selRev = 0;
