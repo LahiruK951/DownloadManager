@@ -46,6 +46,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
+    Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
+    Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
@@ -97,6 +99,10 @@ public:
     void setCloseButtonHidesApp(bool v);
     bool monitorClipboard() const;
     bool preventSleep() const;
+    int zoom() const;
+    void setZoom(int percent);
+    int zoomInEffect() const;
+    Q_INVOKABLE void restartApp();
     bool chooseTorrentFiles() const;
     QVariantList tags() const;
     QString torrentWatchFolder() const;

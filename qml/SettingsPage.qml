@@ -202,8 +202,30 @@ Popup {
                         SettingRow {
                             title: qsTr("Compact list")
                             description: qsTr("Show more downloads by hiding progress bars and details.")
-                            divider: false
                             FToggle { checked: App.compactView; onToggled: App.compactView = checked }
+                        }
+                        SettingRow {
+                            id: zoomRow
+                            readonly property var levels: [80, 90, 100, 110, 125, 150, 175, 200]
+                            title: qsTr("Zoom")
+                            description: App.zoom !== App.zoomInEffect ? qsTr("Takes effect when FluxDM restarts.")
+                                                                       : qsTr("Size of text and controls.")
+                            divider: false
+                            RowLayout {
+                                spacing: 8
+                                FButton {
+                                    visible: App.zoom !== App.zoomInEffect
+                                    kind: "ghost"
+                                    text: qsTr("Restart now")
+                                    onClicked: App.restartApp()
+                                }
+                                FComboBox {
+                                    Layout.preferredWidth: 110
+                                    model: zoomRow.levels.map(z => z + " %")
+                                    currentIndex: Math.max(0, zoomRow.levels.indexOf(App.zoom))
+                                    onActivated: (i) => App.zoom = zoomRow.levels[i]
+                                }
+                            }
                         }
                     }
                     SettingsCard {

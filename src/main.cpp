@@ -6,6 +6,8 @@
 #include <QJsonObject>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QThread>
+#include <QSettings>
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -53,11 +55,29 @@ int main(int argc, char* argv[])
     QApplication::setOrganizationName(QStringLiteral("FluxDM"));
     QApplication::setApplicationName(QStringLiteral("FluxDM"));
     QApplication::setApplicationVersion(QStringLiteral(FLUXDM_VERSION));
+    // UI zoom (FDM: settings.ini "zoom", percent) must be known before the application exists.
+    if (!qEnvironmentVariableIsSet("QT_SCALE_FACTOR")) {
+        const int zoom = QSettings(QDir(profileDir()).filePath(QStringLiteral("settings.ini")), QSettings::IniFormat)
+                             .value(QStringLiteral("zoom"), 100).toInt();
+        if (zoom != 100 && zoom >= 50 && zoom <= 300)
+            qputenv("QT_SCALE_FACTOR", QByteArray::number(zoom / 100.0));
+    }
     QApplication app(argc, argv);
 
-    const QStringList args = app.arguments().mid(1);
-    if (forwardToRunningInstance(args))
+    QStringList args = app.arguments().mid(1);
+    if (args.removeAll(QStringLiteral("--restarted")) > 0) {
+        // Started by "Restart now": wait for the old instance to let go of the channel.
+        for (int i = 0; i < 50; ++i) {
+            QLocalSocket probe;
+            probe.connectToServer(instanceName());
+            if (!probe.waitForConnected(100))
+                break;
+            probe.disconnectFromServer();
+            QThread::msleep(100);
+        }
+    } else if (forwardToRunningInstance(args)) {
         return 0;
+    }
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     {

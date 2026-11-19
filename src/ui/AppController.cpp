@@ -1,6 +1,7 @@
 #include "ui/AppController.h"
 
 #include <QClipboard>
+#include <cmath>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
@@ -380,6 +381,33 @@ void AppController::chooseFiles(qint64 id, const QVariantList& wantedIndexes)
 
 void AppController::setSequential(qint64 id, bool on) { m_mgr->setSequential(byId(id), on); }
 QVariantMap AppController::torrentDetails(qint64 id) const { return m_mgr->details(byId(id)); }
+
+int AppController::zoom() const { return m_ui.value(QStringLiteral("zoom"), 100).toInt(); }
+
+void AppController::setZoom(int percent)
+{
+    percent = qBound(50, percent, 300);
+    if (percent == zoom())
+        return;
+    m_ui.setValue(QStringLiteral("zoom"), percent);
+    m_ui.sync();
+    emit settingsChanged();
+}
+
+int AppController::zoomInEffect() const
+{
+    const double f = qEnvironmentVariable("QT_SCALE_FACTOR", QStringLiteral("1")).toDouble();
+    return f > 0 ? int(std::lround(f * 100)) : 100;
+}
+
+void AppController::restartApp()
+{
+    m_ui.sync();
+    QStringList args{QStringLiteral("--restarted")};
+    qunsetenv("QT_SCALE_FACTOR"); // the new process reads the zoom setting itself
+    if (QProcess::startDetached(QCoreApplication::applicationFilePath(), args))
+        QCoreApplication::quit();
+}
 
 bool AppController::preventSleep() const { return m_ui.value(QStringLiteral("preventSleep"), true).toBool(); }
 
