@@ -59,6 +59,13 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     m_proxy->setSortOrder(m_ui.value(QStringLiteral("sortKey"), QStringLiteral("added")).toString(),
                           m_ui.value(QStringLiteral("sortDescending"), true).toBool());
 
+    connect(m_mgr, &DownloadManager::tagsChanged, this, [this] {
+        // a deleted tag can't stay the active filter
+        if (filter().startsWith(QLatin1String("tag:")) && m_mgr->tag(filter().mid(4).toInt()).id == 0)
+            setFilter(QStringLiteral("all"));
+        emit tagsChanged();
+        scheduleRecount();
+    });
     m_recountTimer.setSingleShot(true);
     m_recountTimer.setInterval(150);
     connect(&m_recountTimer, &QTimer::timeout, this, &AppController::recount);
@@ -172,6 +179,53 @@ void AppController::setSort(const QString& key, bool descending)
     m_ui.setValue(QStringLiteral("sortKey"), m_proxy->sortKey());
     m_ui.setValue(QStringLiteral("sortDescending"), descending);
     emit sortChanged();
+}
+
+QVariantList AppController::tags() const
+{
+    QVariantList l;
+    for (const Tag& t : m_mgr->tags())
+        l << t.toMap();
+    return l;
+}
+
+bool AppController::tagNameTaken(const QString& name, int exceptId) const
+{
+    for (const Tag& t : m_mgr->tags())
+        if (t.id != exceptId && t.name.compare(name.trimmed(), Qt::CaseInsensitive) == 0)
+            return true;
+    return false;
+}
+
+int AppController::saveTag(int id, const QString& name, const QString& color, const QString& extensions, const QString& folder)
+{
+    if (name.trimmed().isEmpty() || tagNameTaken(name, id))
+        return 0;
+    Tag t = id > 0 ? m_mgr->tag(id) : Tag();
+    t.id = id > 0 ? t.id : 0;
+    t.name = name.trimmed();
+    t.color = color;
+    t.extensions = Tag::parseExtensions(extensions);
+    t.folder = folder.trimmed().isEmpty() ? QString() : QDir::toNativeSeparators(folder.trimmed());
+    return m_mgr->saveTag(t);
+}
+
+void AppController::removeTag(int id) { m_mgr->removeTag(id); }
+void AppController::setTag(qint64 downloadId, int tagId, bool on) { m_mgr->setTag(byId(downloadId), tagId, on); }
+
+void AppController::setSelectionTag(int tagId, bool on)
+{
+    for (qint64 id : m_sel)
+        m_mgr->setTag(byId(id), tagId, on);
+}
+
+int AppController::selectionTagState(int tagId) const
+{
+    int with = 0;
+    for (qint64 id : m_sel)
+        if (const Download* d = byId(id); d && d->hasTag(tagId))
+            ++with;
+    return with == 0 ? 0 : (with == m_sel.size() ? 2 : 1);
 }
 
 bool AppController::chooseTorrentFiles() const { return m_mgr->chooseTorrentFiles(); }
@@ -536,6 +590,7 @@ void AppController::watch(Download* d)
 {
     connect(d, &Download::stateChanged, this, &AppController::scheduleRecount);
     connect(d, &Download::categoryChanged, this, &AppController::scheduleRecount);
+    connect(d, &Download::tagsChanged, this, &AppController::scheduleRecount);
     connect(d, &Download::stateChanged, this, [this, d] {
         if (d->needsLogin())
             emit loginRequired(d);
@@ -711,12 +766,16 @@ void AppController::recount()
         else
             ++active;
         ++cats[d->category()];
+        for (int t : d->rec.tags)
+            ++cats[QStringLiteral("tag:%1").arg(t)];
     }
     c[QStringLiteral("all")] = all;
     c[QStringLiteral("active")] = active;
     c[QStringLiteral("completed")] = completed;
     for (const QString& k : kCategories)
         c[k] = cats.value(k);
+    for (const Tag& t : m_mgr->tags())
+        c[QStringLiteral("tag:%1").arg(t.id)] = cats.value(QStringLiteral("tag:%1").arg(t.id));
     m_counts = c;
     emit countsChanged();
     updateStats();
@@ -1133,6 +1192,10 @@ QString AppController::categoryOf(const QString& links) const
 
 QString AppController::folderFor(const QString& links) const
 {
+    // A user tag with a folder for this file type wins over the folder by category.
+    const QString tagFolder = m_mgr->tagFolderFor(expectedName(links));
+    if (!tagFolder.isEmpty())
+        return tagFolder;
     const QString folder = categoryFolder(categoryOf(links));
     return folder.isEmpty() ? defaultFolder() : folder;
 }

@@ -164,6 +164,16 @@ QList<DownloadRecord> Database::loadDownloads()
                 r.schedule = sched.value(r.id);
             }
     }
+
+    QSqlQuery tq(m_db);
+    if (tq.exec(QStringLiteral("SELECT downloadId, tagsIds FROM downloadsTags"))) {
+        QHash<qint64, QList<int>> tags;
+        while (tq.next())
+            for (const QString& s : tq.value(1).toString().split(QLatin1Char(','), Qt::SkipEmptyParts))
+                tags[tq.value(0).toLongLong()] << s.toInt();
+        for (DownloadRecord& r : out)
+            r.tags = tags.value(r.id);
+    }
     return out;
 }
 
@@ -214,6 +224,19 @@ void Database::save(const DownloadRecord& r)
         s.addBindValue(r.id);
     }
     s.exec();
+    QSqlQuery tg(m_db);
+    if (r.tags.isEmpty()) {
+        tg.prepare(QStringLiteral("DELETE FROM downloadsTags WHERE downloadId = ?"));
+        tg.addBindValue(r.id);
+    } else {
+        QStringList ids;
+        for (int t : r.tags)
+            ids << QString::number(t);
+        tg.prepare(QStringLiteral("INSERT OR REPLACE INTO downloadsTags (downloadId, tagsIds) VALUES (?, ?)"));
+        tg.addBindValue(r.id);
+        tg.addBindValue(ids.join(QLatin1Char(',')));
+    }
+    tg.exec();
 }
 
 void Database::saveProgress(qint64 id, qint64 received, const QByteArray& resumeData)
@@ -236,6 +259,10 @@ void Database::remove(qint64 id)
     s.prepare(QStringLiteral("DELETE FROM downloadsScheduleRecords WHERE downloadId = ?"));
     s.addBindValue(id);
     s.exec();
+    QSqlQuery t(m_db);
+    t.prepare(QStringLiteral("DELETE FROM downloadsTags WHERE downloadId = ?"));
+    t.addBindValue(id);
+    t.exec();
 }
 
 qint64 Database::maxId()
@@ -301,3 +328,61 @@ int Database::loginCount()
 }
 
 void Database::clearLogins() { exec(QStringLiteral("DELETE FROM networkPasswords")); }
+
+// ------------------------------------------------------------------ tags
+
+QList<Tag> Database::loadTags()
+{
+    QList<Tag> out;
+    QSqlQuery q(m_db);
+    if (!q.exec(QStringLiteral("SELECT t.id, t.name, t.color, d.defaultExtensions, d.defaultDownloadFolder FROM tags t"
+                               " LEFT JOIN downloadsTagsDetails d ON d.tagId = t.id ORDER BY t.id")))
+        return out;
+    while (q.next()) {
+        Tag t;
+        t.id = q.value(0).toInt();
+        t.name = q.value(1).toString();
+        t.color = q.value(2).toString();
+        t.extensions = Tag::parseExtensions(q.value(3).toString());
+        t.folder = q.value(4).toString();
+        out << t;
+    }
+    return out;
+}
+
+int Database::saveTag(const Tag& tag)
+{
+    int id = tag.id;
+    QSqlQuery q(m_db);
+    if (id <= 0) {
+        q.prepare(QStringLiteral("INSERT INTO tags (name, color) VALUES (?, ?)"));
+        q.addBindValue(tag.name);
+        q.addBindValue(tag.color);
+        if (!q.exec())
+            return 0;
+        id = q.lastInsertId().toInt();
+    } else {
+        q.prepare(QStringLiteral("UPDATE tags SET name = ?, color = ? WHERE id = ?"));
+        q.addBindValue(tag.name);
+        q.addBindValue(tag.color);
+        q.addBindValue(id);
+        q.exec();
+    }
+    QSqlQuery d(m_db);
+    d.prepare(QStringLiteral("INSERT OR REPLACE INTO downloadsTagsDetails (tagId, defaultExtensions, defaultDownloadFolder) VALUES (?,?,?)"));
+    d.addBindValue(id);
+    d.addBindValue(tag.extensions.join(QLatin1Char(',')));
+    d.addBindValue(tag.folder);
+    d.exec();
+    return id;
+}
+
+void Database::removeTag(int id)
+{
+    for (const char* sql : {"DELETE FROM tags WHERE id = ?", "DELETE FROM downloadsTagsDetails WHERE tagId = ?"}) {
+        QSqlQuery q(m_db);
+        q.prepare(QString::fromLatin1(sql));
+        q.addBindValue(id);
+        q.exec();
+    }
+}

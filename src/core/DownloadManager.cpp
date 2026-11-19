@@ -97,6 +97,7 @@ QString DownloadManager::defaultUserAgent()
 void DownloadManager::load()
 {
     m_nextId = m_db->maxId();
+    m_tags = m_db->loadTags();
     for (const DownloadRecord& r : m_db->loadDownloads()) {
         auto* d = new Download(r, this);
         if (d->rec.state == Download::Starting || d->rec.state == Download::Downloading)
@@ -180,6 +181,7 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
     r.cookies = cookies;
     r.existingFileReaction = existingFileDefault();
     r.pickFiles = r.moduleUid == QLatin1String("downloadsbt") && chooseTorrentFiles();
+    r.tags = tagsFor(r.title);
     r.userAgent = userAgent;
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
@@ -584,6 +586,12 @@ void DownloadManager::onMeta(qint64 id, const QString& fileName, const QString& 
     d->rec.total = total;
     d->rec.resumable = resumable ? 1 : 0;
     d->setTitle(fileName);
+    // The real name is known now (Content-Disposition, torrent name): add matching tags.
+    QList<int> tags = d->rec.tags;
+    for (int t : tagsFor(fileName))
+        if (!tags.contains(t))
+            tags << t;
+    d->setTags(tags);
     if (d->rec.state == Download::Starting) {
         d->rec.state = Download::Downloading;
         emit d->stateChanged();
@@ -1050,4 +1058,79 @@ void DownloadManager::forgetLogins()
 {
     m_sessionLogins.clear();
     m_db->clearLogins();
+}
+
+// ------------------------------------------------------------------ user tags
+
+Tag DownloadManager::tag(int id) const
+{
+    for (const Tag& t : m_tags)
+        if (t.id == id)
+            return t;
+    return {};
+}
+
+int DownloadManager::saveTag(Tag t)
+{
+    t.name = t.name.trimmed();
+    if (t.name.isEmpty())
+        return 0;
+    const int id = m_db->saveTag(t);
+    if (id <= 0)
+        return 0;
+    t.id = id;
+    bool found = false;
+    for (Tag& x : m_tags)
+        if (x.id == id) {
+            x = t;
+            found = true;
+        }
+    if (!found)
+        m_tags << t;
+    emit tagsChanged();
+    return id;
+}
+
+void DownloadManager::removeTag(int id)
+{
+    m_db->removeTag(id);
+    m_tags.erase(std::remove_if(m_tags.begin(), m_tags.end(), [id](const Tag& t) { return t.id == id; }), m_tags.end());
+    for (Download* d : m_list)
+        if (d->hasTag(id)) {
+            QList<int> l = d->rec.tags;
+            l.removeAll(id);
+            d->setTags(l);
+            persist(d);
+        }
+    emit tagsChanged();
+}
+
+void DownloadManager::setTag(Download* d, int tagId, bool on)
+{
+    if (!d || tag(tagId).id == 0 || d->hasTag(tagId) == on)
+        return;
+    QList<int> l = d->rec.tags;
+    if (on)
+        l << tagId;
+    else
+        l.removeAll(tagId);
+    d->setTags(l);
+    persist(d);
+}
+
+QList<int> DownloadManager::tagsFor(const QString& fileName) const
+{
+    QList<int> out;
+    for (const Tag& t : m_tags)
+        if (t.matches(fileName))
+            out << t.id;
+    return out;
+}
+
+QString DownloadManager::tagFolderFor(const QString& fileName) const
+{
+    for (const Tag& t : m_tags)
+        if (!t.folder.isEmpty() && t.matches(fileName))
+            return t.folder;
+    return {};
 }

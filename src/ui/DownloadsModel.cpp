@@ -29,6 +29,7 @@ void DownloadsModel::track(Download* d)
 {
     connect(d, &Download::stateChanged, this, [this, d] { rowChanged(d); });
     connect(d, &Download::titleChanged, this, [this, d] { rowChanged(d); });
+    connect(d, &Download::tagsChanged, this, [this, d] { rowChanged(d); });
     connect(d, &Download::categoryChanged, this, [this, d] { rowChanged(d); });
 }
 
@@ -113,6 +114,9 @@ bool DownloadsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex&) c
             return false;
     } else if (m_filter == QLatin1String("completed")) {
         if (!d->completed())
+            return false;
+    } else if (m_filter.startsWith(QLatin1String("tag:"))) {
+        if (!d->hasTag(m_filter.mid(4).toInt()))
             return false;
     } else if (m_filter != QLatin1String("all")) {
         if (d->category() != m_filter)

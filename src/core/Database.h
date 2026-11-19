@@ -6,6 +6,7 @@
 #include <QVariant>
 
 #include "core/DownloadRecord.h"
+#include "core/Tag.h"
 
 // SQLite store laid out like FDM's db.sqlite (downloads, tags, Settings, ...).
 class Database {
@@ -31,6 +32,11 @@ public:
     void removeLogin(const QString& server);
     int loginCount();
     void clearLogins();
+
+    // User tags (FDM: tags + downloadsTagsDetails); assignments live in downloadsTags.
+    QList<Tag> loadTags();
+    int saveTag(const Tag& t); // inserts when t.id == 0; returns the id
+    void removeTag(int id);
 
 private:
     bool exec(const QString& sql);

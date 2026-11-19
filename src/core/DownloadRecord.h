@@ -1,6 +1,7 @@
 #pragma once
 #include <QByteArray>
 #include <QDateTime>
+#include <QList>
 #include <QString>
 
 #include "core/Schedule.h"
@@ -31,6 +32,7 @@ struct DownloadRecord {
     int existingFileReaction = 0; // FileNamer::ExistingFile, fixed when the download is added
     bool pickFiles = false;     // torrent: ask which files to download once the list is known
     bool sequential = false;    // torrent: download in order
+    QList<int> tags;            // user tag ids (downloadsTags)
     QString contentCategory;    // from the file list of a multi-file download; "" = use the title
     bool scheduled = false;     // downloadsScheduleRecords row present
     ScheduleWindow schedule;

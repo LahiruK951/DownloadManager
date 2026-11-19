@@ -15,6 +15,7 @@ Rectangle {
     signal requestLogin(var download)
     signal requestExisting(var download)
     signal requestFiles(var download)
+    signal requestNewTag(var downloadIds)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -149,6 +150,26 @@ Rectangle {
                     color: Theme.text
                     font.pixelSize: 14
                     font.weight: Font.Medium
+                }
+                Repeater { // user tags
+                    model: (App.tags, row.d.tags)
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property var tag: App.tags.find(t => t.id === modelData)
+                        visible: tag !== undefined
+                        height: 18
+                        width: tagText.implicitWidth + 14
+                        radius: 9
+                        color: tag ? Qt.rgba(Qt.color(tag.color).r, Qt.color(tag.color).g, Qt.color(tag.color).b, Theme.dark ? 0.28 : 0.16) : "transparent"
+                        Text {
+                            id: tagText
+                            anchors.centerIn: parent
+                            text: parent.tag ? parent.tag.name : ""
+                            color: parent.tag ? (Theme.dark ? Qt.lighter(parent.tag.color, 1.35) : Qt.darker(parent.tag.color, 1.25)) : Theme.text
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                        }
+                    }
                 }
                 Text { // compact mode: inline status
                     visible: row.compact
@@ -304,6 +325,25 @@ Rectangle {
             FMenuItem { text: qsTr("Low"); onTriggered: App.setPrioritySelected(0) }
         }
         FMenuSeparator {}
+        FMenu {
+            id: multiTagsMenu
+            title: qsTr("Tags")
+            Instantiator {
+                model: App.tags
+                delegate: FMenuItem {
+                    required property var modelData
+                    readonly property int state: (App.selectionRev, App.selectionTagState(modelData.id))
+                    text: modelData.name + (state === 1 ? "  (" + qsTr("some") + ")" : "")
+                    checkable: true
+                    checked: state === 2
+                    onTriggered: App.setSelectionTag(modelData.id, state !== 2)
+                }
+                onObjectAdded: (index, object) => multiTagsMenu.insertItem(index, object)
+                onObjectRemoved: (index, object) => multiTagsMenu.removeItem(object)
+            }
+            FMenuSeparator { visible: App.tags.length > 0 }
+            FMenuItem { text: qsTr("New tag…"); onTriggered: row.requestNewTag(App.selectedIds()) }
+        }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy links"); onTriggered: App.copySelectedLinks() }
         FMenuItem { glyph: String.fromCharCode(0xE8DE); text: qsTr("Move to…"); onTriggered: row.requestMove() }
         FMenuSeparator {}
@@ -397,6 +437,24 @@ Rectangle {
             text: qsTr("Copy file path")
             enabled: row.d.filePath !== "" || row.d.destDir !== ""
             onTriggered: App.copyPath(row.d.id)
+        }
+        FMenu {
+            id: tagsMenu
+            title: qsTr("Tags")
+            Instantiator {
+                model: App.tags
+                delegate: FMenuItem {
+                    required property var modelData
+                    text: modelData.name
+                    checkable: true
+                    checked: row.d.tags.indexOf(modelData.id) >= 0
+                    onTriggered: App.setTag(row.d.id, modelData.id, !(row.d.tags.indexOf(modelData.id) >= 0))
+                }
+                onObjectAdded: (index, object) => tagsMenu.insertItem(index, object)
+                onObjectRemoved: (index, object) => tagsMenu.removeItem(object)
+            }
+            FMenuSeparator { visible: App.tags.length > 0 }
+            FMenuItem { text: qsTr("New tag…"); onTriggered: row.requestNewTag([row.d.id]) }
         }
         FMenu {
             title: qsTr("Priority")

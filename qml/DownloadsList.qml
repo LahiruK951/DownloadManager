@@ -14,6 +14,7 @@ Item {
     signal requestLogin(var download)
     signal requestExisting(var download)
     signal requestFiles(var download)
+    signal requestNewTag(var downloadIds)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -43,6 +44,7 @@ Item {
             onRequestLogin: (d) => root.requestLogin(d)
             onRequestExisting: (d) => root.requestExisting(d)
             onRequestFiles: (d) => root.requestFiles(d)
+            onRequestNewTag: (ids) => root.requestNewTag(ids)
         }
 
         focus: true

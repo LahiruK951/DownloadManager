@@ -46,6 +46,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
     Q_PROPERTY(bool sortDescending READ sortDescending NOTIFY sortChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
@@ -95,6 +96,7 @@ public:
     bool monitorClipboard() const;
     bool preventSleep() const;
     bool chooseTorrentFiles() const;
+    QVariantList tags() const;
     void setChooseTorrentFiles(bool on);
     QString sortKey() const;
     bool sortDescending() const;
@@ -212,6 +214,13 @@ public:
     Q_INVOKABLE void chooseFiles(qint64 id, const QVariantList& wantedIndexes);
     Q_INVOKABLE void setSequential(qint64 id, bool on);
     Q_INVOKABLE QVariantMap torrentDetails(qint64 id) const; // {peers: [...], trackers: [...]}
+    // User tags. saveTag: id 0 creates; returns the id (0 if the name is empty or taken).
+    Q_INVOKABLE int saveTag(int id, const QString& name, const QString& color, const QString& extensions, const QString& folder);
+    Q_INVOKABLE void removeTag(int id);
+    Q_INVOKABLE void setTag(qint64 downloadId, int tagId, bool on);
+    Q_INVOKABLE void setSelectionTag(int tagId, bool on);
+    Q_INVOKABLE int selectionTagState(int tagId) const; // 0 none, 1 some, 2 all selected have it
+    Q_INVOKABLE bool tagNameTaken(const QString& name, int exceptId) const;
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
@@ -250,6 +259,7 @@ signals:
     void whenDoneCountdown(int action);
     void notice(const QString& text); // short message for the toast
     void sortChanged();
+    void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void filesRequired(QObject* download); // torrent waits for the user to pick files
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes

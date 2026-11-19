@@ -78,7 +78,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -104,7 +104,12 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        FilterBar { id: filterBar; Layout.fillWidth: true }
+        FilterBar {
+            id: filterBar
+            Layout.fillWidth: true
+            onNewTagRequested: tagDialog.openNew([])
+            onEditTagRequested: (t) => tagDialog.openEdit(t)
+        }
 
         SplitView {
             Layout.fillWidth: true
@@ -128,6 +133,7 @@ ApplicationWindow {
                 onRequestLogin: (d) => loginDialog.openFor(d)
                 onRequestExisting: (d) => fileExistsDialog.openFor(d)
                 onRequestFiles: (d) => torrentFilesDialog.openFor(d)
+                onRequestNewTag: (ids) => tagDialog.openNew(ids)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -180,6 +186,14 @@ ApplicationWindow {
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
         else if (v === "exists") devExistsTimer.start()
+        else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list
+            const work = App.saveTag(0, "Work", "#539bf5", "pdf, xlsx", "")
+            const isos = App.saveTag(0, "Linux ISOs", "#57ab5a", "iso", "")
+            App.saveTag(0, "Keep", "#e275ad", "", "")
+            App.setTag(App.downloads.idAt(1), work, true)
+            if (v === "tag-dialog") tagDialog.openEdit(App.tags[1])
+            if (v === "tags-menu") devMenuTimer.start()
+        }
         else if (v === "bt-files") { // a torrent-like demo download asking which files to get
             App.select(App.downloads.idAt(0))
             App.addDownloads("demo://tracker.example.org/The%20Long%20Night%20S01?size=4551000000&speed=6000000&bt=1&pick=1", App.selected.destDir, "", true, {})
@@ -213,6 +227,7 @@ ApplicationWindow {
     LoginDialog { id: loginDialog }
     FileExistsDialog { id: fileExistsDialog }
     TorrentFilesDialog { id: torrentFilesDialog }
+    TagDialog { id: tagDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog

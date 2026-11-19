@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include "core/Download.h"
+#include "core/Tag.h"
 #include "core/Schedule.h"
 #include "core/TrafficMode.h"
 
@@ -86,6 +87,15 @@ public:
     void chooseFiles(Download* d, const QList<int>& wanted);
     void setSequential(Download* d, bool on);
     QVariantMap details(Download* d) const;
+
+    // User tags
+    QList<Tag> tags() const { return m_tags; }
+    Tag tag(int id) const;
+    int saveTag(Tag t); // create (id 0) or update; returns the id
+    void removeTag(int id);
+    void setTag(Download* d, int tagId, bool on);
+    QList<int> tagsFor(const QString& fileName) const; // tags whose extensions match
+    QString tagFolderFor(const QString& fileName) const; // folder of the first matching tag that has one
     int autoRetryLimit() const;
     void setAutoRetryLimit(int n);
     static bool isRetriable(const QString& error);
@@ -101,6 +111,7 @@ signals:
     void statsUpdated();
     void trafficModeChanged();
     void allDownloadsFinished();
+    void tagsChanged();
 
 private:
     void schedule();
@@ -127,6 +138,7 @@ private:
 
     Database* m_db;
     QHash<QString, QPair<QString, QString>> m_sessionLogins; // server -> user, password
+    QList<Tag> m_tags;
     QList<DownloadEngine*> m_engines;
     QList<Download*> m_list; // newest first
     qint64 m_nextId = 0;

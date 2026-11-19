@@ -21,6 +21,7 @@ add_library(fluxcore STATIC
     src/core/FileNamer.h              src/core/FileNamer.cpp
     src/core/LinkCheck.h              src/core/LinkCheck.cpp
     src/core/Secret.h                 src/core/Secret.cpp
+    src/core/Tag.h
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
@@ -93,6 +94,7 @@ set(FLUXDM_QML_FILES
     qml/LoginDialog.qml
     qml/FileExistsDialog.qml
     qml/TorrentFilesDialog.qml
+    qml/TagDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

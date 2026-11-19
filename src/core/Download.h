@@ -63,6 +63,7 @@ class Download : public QObject {
     Q_PROPERTY(bool awaitingFiles READ awaitingFiles NOTIFY changed) // torrent: waiting for the user to pick files
     Q_PROPERTY(QVariantList pendingFiles READ pendingFiles NOTIFY changed) // the files to pick from
     Q_PROPERTY(bool sequential READ sequential NOTIFY changed)
+    Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // user tag ids
     Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
 
 public:
@@ -142,6 +143,22 @@ public:
         emit stateChanged(); // lets the UI ask right away
     }
     bool sequential() const { return rec.sequential; }
+    QVariantList tags() const
+    {
+        QVariantList l;
+        for (int t : rec.tags)
+            l << t;
+        return l;
+    }
+    bool hasTag(int id) const { return rec.tags.contains(id); }
+    void setTags(const QList<int>& ids)
+    {
+        if (ids == rec.tags)
+            return;
+        rec.tags = ids;
+        emit changed();
+        emit tagsChanged();
+    }
     bool fileExists() const { return failed() && rec.lastError.startsWith(QLatin1String("File already exists")); }
     bool needsLogin() const
     {
@@ -167,6 +184,7 @@ signals:
     void titleChanged();
     void filesChanged();
     void categoryChanged(); // a multi-file download's content category became known
+    void tagsChanged();
 
 private:
     double m_speed = 0;

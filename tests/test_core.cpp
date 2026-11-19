@@ -551,6 +551,96 @@ private slots:
         QVERIFY(!DownloadManager::isRetriable(o.error));
     }
 
+    void userTags()
+    {
+        QCOMPARE(Tag::parseExtensions(" ISO, .img;*.Zip  iso "), (QStringList{"iso", "img", "zip"}));
+        QTemporaryDir dir;
+        int isoTag = 0, workTag = 0;
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            DownloadManager mgr(&db);
+            mgr.load();
+            Tag iso;
+            iso.name = QStringLiteral("Linux ISOs");
+            iso.color = QStringLiteral("#57ab5a");
+            iso.extensions = Tag::parseExtensions("iso img");
+            iso.folder = QDir::toNativeSeparators(dir.filePath("isos"));
+            isoTag = mgr.saveTag(iso);
+            Tag work;
+            work.name = QStringLiteral("Work");
+            workTag = mgr.saveTag(work);
+            QVERIFY(isoTag > 0 && workTag > 0 && isoTag != workTag);
+            QCOMPARE(mgr.saveTag(Tag{}), 0); // a name is required
+
+            QCOMPARE(mgr.tagsFor("debian-12.ISO"), QList<int>{isoTag});
+            QCOMPARE(mgr.tagFolderFor("debian-12.iso"), iso.folder);
+            QVERIFY(mgr.tagFolderFor("notes.txt").isEmpty());
+
+            // Without engines add() can't create downloads; tag records directly instead.
+            DownloadRecord r;
+            r.id = 1;
+            r.title = QStringLiteral("report.pdf");
+            r.tags = {workTag};
+            db.save(r);
+        }
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            const QList<Tag> tags = db.loadTags();
+            QCOMPARE(tags.size(), 2);
+            QCOMPARE(tags.first().extensions, (QStringList{"iso", "img"}));
+            QCOMPARE(tags.first().color, QStringLiteral("#57ab5a"));
+            DownloadManager mgr(&db);
+            mgr.load();
+            Download* d = mgr.find(1);
+            QVERIFY(d && d->hasTag(workTag));
+
+            DownloadsModel model(&mgr);
+            DownloadsFilterModel proxy;
+            proxy.setSourceModel(&model);
+            proxy.setFilter(QStringLiteral("tag:%1").arg(workTag));
+            QCOMPARE(proxy.rowCount(), 1);
+            proxy.setFilter(QStringLiteral("tag:%1").arg(isoTag));
+            QCOMPARE(proxy.rowCount(), 0);
+            mgr.setTag(d, isoTag, true);
+            QCOMPARE(proxy.rowCount(), 1); // the filter follows tag changes
+
+            QSignalSpy changed(&mgr, &DownloadManager::tagsChanged);
+            mgr.removeTag(workTag); // also leaves every download
+            QCOMPARE(changed.count(), 1);
+            QCOMPARE(d->rec.tags, QList<int>{isoTag});
+        }
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        QCOMPARE(db.loadTags().size(), 1);
+        QCOMPARE(db.loadDownloads().first().tags, QList<int>{isoTag});
+    }
+
+    void tagsAssignedOnAddAndMeta()
+    {
+        RangeServer srv;
+        srv.data = makeData(64 * 1024);
+        srv.contentDisposition = "attachment; filename=\"ubuntu-24.04.iso\""; // the link doesn't say "iso"
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Tag iso;
+        iso.name = QStringLiteral("ISOs");
+        iso.extensions = {QStringLiteral("iso")};
+        const int isoTag = mgr.saveTag(iso);
+        Download* byLink = mgr.add(srv.url("/debian.iso"), dir.path(), {}, false);
+        QVERIFY(byLink->hasTag(isoTag)); // from the link's name, right away
+        Download* byServer = mgr.add(srv.url("/get?id=7"), dir.path(), {}, true);
+        QVERIFY(!byServer->hasTag(isoTag));
+        QTRY_VERIFY_WITH_TIMEOUT(byServer->completed(), 20000);
+        QVERIFY(byServer->hasTag(isoTag)); // once the server named it
+    }
+
     void sortOrders()
     {
         QTemporaryDir dir;

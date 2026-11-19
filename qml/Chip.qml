@@ -6,11 +6,18 @@ AbstractButton {
     property string label
     property int count: 0
     property bool active: false
+    property color dot: "transparent" // user tag colour
+    signal rightClicked()
 
     implicitHeight: 28
     implicitWidth: row.implicitWidth + 24
     hoverEnabled: true
     focusPolicy: Qt.NoFocus
+
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        onTapped: chip.rightClicked()
+    }
 
     background: Rectangle {
         radius: 14
@@ -23,6 +30,14 @@ AbstractButton {
             id: row
             anchors.centerIn: parent
             spacing: 6
+            Rectangle {
+                visible: chip.dot.a > 0
+                width: 8; height: 8; radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: chip.dot
+                border.width: chip.active ? 1 : 0
+                border.color: "white"
+            }
             Text {
                 text: chip.label
                 color: chip.active ? "white" : Theme.text
