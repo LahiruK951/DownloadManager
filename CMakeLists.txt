@@ -24,6 +24,7 @@ add_library(fluxcore STATIC
     src/core/Tag.h
     src/core/ProxySettings.h
     src/core/BrowserHost.h
+    src/core/AppLog.h                 src/core/AppLog.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -52,7 +53,7 @@ target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libc
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
-    target_link_libraries(fluxcore PUBLIC bcrypt crypt32)
+    target_link_libraries(fluxcore PUBLIC bcrypt crypt32 dbghelp)
 endif()
 
 # module "downloadsbt": BitTorrent via libtorrent-rasterbar (optional)
@@ -102,6 +103,7 @@ set(FLUXDM_QML_FILES
     qml/TorrentFilesDialog.qml
     qml/TagDialog.qml
     qml/ConvertDialog.qml
+    qml/ReportDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

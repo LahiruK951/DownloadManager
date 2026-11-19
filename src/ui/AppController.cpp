@@ -27,6 +27,7 @@
 #include <shlobj.h>
 #endif
 
+#include "core/AppLog.h"
 #include "core/BatchLinks.h"
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
@@ -383,6 +384,33 @@ void AppController::chooseFiles(qint64 id, const QVariantList& wantedIndexes)
 
 void AppController::setSequential(qint64 id, bool on) { m_mgr->setSequential(byId(id), on); }
 QVariantMap AppController::torrentDetails(qint64 id) const { return m_mgr->details(byId(id)); }
+
+bool AppController::previousSessionCrashed() const { return AppLog::previousSessionCrashed(); }
+
+QString AppController::problemReport() const
+{
+    return AppLog::report(200) + QStringLiteral("\nDownloads: %1 in the list\n").arg(m_mgr->downloads().size());
+}
+
+void AppController::copyProblemReport()
+{
+    m_lastClip = problemReport();
+    QGuiApplication::clipboard()->setText(m_lastClip);
+    emit notice(tr("Report copied"));
+}
+
+QString AppController::saveProblemReport(const QUrl& file)
+{
+    const QString path = file.isLocalFile() ? file.toLocalFile() : file.toString();
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+        return tr("Cannot write %1").arg(QDir::toNativeSeparators(path));
+    f.write(problemReport().toUtf8());
+    emit notice(tr("Saved %1").arg(QFileInfo(path).fileName()));
+    return {};
+}
+
+void AppController::openLogsFolder() const { QDesktopServices::openUrl(QUrl::fromLocalFile(AppLog::logDir())); }
 
 int AppController::zoom() const { return m_ui.value(QStringLiteral("zoom"), 100).toInt(); }
 

@@ -18,6 +18,7 @@
 #include "core/FileMover.h"
 #include <algorithm>
 
+#include "core/AppLog.h"
 #include "core/Database.h"
 #include "core/Secret.h"
 #include "core/DownloadEngine.h"

@@ -18,6 +18,7 @@
 
 #include <curl/curl.h>
 
+#include "core/AppLog.h"
 #include "core/Database.h"
 #include "core/DownloadManager.h"
 #include "core/Instance.h"
@@ -91,6 +92,7 @@ int main(int argc, char* argv[])
 
     const QString dataDir = profileDir();
     QDir().mkpath(dataDir);
+    AppLog::init(QDir(dataDir).filePath(QStringLiteral("logs")));
 
     Database db;
     QString err;
@@ -176,5 +178,6 @@ int main(int argc, char* argv[])
         rc = app.exec();
     }
     curl_global_cleanup();
+    AppLog::shutdown(); // a clean exit: next start won't report a crash
     return rc;
 }

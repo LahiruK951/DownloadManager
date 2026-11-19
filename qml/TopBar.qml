@@ -8,6 +8,7 @@ Rectangle {
     signal deleteClicked()
     signal settingsClicked()
     signal aboutClicked()
+    signal reportClicked()
     signal openTorrentClicked()
     signal importClicked()
     signal exportClicked()
@@ -139,6 +140,7 @@ Rectangle {
                 }
                 FMenuItem { glyph: Theme.icons.settings; text: qsTr("Settings…"); onTriggered: bar.settingsClicked() }
                 FMenuSeparator {}
+                FMenuItem { glyph: Theme.icons.warn; text: qsTr("Report a problem…"); onTriggered: bar.reportClicked() }
                 FMenuItem { glyph: Theme.icons.info; text: qsTr("About FluxDM"); onTriggered: bar.aboutClicked() }
                 FMenuItem { glyph: Theme.icons.power; text: qsTr("Exit"); onTriggered: App.quit() }
             }

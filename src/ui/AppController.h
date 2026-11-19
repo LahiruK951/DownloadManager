@@ -48,6 +48,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
     Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
     Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
+    Q_PROPERTY(bool previousSessionCrashed READ previousSessionCrashed CONSTANT)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
@@ -103,6 +104,12 @@ public:
     void setZoom(int percent);
     int zoomInEffect() const;
     Q_INVOKABLE void restartApp();
+    bool previousSessionCrashed() const;
+    // Report a problem: the text that would be shared, and ways to share it (nothing is sent).
+    Q_INVOKABLE QString problemReport() const;
+    Q_INVOKABLE void copyProblemReport();
+    Q_INVOKABLE QString saveProblemReport(const QUrl& file); // error text or ""
+    Q_INVOKABLE void openLogsFolder() const;
     bool chooseTorrentFiles() const;
     QVariantList tags() const;
     QString torrentWatchFolder() const;

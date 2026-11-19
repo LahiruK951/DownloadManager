@@ -78,7 +78,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -93,6 +93,7 @@ ApplicationWindow {
         onDeleteClicked: deleteDialog.openForSelection()
         onSettingsClicked: settingsDialog.open()
         onAboutClicked: aboutDialog.open()
+        onReportClicked: reportDialog.openReport(false)
         onOpenTorrentClicked: torrentFileDialog.open()
         onImportClicked: importDialog.open()
         onExportClicked: exportDialog.open()
@@ -165,6 +166,7 @@ ApplicationWindow {
     Component.onCompleted: {
         // Developer aid for screenshots (FLUXDM_DEV_OPEN): open a view at startup.
         const v = App.devOpen
+        if (v === "" && App.previousSessionCrashed) crashTimer.start() // offer a report after a crash
         if (v === "") return
         if (v === "panel" || v === "panel-log" || v === "panel-files") {
             App.select(App.downloads.idAt(0))
@@ -190,6 +192,7 @@ ApplicationWindow {
             App.setProxySettings(2, "socks5", "proxy.example.com", 1080, "me", "secret", false)
             settingsDialog.openSection(6)
         }
+        else if (v === "report") reportDialog.openReport(false)
         else if (v === "exists") devExistsTimer.start()
         else if (v === "convert") devConvertTimer.start()
         else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list
@@ -235,6 +238,7 @@ ApplicationWindow {
     TorrentFilesDialog { id: torrentFilesDialog }
     TagDialog { id: tagDialog }
     ConvertDialog { id: convertDialog }
+    ReportDialog { id: reportDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
@@ -299,6 +303,7 @@ ApplicationWindow {
             convertDialog.openFor(App.selected, "mp3")
         }
     }
+    Timer { id: crashTimer; interval: 800; onTriggered: if (!win.dialogOpen) reportDialog.openReport(true) }
     Timer { id: devSortTimer; interval: 600; onTriggered: filterBar.openSortMenu() }
     Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }
     FileDialog {

@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QTime>
 
+#include "core/AppLog.h"
 #include "core/FileNamer.h"
 
 Download::Download(const DownloadRecord& r, QObject* parent)
@@ -164,6 +165,7 @@ void Download::clearLive()
 void Download::addLog(const QString& line)
 {
     m_log.append(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")) + QStringLiteral("  ") + line);
+    AppLog::write(QStringLiteral("#%1 %2").arg(rec.id).arg(line)); // the app-wide log (Report a problem)
     if (m_log.size() > 500)
         m_log.removeFirst();
     emit logChanged();

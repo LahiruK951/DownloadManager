@@ -33,6 +33,7 @@
 #include "core/ProxySettings.h"
 #include "core/TorrentFolderWatcher.h"
 #include "core/BrowserHost.h"
+#include "core/AppLog.h"
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -993,6 +994,54 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void appLogAndCrashReports()
+    {
+        QTemporaryDir dir;
+        const QString logs = dir.filePath("logs");
+        AppLog::init(logs);
+        QVERIFY(!AppLog::previousSessionCrashed()); // first run
+        qWarning("disk is full on purpose");       // Qt messages land in the log
+        {
+            DownloadRecord r;
+            r.id = 77;
+            Download d(r);
+            d.addLog("Connecting to example.com"); // and so do download events
+        }
+        QStringList t = AppLog::tail(10);
+        QVERIFY2(t.join('\n').contains("[warning] disk is full on purpose"), qPrintable(t.join('\n')));
+        QVERIFY(t.last().endsWith("#77 Connecting to example.com"));
+
+        AppLog::init(logs); // started again without a clean shutdown: like after a crash
+        QVERIFY(AppLog::previousSessionCrashed());
+        AppLog::shutdown();
+        AppLog::init(logs);
+        QVERIFY(!AppLog::previousSessionCrashed()); // a clean exit isn't reported
+
+        // Rotation at 1 MB keeps the log small; tail() reads across files.
+        const QString filler(200, QLatin1Char('x'));
+        for (int i = 0; i < 6000; ++i)
+            AppLog::write(filler);
+        AppLog::write("the newest line");
+        QVERIFY(QFile::exists(QDir(logs).filePath("fluxdm.1.log")));
+        QVERIFY(QFileInfo(AppLog::currentFile()).size() < 1100 * 1024);
+        t = AppLog::tail(3);
+        QCOMPARE(t.size(), 3);
+        QVERIFY(t.last().endsWith("the newest line"));
+
+#ifdef Q_OS_WIN
+        const QString dump = QDir(logs).filePath("crash-test.dmp");
+        QVERIFY(AppLog::writeMiniDump(dump));
+        QVERIFY(QFileInfo(dump).size() > 10000);
+        QCOMPARE(AppLog::crashDumps().first(), QFileInfo(dump).absoluteFilePath());
+#endif
+        const QString report = AppLog::report(5);
+        QVERIFY(report.contains("OS: ") && report.contains("Qt: ") && report.contains("the newest line"));
+#ifdef Q_OS_WIN
+        QVERIFY(report.contains("crash-test.dmp"));
+#endif
+        AppLog::shutdown();
     }
 
     void manualQueueOrder()
