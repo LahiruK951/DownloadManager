@@ -20,6 +20,7 @@ public:
     QByteArray basicAuth;    // "user:password" required (HTTP Basic), empty = open
     int unauthorized = 0;    // 401 answers sent
     int open = 0, peakOpen = 0;       // concurrent connections now / at most
+    int active = 0, peakActive = 0;   // responses being sent now / at most (closing sockets don't count)
     QList<QByteArray> requestLines;   // "GET http://host/path HTTP/1.1" when used as a proxy
 
     int requests = 0;
@@ -102,12 +103,22 @@ private:
             sock->write(hdr);
 
             auto pos = std::make_shared<qint64>(b);
+            peakActive = qMax(peakActive, ++active);
+            auto ended = std::make_shared<bool>(false);
+            auto end = [this, ended] {
+                if (!*ended) {
+                    *ended = true;
+                    --active;
+                }
+            };
+            connect(sock, &QTcpSocket::disconnected, this, end); // the client closed it (its timer dies with it)
             auto* timer = new QTimer(sock);
             timer->setTimerType(Qt::PreciseTimer);
             timer->setInterval(intervalMs);
-            connect(timer, &QTimer::timeout, sock, [this, sock, timer, pos, e] {
+            connect(timer, &QTimer::timeout, sock, [this, sock, timer, pos, e, end] {
                 if (sock->state() != QAbstractSocket::ConnectedState) {
                     timer->stop();
+                    end();
                     return;
                 }
                 if (sock->bytesToWrite() > 4 * chunk)
@@ -115,6 +126,7 @@ private:
                 const qint64 n = qMin<qint64>(chunk, e - *pos + 1);
                 if (n <= 0) {
                     timer->stop();
+                    end();
                     sock->disconnectFromHost();
                     return;
                 }

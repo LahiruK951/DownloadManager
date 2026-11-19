@@ -821,8 +821,9 @@ private slots:
         eng.start(b);
         QTRY_VERIFY_WITH_TIMEOUT(fin.count() == 2 || !fail.isEmpty(), 60000);
         QVERIFY2(fail.isEmpty(), qPrintable(fail.isEmpty() ? QString() : fail.first().at(1).toString()));
-        QVERIFY2(srv.peakOpen <= 3, qPrintable(QStringLiteral("peak %1 connections").arg(srv.peakOpen)));
-        QVERIFY(srv.peakOpen >= 2); // still parallel
+        // Transfers in progress, not sockets: a finished connection may linger a moment before it closes.
+        QVERIFY2(srv.peakActive <= 3, qPrintable(QStringLiteral("peak %1 transfers").arg(srv.peakActive)));
+        QVERIFY(srv.peakActive >= 2); // still parallel
     }
 
     void mpdParsing()
