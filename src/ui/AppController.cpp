@@ -56,6 +56,8 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
       m_ui(QDir(dataDir).filePath(QStringLiteral("settings.ini")), QSettings::IniFormat)
 {
     m_proxy->setSourceModel(m_model);
+    m_proxy->setSortOrder(m_ui.value(QStringLiteral("sortKey"), QStringLiteral("added")).toString(),
+                          m_ui.value(QStringLiteral("sortDescending"), true).toBool());
 
     m_recountTimer.setSingleShot(true);
     m_recountTimer.setInterval(150);
@@ -160,6 +162,17 @@ UI_SETTING(compactView, setCompactView, bool, "compactView", false, toBool)
 UI_SETTING(closeButtonHidesApp, setCloseButtonHidesApp, bool, "closeButtonHidesApp", true, toBool)
 UI_SETTING(monitorClipboard, setMonitorClipboard, bool, "monitorClipboard", true, toBool)
 UI_SETTING(notifyOnComplete, setNotifyOnComplete, bool, "notifyOnComplete", true, toBool)
+
+QString AppController::sortKey() const { return m_proxy->sortKey(); }
+bool AppController::sortDescending() const { return m_proxy->sortDescending(); }
+
+void AppController::setSort(const QString& key, bool descending)
+{
+    m_proxy->setSortOrder(key, descending);
+    m_ui.setValue(QStringLiteral("sortKey"), m_proxy->sortKey());
+    m_ui.setValue(QStringLiteral("sortDescending"), descending);
+    emit sortChanged();
+}
 
 bool AppController::preventSleep() const { return m_ui.value(QStringLiteral("preventSleep"), true).toBool(); }
 

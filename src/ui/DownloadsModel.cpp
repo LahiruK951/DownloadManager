@@ -123,6 +123,51 @@ bool DownloadsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex&) c
     return true;
 }
 
+void DownloadsFilterModel::setSortOrder(const QString& key, bool descending)
+{
+    static const QStringList keys = {QStringLiteral("added"), QStringLiteral("name"), QStringLiteral("size"), QStringLiteral("status")};
+    m_sortKey = keys.contains(key) ? key : QStringLiteral("added");
+    m_sortDesc = descending;
+    sort(0, m_sortDesc ? Qt::DescendingOrder : Qt::AscendingOrder);
+    invalidate(); // same column and order can still mean a different key
+}
+
+// Status order: what's moving first, finished last.
+static int statusRank(const Download* d)
+{
+    switch (d->state()) {
+    case Download::Starting:
+    case Download::Downloading: return 0;
+    case Download::Queued: return 1;
+    case Download::Paused: return 2;
+    case Download::Error: return 3;
+    default: return 4; // completed
+    }
+}
+
+bool DownloadsFilterModel::lessThan(const QModelIndex& left, const QModelIndex& right) const
+{
+    auto* src = static_cast<DownloadsModel*>(sourceModel());
+    const Download* a = src->at(left.row());
+    const Download* b = src->at(right.row());
+    if (!a || !b)
+        return false;
+    int c = 0;
+    if (m_sortKey == QLatin1String("name"))
+        c = QString::localeAwareCompare(a->title(), b->title());
+    else if (m_sortKey == QLatin1String("size"))
+        c = a->total() < b->total() ? -1 : (a->total() > b->total() ? 1 : 0);
+    else if (m_sortKey == QLatin1String("status"))
+        c = statusRank(a) - statusRank(b);
+    if (m_sortKey == QLatin1String("added"))
+        return a->id() < b->id(); // ids grow with time
+    if (c != 0)
+        return c < 0;
+    // Tie-break for the other keys: newest first, whichever direction was picked.
+    const bool olderFirst = a->id() < b->id();
+    return m_sortDesc ? olderFirst : !olderFirst;
+}
+
 int DownloadsFilterModel::rowOf(qint64 id) const
 {
     for (int r = 0; r < rowCount(); ++r)

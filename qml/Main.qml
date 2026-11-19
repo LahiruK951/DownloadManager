@@ -103,7 +103,7 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        FilterBar { Layout.fillWidth: true }
+        FilterBar { id: filterBar; Layout.fillWidth: true }
 
         SplitView {
             Layout.fillWidth: true
@@ -178,6 +178,8 @@ ApplicationWindow {
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
         else if (v === "exists") devExistsTimer.start()
+        else if (v.startsWith("sort:")) App.setSort(v.split(":")[1], v.split(":")[2] === "desc") // sort:<key>:<asc|desc>
+        else if (v === "sort-menu") devSortTimer.start()
         else if (v === "login" || v === "login-row") {
             App.select(App.downloads.idAt(0)) // reuse the demo profile's folder, never the real default
             App.addDownloads("demo://intranet.example.com/reports/q3-figures.xlsx?size=2400000&fail=401", App.selected.destDir, "", true, {})
@@ -251,6 +253,7 @@ ApplicationWindow {
             addDialog.openWith("https://downloads.example.com/" + App.selected.title, App.selected.destDir)
         }
     }
+    Timer { id: devSortTimer; interval: 600; onTriggered: filterBar.openSortMenu() }
     Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }
     FileDialog {
         id: torrentFileDialog

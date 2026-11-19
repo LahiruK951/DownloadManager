@@ -27,6 +27,7 @@
 #include "core/FileNamer.h"
 #include "core/LinkCheck.h"
 #include "core/SleepGuard.h"
+#include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include "core/Schedule.h"
@@ -548,6 +549,59 @@ private slots:
         QVERIFY(o.failed);
         QVERIFY2(o.error.startsWith("HTTP error 403: the link expired on"), qPrintable(o.error));
         QVERIFY(!DownloadManager::isRetriable(o.error));
+    }
+
+    void sortOrders()
+    {
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        auto rec = [&](qint64 id, const char* title, qint64 total, int state) {
+            DownloadRecord r;
+            r.id = id;
+            r.url = QStringLiteral("https://example.com/%1").arg(title);
+            r.destDir = dir.path();
+            r.title = QString::fromLatin1(title);
+            r.total = total;
+            r.state = state;
+            db.save(r);
+        };
+        rec(1, "banana.zip", 500, Download::Completed);
+        rec(2, "apple.iso", 9000, Download::Paused);
+        rec(3, "cherry.mp4", 500, Download::Error);
+        rec(4, "Date.pdf", 10, Download::Completed);
+        DownloadManager mgr(&db);
+        mgr.load();
+        DownloadsModel model(&mgr);
+        DownloadsFilterModel proxy;
+        proxy.setSourceModel(&model);
+        auto order = [&] {
+            QList<qint64> ids;
+            for (int r = 0; r < proxy.rowCount(); ++r)
+                ids << proxy.idAt(r);
+            return ids;
+        };
+        proxy.setSortOrder("added", true);
+        QCOMPARE(order(), (QList<qint64>{4, 3, 2, 1}));
+        proxy.setSortOrder("added", false);
+        QCOMPARE(order(), (QList<qint64>{1, 2, 3, 4}));
+        proxy.setSortOrder("name", false); // case-insensitive, locale aware
+        QCOMPARE(order(), (QList<qint64>{2, 1, 3, 4}));
+        proxy.setSortOrder("name", true);
+        QCOMPARE(order(), (QList<qint64>{4, 3, 1, 2}));
+        proxy.setSortOrder("size", true); // equal sizes: newest first
+        QCOMPARE(order(), (QList<qint64>{2, 3, 1, 4}));
+        proxy.setSortOrder("size", false);
+        QCOMPARE(order(), (QList<qint64>{4, 3, 1, 2}));
+        proxy.setSortOrder("status", false); // paused, error, then completed (newest first)
+        QCOMPARE(order(), (QList<qint64>{2, 3, 4, 1}));
+        proxy.setSortOrder("bogus", false); // unknown key -> date added
+        QCOMPARE(proxy.sortKey(), QStringLiteral("added"));
+
+        // Filters still apply on top of the order.
+        proxy.setSortOrder("size", true);
+        proxy.setFilter("completed");
+        QCOMPARE(order(), (QList<qint64>{1, 4}));
     }
 
     void sleepGuard()

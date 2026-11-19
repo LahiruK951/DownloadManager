@@ -36,6 +36,7 @@ foreach ($theme in $Themes) {
         $env:QT_QPA_PLATFORM = "offscreen"
         $env:QT_QUICK_BACKEND = "software"
         $env:QT_QPA_FONTDIR = "$env:WINDIR\Fonts"   # offscreen uses FreeType; point it at system fonts
+        $env:QT_FORCE_STDERR_LOGGING = "1"   # GUI-subsystem exe: otherwise QML errors never reach the log
         $env:QT_SCALE_FACTOR = "$Scale"
         $p = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden `
             -RedirectStandardError (Join-Path $out "$safe-$theme.log") -RedirectStandardOutput "NUL"
@@ -48,7 +49,7 @@ foreach ($theme in $Themes) {
         $warn | Select-Object -First 5 | ForEach-Object { Write-Host "    $_" }
     }
 }
-foreach ($v in "FLUXDM_DATA_DIR","FLUXDM_DEV_DEMO","FLUXDM_THEME","FLUXDM_DEV_OPEN","FLUXDM_DEV_GRAB","QT_QPA_PLATFORM","QT_QUICK_BACKEND","QT_SCALE_FACTOR","QT_QPA_FONTDIR") {
+foreach ($v in "QT_FORCE_STDERR_LOGGING", "FLUXDM_DATA_DIR","FLUXDM_DEV_DEMO","FLUXDM_THEME","FLUXDM_DEV_OPEN","FLUXDM_DEV_GRAB","QT_QPA_PLATFORM","QT_QUICK_BACKEND","QT_SCALE_FACTOR","QT_QPA_FONTDIR") {
     Remove-Item "env:$v" -ErrorAction SilentlyContinue
 }
 Write-Host "Screenshots in $out"

@@ -45,6 +45,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
+    Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
+    Q_PROPERTY(bool sortDescending READ sortDescending NOTIFY sortChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
     Q_PROPERTY(bool soundOnComplete READ soundOnComplete WRITE setSoundOnComplete NOTIFY settingsChanged)
     Q_PROPERTY(QString defaultFolder READ defaultFolder WRITE setDefaultFolder NOTIFY settingsChanged)
@@ -91,6 +93,9 @@ public:
     void setCloseButtonHidesApp(bool v);
     bool monitorClipboard() const;
     bool preventSleep() const;
+    QString sortKey() const;
+    bool sortDescending() const;
+    Q_INVOKABLE void setSort(const QString& key, bool descending);
     void setPreventSleep(bool on);
     void setMonitorClipboard(bool v);
     bool notifyOnComplete() const;
@@ -238,6 +243,7 @@ signals:
     void whenDoneChanged();
     void whenDoneCountdown(int action);
     void notice(const QString& text); // short message for the toast
+    void sortChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 

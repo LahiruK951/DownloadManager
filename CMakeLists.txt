@@ -145,7 +145,8 @@ add_custom_command(TARGET fluxdm POST_BUILD
 
 # ---------------------------------------------------------------- tests
 enable_testing()
-qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h tests/HlsServer.h)
+qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h tests/HlsServer.h
+    src/ui/DownloadsModel.h src/ui/DownloadsModel.cpp) # list sorting/filtering is plain Qt Core
 target_link_libraries(test_core PRIVATE fluxcore Qt6::Test Qt6::Network)
 add_dependencies(test_core fluxdm-nativehost)
 add_test(NAME test_core COMMAND test_core)
