@@ -78,7 +78,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -134,6 +134,7 @@ ApplicationWindow {
                 onRequestExisting: (d) => fileExistsDialog.openFor(d)
                 onRequestFiles: (d) => torrentFilesDialog.openFor(d)
                 onRequestNewTag: (ids) => tagDialog.openNew(ids)
+                onRequestConvert: (d, f) => convertDialog.openFor(d, f)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -186,6 +187,7 @@ ApplicationWindow {
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
         else if (v === "exists") devExistsTimer.start()
+        else if (v === "convert") devConvertTimer.start()
         else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list
             const work = App.saveTag(0, "Work", "#539bf5", "pdf, xlsx", "")
             const isos = App.saveTag(0, "Linux ISOs", "#57ab5a", "iso", "")
@@ -228,6 +230,7 @@ ApplicationWindow {
     FileExistsDialog { id: fileExistsDialog }
     TorrentFilesDialog { id: torrentFilesDialog }
     TagDialog { id: tagDialog }
+    ConvertDialog { id: convertDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
@@ -279,6 +282,17 @@ ApplicationWindow {
         onTriggered: {
             App.select(App.downloads.idAt(5))
             addDialog.openWith("https://downloads.example.com/" + App.selected.title, App.selected.destDir)
+        }
+    }
+    Timer {
+        id: devConvertTimer
+        interval: 1200 // demo files are finished (placeholder on disk) by then
+        onTriggered: { // the finished .flac in the demo list
+            for (let i = 0; i < App.downloads.count; ++i) {
+                App.select(App.downloads.idAt(i))
+                if (App.selected.title.endsWith(".flac") && App.selected.completed) break
+            }
+            convertDialog.openFor(App.selected, "mp3")
         }
     }
     Timer { id: devSortTimer; interval: 600; onTriggered: filterBar.openSortMenu() }

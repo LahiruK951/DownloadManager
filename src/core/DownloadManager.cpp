@@ -1134,3 +1134,62 @@ QString DownloadManager::tagFolderFor(const QString& fileName) const
             return t.folder;
     return {};
 }
+
+// ------------------------------------------------------------------ MP3/MP4 converter
+
+QString DownloadManager::convertibleFile(const Download* d)
+{
+    if (!d || !d->completed() || d->fileMissing() || d->moving() || d->converting())
+        return {};
+    const QFileInfo fi(d->rec.filePath);
+    if (fi.isFile()) {
+        const QString cat = FileNamer::category(fi.fileName());
+        return cat == QLatin1String("Video") || cat == QLatin1String("Music") ? fi.absoluteFilePath() : QString();
+    }
+    // A finished torrent folder: its largest audio/video file.
+    QString best;
+    qint64 size = -1;
+    for (const QVariant& v : d->files()) {
+        const QVariantMap f = v.toMap();
+        const QString cat = FileNamer::category(f.value(QStringLiteral("name")).toString());
+        if ((cat == QLatin1String("Video") || cat == QLatin1String("Music")) && f.value(QStringLiteral("size")).toLongLong() > size) {
+            const QString path = QDir(fi.absoluteFilePath()).filePath(f.value(QStringLiteral("name")).toString());
+            if (QFileInfo(path).isFile()) {
+                best = path;
+                size = f.value(QStringLiteral("size")).toLongLong();
+            }
+        }
+    }
+    return best;
+}
+
+QString DownloadManager::convertFile(Download* d, const ConvertOptions& o)
+{
+    const QString input = convertibleFile(d);
+    if (input.isEmpty())
+        return tr("Only finished audio and video files can be converted");
+    if (o.format == QLatin1String("mp4") && FileNamer::category(input) != QLatin1String("Video"))
+        return tr("Only videos can be converted to MP4");
+    const QString ffmpeg = ffmpegPath();
+    if (ffmpeg.isEmpty())
+        return tr("ffmpeg was not found. Install it or set its location in Settings > Downloads.");
+
+    auto* job = new MediaConvert(ffmpeg, input, o, this);
+    QPointer<Download> guard(d);
+    d->setConverting(true);
+    d->addLog(tr("Converting to %1: %2").arg(o.format.toUpper(), QDir::toNativeSeparators(job->outputPath())));
+    connect(job, &MediaConvert::progress, this, [guard](double f) {
+        if (guard)
+            guard->setConvertProgress(f);
+    });
+    connect(job, &MediaConvert::finished, this, [this, job, guard](const QString& out, const QString& err) {
+        job->deleteLater();
+        if (!guard)
+            return;
+        guard->setConverting(false);
+        guard->addLog(err.isEmpty() ? tr("Converted: %1").arg(QDir::toNativeSeparators(out)) : tr("Conversion failed: %1").arg(err));
+        emit conversionFinished(guard, out, err);
+    });
+    job->start();
+    return {};
+}

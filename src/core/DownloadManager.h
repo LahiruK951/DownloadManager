@@ -7,6 +7,7 @@
 
 #include "core/Download.h"
 #include "core/Tag.h"
+#include "core/MediaConvert.h"
 #include "core/Schedule.h"
 #include "core/TrafficMode.h"
 
@@ -96,6 +97,10 @@ public:
     void setTag(Download* d, int tagId, bool on);
     QList<int> tagsFor(const QString& fileName) const; // tags whose extensions match
     QString tagFolderFor(const QString& fileName) const; // folder of the first matching tag that has one
+
+    // MP3/MP4 converter for finished audio/video files (keeps the original). Error text or "".
+    QString convertFile(Download* d, const ConvertOptions& o);
+    static QString convertibleFile(const Download* d); // the media file to convert, "" if none
     int autoRetryLimit() const;
     void setAutoRetryLimit(int n);
     static bool isRetriable(const QString& error);
@@ -112,6 +117,7 @@ signals:
     void trafficModeChanged();
     void allDownloadsFinished();
     void tagsChanged();
+    void conversionFinished(Download* d, const QString& output, const QString& error);
 
 private:
     void schedule();

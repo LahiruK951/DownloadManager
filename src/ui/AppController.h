@@ -221,6 +221,13 @@ public:
     Q_INVOKABLE void setSelectionTag(int tagId, bool on);
     Q_INVOKABLE int selectionTagState(int tagId) const; // 0 none, 1 some, 2 all selected have it
     Q_INVOKABLE bool tagNameTaken(const QString& name, int exceptId) const;
+    // MP3/MP4 converter. Options: {vbr, bitrate, quality, folder}; remembered per format.
+    Q_INVOKABLE QString convertFile(qint64 id, const QString& format, const QVariantMap& options);
+    Q_INVOKABLE QVariantMap convertDefaults(const QString& format) const;
+    Q_INVOKABLE bool canConvert(qint64 id, const QString& format) const;
+    // Torrent audio/video: download in order and open the partial file once its start is there.
+    Q_INVOKABLE void playWhileDownloading(qint64 id);
+    Q_INVOKABLE bool canPlayWhileDownloading(qint64 id) const;
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
@@ -268,6 +275,7 @@ private:
     Download* byId(qint64 id) const;
     QString doOpen(qint64 id);
     void watch(Download* d);
+    QVariantMap playableFile(const Download* d) const;
     QString doOpenWith(qint64 id);
     void scheduleRecount();
     void recount();
@@ -280,6 +288,7 @@ private:
     DownloadsFilterModel* m_proxy;
     QSettings m_ui;
     SleepGuard m_sleepGuard; // keeps the PC awake while downloading
+    QList<qint64> m_playWhenReady; // playWhileDownloading() waiting for enough data
     QPointer<Download> m_selected;
     QList<qint64> m_sel; // multi-selection (includes the current item)
     int m_selRev = 0;

@@ -16,6 +16,7 @@ Rectangle {
     signal requestExisting(var download)
     signal requestFiles(var download)
     signal requestNewTag(var downloadIds)
+    signal requestConvert(var download, string format)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -66,7 +67,7 @@ Rectangle {
         return parts.join("  ·  ")
     }
     readonly property var pill: {
-        if (d.converting) return { text: qsTr("Converting…"), glyph: Theme.icons.refresh, fg: Theme.accent, bg: Theme.accentSoft }
+        if (d.converting) return { text: d.convertProgress >= 0 ? qsTr("Converting… %1%").arg(Math.floor(d.convertProgress * 100)) : qsTr("Converting…"), glyph: Theme.icons.refresh, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.moving) return { text: qsTr("Moving…"), glyph: Theme.icons.folder, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
@@ -359,7 +360,25 @@ Rectangle {
             enabled: row.canOpen
             onTriggered: App.openWith(row.d.id)
         }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE768) // Play
+            text: qsTr("Play while downloading")
+            visible: (row.d.running, row.d.files, App.canPlayWhileDownloading(row.d.id))
+            onTriggered: App.playWhileDownloading(row.d.id)
+        }
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE8D6) // Audio
+            text: qsTr("Convert to MP3…")
+            visible: (row.d.completed, row.d.converting, row.d.fileMissing, App.canConvert(row.d.id, "mp3"))
+            onTriggered: row.requestConvert(row.d, "mp3")
+        }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE714) // Video
+            text: qsTr("Convert to MP4…")
+            visible: (row.d.completed, row.d.converting, row.d.fileMissing, App.canConvert(row.d.id, "mp4"))
+            onTriggered: row.requestConvert(row.d, "mp4")
+        }
         FMenuItem {
             glyph: Theme.icons.globe
             text: qsTr("Open download page")

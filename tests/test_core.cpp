@@ -27,6 +27,7 @@
 #include "core/FileNamer.h"
 #include "core/LinkCheck.h"
 #include "core/SleepGuard.h"
+#include "core/MediaConvert.h"
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -549,6 +550,148 @@ private slots:
         QVERIFY(o.failed);
         QVERIFY2(o.error.startsWith("HTTP error 403: the link expired on"), qPrintable(o.error));
         QVERIFY(!DownloadManager::isRetriable(o.error));
+    }
+
+    // ffmpeg for converter tests: FLUXDM_FFMPEG, else FDM's bundled copy if installed (read-only use).
+    static QString testFfmpeg()
+    {
+        const QString env = qEnvironmentVariable("FLUXDM_FFMPEG");
+        if (!env.isEmpty() && QFileInfo(env).isExecutable())
+            return env;
+        const QString fdm = QStringLiteral("C:/Program Files/Softdeluxe/Free Download Manager/ffmpeg.exe");
+        return QFileInfo(fdm).isExecutable() ? fdm : QString();
+    }
+    static bool makeMedia(const QString& ffmpeg, const QStringList& args)
+    {
+        QProcess p;
+        p.start(ffmpeg, QStringList{"-hide_banner", "-loglevel", "error", "-nostdin", "-y"} + args);
+        return p.waitForFinished(60000) && p.exitCode() == 0;
+    }
+    static Outcome waitConvert(MediaConvert& job, QList<double>* progress)
+    {
+        QSignalSpy fin(&job, &MediaConvert::finished);
+        QObject::connect(&job, &MediaConvert::progress, &job, [progress](double f) { progress->append(f); });
+        job.start();
+        Outcome o;
+        if (!fin.wait(120000))
+            return o;
+        o.path = fin.first().at(0).toString();
+        o.error = fin.first().at(1).toString();
+        o.finished = o.error.isEmpty();
+        o.failed = !o.finished;
+        return o;
+    }
+
+    void converterHelpers()
+    {
+        QCOMPARE(MediaConvert::parseClock("00:01:02.50"), 62.5);
+        QCOMPARE(MediaConvert::parseClock("1:00:00"), 3600.0);
+        QCOMPARE(MediaConvert::parseClock("bad"), -1.0);
+        ConvertOptions o;
+        o.bitrateKbps = 256;
+        QVERIFY(MediaConvert::mp3Args("a.flac", "a.mp3", o, {"libmp3lame"}).join(' ').contains("-c:a libmp3lame -b:a 256k"));
+        o.vbr = true;
+        o.vbrQuality = 0;
+        QVERIFY(MediaConvert::mp3Args("a.flac", "a.mp3", o, {"libmp3lame"}).join(' ').contains("-q:a 0"));
+        QVERIFY(MediaConvert::mp3Args("a.flac", "a.mp3", o, {"mp3_mf"}).join(' ').contains("-c:a mp3_mf -b:a 192k"));
+        QCOMPARE(MediaConvert::mp4Plan({"libx264", "h264_mf"}), (QStringList{"copy", "libx264", "mpeg4"}));
+        QCOMPARE(MediaConvert::mp4Plan({"h264_mf"}), (QStringList{"copy", "h264_mf", "mpeg4"}));
+        QCOMPARE(MediaConvert::mp4Plan({}), (QStringList{"copy", "mpeg4"}));
+        QVERIFY(MediaConvert::mp4Args("a.mkv", "a.mp4", "copy").join(' ').contains("-c copy"));
+    }
+
+    void convertToMp3AndMp4()
+    {
+        const QString ffmpeg = testFfmpeg();
+        if (ffmpeg.isEmpty())
+            QSKIP("no ffmpeg (set FLUXDM_FFMPEG)");
+        QTemporaryDir dir;
+        const QString wav = dir.filePath("tone.wav");
+        QVERIFY(makeMedia(ffmpeg, {"-f", "lavfi", "-i", "sine=frequency=440:duration=6", wav}));
+
+        // MP3, constant 128 kbps: ~6 s * 16 KB/s
+        ConvertOptions o;
+        o.bitrateKbps = 128;
+        QList<double> progress;
+        MediaConvert mp3(ffmpeg, wav, o);
+        QCOMPARE(QFileInfo(mp3.outputPath()).fileName(), QStringLiteral("tone.mp3"));
+        Outcome r = waitConvert(mp3, &progress);
+        QVERIFY2(r.finished, qPrintable(r.error));
+        const qint64 size = QFileInfo(r.path).size();
+        QVERIFY2(size > 80000 && size < 115000, qPrintable(QString::number(size)));
+        QVERIFY(!progress.isEmpty() && progress.last() == 1.0);
+        QVERIFY(QFile::exists(wav)); // the original stays
+
+        // MP4 from MKV with MPEG-4 video + AAC: a lossless remux into another folder.
+        const QString mkv = dir.filePath("clip.mkv");
+        QVERIFY(makeMedia(ffmpeg, {"-f", "lavfi", "-i", "testsrc=duration=3:size=160x120:rate=10", "-f", "lavfi", "-i",
+                                   "sine=duration=3", "-c:v", "mpeg4", "-c:a", "aac", "-shortest", mkv}));
+        ConvertOptions m;
+        m.format = QStringLiteral("mp4");
+        m.outputDir = dir.filePath("out");
+        progress.clear();
+        MediaConvert mp4(ffmpeg, mkv, m);
+        r = waitConvert(mp4, &progress);
+        QVERIFY2(r.finished, qPrintable(r.error));
+        QCOMPARE(QFileInfo(r.path).absolutePath(), QDir(dir.filePath("out")).absolutePath());
+        QVERIFY(QFileInfo(r.path).size() > 1000);
+
+        // PCM audio can't go into MP4 as is: falls back to re-encoding.
+        const QString pcm = dir.filePath("pcm.mkv");
+        QVERIFY(makeMedia(ffmpeg, {"-f", "lavfi", "-i", "testsrc=duration=2:size=160x120:rate=10", "-f", "lavfi", "-i",
+                                   "sine=duration=2", "-c:v", "mpeg4", "-c:a", "pcm_s16le", "-shortest", pcm}));
+        MediaConvert enc(ffmpeg, pcm, m);
+        r = waitConvert(enc, &progress);
+        QVERIFY2(r.finished, qPrintable(r.error));
+        QVERIFY(QFileInfo(r.path).size() > 1000);
+
+        // Not a media file: a clear error and no output left behind.
+        const QString junk = dir.filePath("junk.mp4");
+        {
+            QFile f(junk);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("not a video");
+        }
+        MediaConvert bad(ffmpeg, junk, o);
+        r = waitConvert(bad, &progress);
+        QVERIFY(r.failed && !r.error.isEmpty());
+        QVERIFY(!QFile::exists(bad.outputPath()));
+    }
+
+    void convertFromTheList()
+    {
+        const QString ffmpeg = testFfmpeg();
+        if (ffmpeg.isEmpty())
+            QSKIP("no ffmpeg (set FLUXDM_FFMPEG)");
+        QTemporaryDir dir;
+        const QString flac = dir.filePath("song.flac");
+        QVERIFY(makeMedia(ffmpeg, {"-f", "lavfi", "-i", "sine=duration=3", flac}));
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        db.setSetting("FfmpegPath", ffmpeg);
+        DownloadRecord r;
+        r.id = 1;
+        r.title = QStringLiteral("song.flac");
+        r.filePath = QDir::toNativeSeparators(flac);
+        r.destDir = dir.path();
+        r.state = Download::Completed;
+        db.save(r);
+        DownloadManager mgr(&db);
+        mgr.load();
+        Download* d = mgr.find(1);
+        QCOMPARE(DownloadManager::convertibleFile(d), QFileInfo(flac).absoluteFilePath());
+        ConvertOptions o;
+        o.format = QStringLiteral("mp4");
+        QVERIFY(!mgr.convertFile(d, o).isEmpty()); // audio can't become MP4 video
+        QSignalSpy done(&mgr, &DownloadManager::conversionFinished);
+        o.format = QStringLiteral("mp3");
+        QCOMPARE(mgr.convertFile(d, o), QString());
+        QVERIFY(d->converting());
+        QVERIFY(!mgr.convertFile(d, o).isEmpty()); // one at a time
+        QVERIFY(done.wait(60000));
+        QVERIFY(!d->converting());
+        QCOMPARE(done.first().at(2).toString(), QString());
+        QVERIFY(QFile::exists(dir.filePath("song.mp3")));
     }
 
     void userTags()

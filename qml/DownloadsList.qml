@@ -15,6 +15,7 @@ Item {
     signal requestExisting(var download)
     signal requestFiles(var download)
     signal requestNewTag(var downloadIds)
+    signal requestConvert(var download, string format)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -45,6 +46,7 @@ Item {
             onRequestExisting: (d) => root.requestExisting(d)
             onRequestFiles: (d) => root.requestFiles(d)
             onRequestNewTag: (ids) => root.requestNewTag(ids)
+            onRequestConvert: (d, f) => root.requestConvert(d, f)
         }
 
         focus: true

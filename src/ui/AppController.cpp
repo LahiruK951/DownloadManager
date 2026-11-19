@@ -59,6 +59,9 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     m_proxy->setSortOrder(m_ui.value(QStringLiteral("sortKey"), QStringLiteral("added")).toString(),
                           m_ui.value(QStringLiteral("sortDescending"), true).toBool());
 
+    connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
+        emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
+    });
     connect(m_mgr, &DownloadManager::tagsChanged, this, [this] {
         // a deleted tag can't stay the active filter
         if (filter().startsWith(QLatin1String("tag:")) && m_mgr->tag(filter().mid(4).toInt()).id == 0)
@@ -179,6 +182,85 @@ void AppController::setSort(const QString& key, bool descending)
     m_ui.setValue(QStringLiteral("sortKey"), m_proxy->sortKey());
     m_ui.setValue(QStringLiteral("sortDescending"), descending);
     emit sortChanged();
+}
+
+// The torrent's largest wanted audio/video file: {path, size, done}, empty if none.
+QVariantMap AppController::playableFile(const Download* d) const
+{
+    if (!d || !d->isTorrent())
+        return {};
+    QVariantMap best;
+    const bool folder = d->files().size() > 1 || QFileInfo(d->filePath()).isDir();
+    for (const QVariant& v : d->files()) {
+        const QVariantMap f = v.toMap();
+        const QString name = f.value(QStringLiteral("name")).toString();
+        const QString cat = FileNamer::category(name);
+        if ((cat != QLatin1String("Video") && cat != QLatin1String("Music")) || !f.value(QStringLiteral("wanted"), true).toBool())
+            continue;
+        if (f.value(QStringLiteral("size")).toLongLong() <= best.value(QStringLiteral("size"), -1).toLongLong())
+            continue;
+        best = {{QStringLiteral("path"), folder ? QDir(d->filePath()).filePath(name) : d->filePath()},
+                {QStringLiteral("size"), f.value(QStringLiteral("size"))},
+                {QStringLiteral("done"), f.value(QStringLiteral("done"))}};
+    }
+    return best;
+}
+
+bool AppController::canPlayWhileDownloading(qint64 id) const
+{
+    const Download* d = byId(id);
+    return d && d->isTorrent() && d->running() && !playableFile(d).isEmpty();
+}
+
+void AppController::playWhileDownloading(qint64 id)
+{
+    Download* d = byId(id);
+    if (!canPlayWhileDownloading(id))
+        return;
+    m_mgr->setSequential(d, true); // the player needs the file from its start
+    if (!m_playWhenReady.contains(id))
+        m_playWhenReady << id;
+    emit notice(tr("Getting the start of the file first; it opens in your player in a moment"));
+    updateStats();
+}
+
+QVariantMap AppController::convertDefaults(const QString& format) const
+{
+    const QString p = format == QLatin1String("mp4") ? QStringLiteral("mp4Converter") : QStringLiteral("mp3Converter");
+    return {{QStringLiteral("vbr"), !m_ui.value(p + QStringLiteral("ConstantBitrateEnabled"), true).toBool()},
+            {QStringLiteral("bitrate"), m_ui.value(p + QStringLiteral("ConstantBitrate"), 192).toInt()},
+            {QStringLiteral("quality"), m_ui.value(p + QStringLiteral("VariableQuality"), 2).toInt()},
+            {QStringLiteral("folder"), m_ui.value(p + QStringLiteral("DestinationDir")).toString()}};
+}
+
+bool AppController::canConvert(qint64 id, const QString& format) const
+{
+    const QString f = DownloadManager::convertibleFile(byId(id));
+    if (f.isEmpty())
+        return false;
+    if (format == QLatin1String("mp4"))
+        return FileNamer::category(f) == QLatin1String("Video") && QFileInfo(f).suffix().compare(QLatin1String("mp4"), Qt::CaseInsensitive) != 0;
+    return QFileInfo(f).suffix().compare(QLatin1String("mp3"), Qt::CaseInsensitive) != 0;
+}
+
+QString AppController::convertFile(qint64 id, const QString& format, const QVariantMap& options)
+{
+    ConvertOptions o;
+    o.format = format == QLatin1String("mp4") ? QStringLiteral("mp4") : QStringLiteral("mp3");
+    o.vbr = options.value(QStringLiteral("vbr")).toBool();
+    o.bitrateKbps = options.value(QStringLiteral("bitrate"), 192).toInt();
+    o.vbrQuality = options.value(QStringLiteral("quality"), 2).toInt();
+    o.outputDir = options.value(QStringLiteral("folder")).toString().trimmed();
+    // FDM's settings keys, so the next conversion starts from the same choices.
+    const QString p = o.format == QLatin1String("mp4") ? QStringLiteral("mp4Converter") : QStringLiteral("mp3Converter");
+    m_ui.setValue(p + QStringLiteral("ConstantBitrateEnabled"), !o.vbr);
+    m_ui.setValue(p + QStringLiteral("ConstantBitrate"), o.bitrateKbps);
+    m_ui.setValue(p + QStringLiteral("VariableQuality"), o.vbrQuality);
+    m_ui.setValue(p + QStringLiteral("DestinationDir"), o.outputDir);
+    const QString err = m_mgr->convertFile(byId(id), o);
+    if (!err.isEmpty())
+        emit notice(err);
+    return err;
 }
 
 QVariantList AppController::tags() const
@@ -796,6 +878,20 @@ void AppController::updateStats()
     m_totalSpeed = speed;
     m_totalUpload = up;
     m_activeCount = active;
+    // "Play while downloading": open the file once its first part is on disk.
+    for (int i = int(m_playWhenReady.size()) - 1; i >= 0; --i) {
+        Download* d = byId(m_playWhenReady[i]);
+        if (!d || (!d->running() && !d->completed())) {
+            m_playWhenReady.removeAt(i);
+            continue;
+        }
+        const QVariantMap f = playableFile(d);
+        const qint64 size = f.value(QStringLiteral("size")).toLongLong(), done = f.value(QStringLiteral("done")).toLongLong();
+        if (d->completed() || (size > 0 && done >= qMin<qint64>(size, qMax<qint64>(8LL << 20, size / 50)))) {
+            m_playWhenReady.removeAt(i);
+            QDesktopServices::openUrl(QUrl::fromLocalFile(f.value(QStringLiteral("path")).toString()));
+        }
+    }
     // Downloading (not just seeding) keeps the computer awake; released as soon as nothing runs.
     m_sleepGuard.setActive(active > 0 && preventSleep());
     emit statsChanged();

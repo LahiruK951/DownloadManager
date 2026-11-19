@@ -59,6 +59,7 @@ class Download : public QObject {
     Q_PROPERTY(int speedLimit READ speedLimit NOTIFY changed) // KB/s, 0 = none
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
     Q_PROPERTY(bool converting READ converting NOTIFY changed)
+    Q_PROPERTY(double convertProgress READ convertProgress NOTIFY changed) // 0..1, -1 unknown
     Q_PROPERTY(bool needsLogin READ needsLogin NOTIFY changed) // failed asking for a user name/password
     Q_PROPERTY(bool awaitingFiles READ awaitingFiles NOTIFY changed) // torrent: waiting for the user to pick files
     Q_PROPERTY(QVariantList pendingFiles READ pendingFiles NOTIFY changed) // the files to pick from
@@ -164,7 +165,9 @@ public:
     {
         return failed() && (rec.lastError.startsWith(QLatin1String("HTTP error 401")) || rec.lastError.startsWith(QLatin1String("Login ")));
     }
-    void setConverting(bool c) { if (m_converting != c) { m_converting = c; emit changed(); } }
+    void setConverting(bool c) { if (m_converting != c) { m_converting = c; m_convertProgress = -1; emit changed(); } }
+    double convertProgress() const { return m_convertProgress; }
+    void setConvertProgress(double p) { m_convertProgress = p; emit changed(); }
     void setMoving(bool m) { if (m_moving != m) { m_moving = m; emit changed(); } }
     void setFileMissing(bool m) { if (m_missing != m) { m_missing = m; emit changed(); } }
 
@@ -201,4 +204,5 @@ private:
     bool m_moving = false;
     bool m_converting = false;
     QVariantList m_pendingFiles;
+    double m_convertProgress = -1;
 };
