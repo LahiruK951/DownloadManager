@@ -45,7 +45,11 @@ Run FluxDM.exe. Settings and the download list are stored in
 %LOCALAPPDATA%\FluxDM\FluxDM.
 
 Browser integration: Settings > Browser (load the extension from the
-browser\chromium folder, then switch on "Connect FluxDM to your browsers").
+browser\chromium folder - or browserirefox for Firefox - then switch on
+"Connect FluxDM to your browsers").
+
+The MP3/MP4 converter and DASH streams need ffmpeg: put ffmpeg.exe next
+to FluxDM.exe, on PATH, or set it in Settings > Downloads.
 "@
 
 Remove-Item $zip -ErrorAction SilentlyContinue
