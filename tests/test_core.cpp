@@ -26,6 +26,7 @@
 #include "core/Database.h"
 #include "core/FileNamer.h"
 #include "core/LinkCheck.h"
+#include "core/SleepGuard.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include "core/Schedule.h"
@@ -549,6 +550,21 @@ private slots:
         QVERIFY(!DownloadManager::isRetriable(o.error));
     }
 
+    void sleepGuard()
+    {
+        SleepGuard g;
+        QVERIFY(!g.active());
+        QVERIFY(g.setActive(true));
+        QVERIFY(g.active());
+        QVERIFY(g.setActive(true)); // idempotent
+        QVERIFY(g.setActive(false));
+        QVERIFY(!g.active());
+        {
+            SleepGuard scoped;
+            QVERIFY(scoped.setActive(true));
+        } // released by the destructor
+    }
+
     void existingFileRules()
     {
         QTemporaryDir dir;
@@ -868,6 +884,10 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!stopped.isEmpty(), 10000);
         const QByteArray resume = stopped.last().at(1).toByteArray();
         QVERIFY(!resume.isEmpty());
+        // What the seeder sent before the stop, including requests still in flight that the
+        // stopped download threw away; only the upload *after* resuming says how it resumed.
+        QTest::qWait(300);
+        const std::int64_t uploadedBefore = seeder.get_torrents().front().status().total_payload_upload;
 
         // Resume from the saved state (the .torrent file is no longer needed).
         QFile::remove(dlDir.filePath("big.torrent"));
@@ -882,12 +902,12 @@ private slots:
         }
         QVERIFY2(!fin.isEmpty(), qPrintable(fail.isEmpty() ? QStringLiteral("timeout") : fail.last().at(1).toString()));
         QVERIFY(readAll(fin.last().at(1).toString()) == payload);
-        // A real resume transfers roughly one copy of the file in total; restarting from
-        // zero would make the seeder upload the already-downloaded part a second time.
-        const std::int64_t uploaded = seeder.get_torrents().front().status().total_payload_upload;
-        QVERIFY2(uploaded < qint64(payload.size()) + got / 2,
-                 qPrintable(QStringLiteral("seeder uploaded %1 bytes for a %2-byte file (got %3 before stop)")
-                                .arg(uploaded).arg(payload.size()).arg(got)));
+        // A real resume only fetches what was missing; restarting from zero would make the
+        // seeder upload the whole file again after the resume.
+        const std::int64_t uploadedAfter = seeder.get_torrents().front().status().total_payload_upload - uploadedBefore;
+        QVERIFY2(uploadedAfter < qint64(payload.size()) - got / 2,
+                 qPrintable(QStringLiteral("seeder uploaded %1 bytes after resuming a %2-byte file (got %3 before stop)")
+                                .arg(uploadedAfter).arg(payload.size()).arg(got)));
     }
 #endif
 
