@@ -16,6 +16,7 @@ public:
     void stop(qint64 id) override;
     void setSpeedLimit(qint64 bytesPerSec) override;
     void setMaxConnections(int perDownload) override;
+    void setMaxConnectionsPerServer(int n) override;
     void setTaskSpeedLimit(qint64 id, qint64 bytesPerSec) override;
     QHash<qint64, QByteArray> shutdown() override;
 

@@ -8,6 +8,7 @@
 #include "core/Download.h"
 #include "core/Tag.h"
 #include "core/MediaConvert.h"
+#include "core/ProxySettings.h"
 #include "core/Schedule.h"
 #include "core/TrafficMode.h"
 
@@ -101,6 +102,14 @@ public:
     // MP3/MP4 converter for finished audio/video files (keeps the original). Error text or "".
     QString convertFile(Download* d, const ConvertOptions& o);
     static QString convertibleFile(const Download* d); // the media file to convert, "" if none
+
+    // Network: proxy for all web traffic and the per-server connection cap.
+    ProxySettings proxySettings() const;
+    void setProxySettings(const ProxySettings& ps);
+    QString proxyFor(const QString& url) const; // TaskParams::proxy for this link
+    int maxConnectionsPerServer() const;
+    void setMaxConnectionsPerServer(int n);
+    static void applyQtProxy(const ProxySettings& ps);
     int autoRetryLimit() const;
     void setAutoRetryLimit(int n);
     static bool isRetriable(const QString& error);

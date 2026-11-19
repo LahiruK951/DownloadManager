@@ -171,7 +171,7 @@ ApplicationWindow {
             App.bottomPanelOpen = true
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
         } else if (v.startsWith("settings")) {
-            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser"].indexOf(v))
+            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser", "settings-network"].indexOf(v))
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "add-hls") addDialog.openWith("https://media.example.com/shows/night-drive/master.m3u8")
@@ -186,6 +186,10 @@ ApplicationWindow {
         else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
+        else if (v === "network-manual") { // throwaway profile only
+            App.setProxySettings(2, "socks5", "proxy.example.com", 1080, "me", "secret", false)
+            settingsDialog.openSection(6)
+        }
         else if (v === "exists") devExistsTimer.start()
         else if (v === "convert") devConvertTimer.start()
         else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list

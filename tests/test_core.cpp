@@ -30,6 +30,7 @@
 #include "core/LinkCheck.h"
 #include "core/SleepGuard.h"
 #include "core/MediaConvert.h"
+#include "core/ProxySettings.h"
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -694,6 +695,87 @@ private slots:
         QVERIFY(!d->converting());
         QCOMPARE(done.first().at(2).toString(), QString());
         QVERIFY(QFile::exists(dir.filePath("song.mp3")));
+    }
+
+    void proxySettings()
+    {
+        ProxySettings ps;
+        QVERIFY(ps.curlProxy().isEmpty()); // system: curl's own defaults
+        ps.mode = ProxySettings::None;
+        QCOMPARE(ps.curlProxy(), QStringLiteral("none"));
+        QCOMPARE(ps.qtProxy().type(), QNetworkProxy::NoProxy);
+        ps.mode = ProxySettings::Manual;
+        QVERIFY(ps.curlProxy().isEmpty()); // incomplete manual settings are ignored
+        ps.host = QStringLiteral("proxy.example.com");
+        ps.port = 3128;
+        QCOMPARE(ps.curlProxy(), QStringLiteral("http://proxy.example.com:3128"));
+        ps.type = QStringLiteral("socks5");
+        ps.user = QStringLiteral("me");
+        ps.password = QStringLiteral("p@ss word");
+        QCOMPARE(ps.curlProxy(), QStringLiteral("socks5h://me:p%40ss%20word@proxy.example.com:3128"));
+        QCOMPARE(ps.qtProxy().type(), QNetworkProxy::Socks5Proxy);
+
+        QTemporaryDir dir;
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            DownloadManager mgr(&db);
+            mgr.setProxySettings(ps);
+            QCOMPARE(mgr.proxyFor("https://example.com/a.zip"), ps.curlProxy());
+            QVERIFY(!db.setting("ProxyPassword").toByteArray().contains("p@ss")); // encrypted at rest
+            mgr.setMaxConnectionsPerServer(4);
+        }
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        QCOMPARE(mgr.proxySettings().password, QStringLiteral("p@ss word"));
+        QCOMPARE(mgr.maxConnectionsPerServer(), 4);
+        ProxySettings off;
+        mgr.setProxySettings(off); // back to the system proxy for the rest of the tests
+    }
+
+    void downloadThroughProxy()
+    {
+        RangeServer proxy; // answers any absolute-URI request with its data, like a caching proxy would
+        proxy.data = makeData(300 * 1024);
+        QVERIFY(proxy.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(41, QStringLiteral("http://files.example.invalid/pack.bin"), dir.path());
+        ProxySettings ps;
+        ps.mode = ProxySettings::Manual;
+        ps.host = QStringLiteral("127.0.0.1");
+        ps.port = QUrl(proxy.url()).port();
+        p.proxy = ps.curlProxy();
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == proxy.data);
+        QVERIFY(!proxy.requestLines.isEmpty());
+        QVERIFY2(proxy.requestLines.first().startsWith("GET http://files.example.invalid/pack.bin"), proxy.requestLines.first().constData());
+    }
+
+    void connectionsPerServerCap()
+    {
+        RangeServer srv;
+        srv.data = makeData(3 * 1024 * 1024);
+        srv.chunk = 16 * 1024; // slow enough for the downloads to overlap
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        eng.setMaxConnections(6);
+        eng.setMaxConnectionsPerServer(3);
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams a = params(42, srv.url("/a.bin"), dir.path());
+        TaskParams b = params(43, srv.url("/b.bin"), dir.path());
+        a.maxConnections = b.maxConnections = 6;
+        eng.start(a);
+        eng.start(b);
+        QTRY_VERIFY_WITH_TIMEOUT(fin.count() == 2 || !fail.isEmpty(), 60000);
+        QVERIFY2(fail.isEmpty(), qPrintable(fail.isEmpty() ? QString() : fail.first().at(1).toString()));
+        QVERIFY2(srv.peakOpen <= 3, qPrintable(QStringLiteral("peak %1 connections").arg(srv.peakOpen)));
+        QVERIFY(srv.peakOpen >= 2); // still parallel
     }
 
     void mpdParsing()

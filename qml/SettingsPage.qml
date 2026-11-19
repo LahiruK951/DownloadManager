@@ -18,7 +18,8 @@ Popup {
         { title: qsTr("Traffic modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode. Switch modes from the status bar at the bottom of the window.") },
         { title: qsTr("Snail schedule"), glyph: Theme.icons.clock, desc: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.") },
         { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
-        { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge and Brave to FluxDM.") }
+        { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge and Brave to FluxDM.") },
+        { title: qsTr("Network"), glyph: String.fromCharCode(0xE968), desc: qsTr("Proxy and how many connections FluxDM opens to one server.") }
     ]
 
     function openSection(i) {
@@ -558,6 +559,131 @@ Popup {
                         description: qsTr("Registers FluxDM for your Windows account only.")
                         divider: false
                         FToggle { id: assocToggle; onToggled: App.setTorrentAssociated(checked) }
+                    }
+                }
+
+                // ---------------- Network
+                ColumnLayout {
+                    id: netPage
+                    visible: page.section === 6
+                    Layout.fillWidth: true
+                    spacing: 20
+                    property int mode: 0
+                    property string type: "http"
+                    property bool hasPassword: false
+                    property string status: ""
+                    property bool statusError: false
+                    function load() {
+                        const p = App.proxySettings()
+                        mode = p.mode
+                        type = p.type
+                        hostField.text = p.host
+                        portField.value = p.port
+                        userField.text = p.user
+                        passField.text = ""
+                        hasPassword = p.hasPassword
+                        status = ""
+                    }
+                    function apply() {
+                        const err = App.setProxySettings(mode, type, hostField.text, portField.value, userField.text, passField.text, true)
+                        statusError = err !== ""
+                        status = err !== "" ? err : qsTr("Saved. New connections use it; running downloads switch when they reconnect.")
+                        if (err === "") hasPassword = hasPassword || passField.text !== ""
+                    }
+                    onVisibleChanged: if (visible) load()
+
+                    SettingsCard {
+                        title: qsTr("Proxy")
+                        description: qsTr("For web downloads, video streams and .torrent files.")
+                        Layout.fillWidth: true
+                        SettingRow {
+                            title: qsTr("Connect")
+                            divider: netPage.mode === 2
+                            FSegmented {
+                                model: [qsTr("System proxy"), qsTr("No proxy"), qsTr("Manual")]
+                                currentIndex: netPage.mode
+                                onActivated: (i) => { netPage.mode = i; if (i !== 2) netPage.apply() }
+                            }
+                        }
+                        ColumnLayout {
+                            visible: netPage.mode === 2
+                            Layout.fillWidth: true
+                            Layout.topMargin: 8
+                            spacing: 6
+                            RowLayout {
+                                spacing: 10
+                                FSegmented {
+                                    model: ["HTTP", "SOCKS5"]
+                                    currentIndex: netPage.type === "socks5" ? 1 : 0
+                                    onActivated: (i) => netPage.type = i === 1 ? "socks5" : "http"
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    FieldLabel { text: qsTr("Address") }
+                                    FTextField { id: hostField; Layout.fillWidth: true; placeholderText: qsTr("proxy.example.com") }
+                                }
+                                ColumnLayout {
+                                    spacing: 2
+                                    FieldLabel { text: qsTr("Port") }
+                                    FSpinBox { id: portField; implicitWidth: 130; from: 1; to: 65535; value: 8080 }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    FieldLabel { text: qsTr("User name (optional)") }
+                                    FTextField { id: userField; Layout.fillWidth: true }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    FieldLabel { text: qsTr("Password") }
+                                    FTextField {
+                                        id: passField
+                                        Layout.fillWidth: true
+                                        echoMode: TextInput.Password
+                                        placeholderText: netPage.hasPassword ? qsTr("Saved (unchanged)") : ""
+                                        enabled: userField.text.trim() !== ""
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.topMargin: 6
+                                spacing: 10
+                                FButton { kind: "primary"; text: qsTr("Save proxy"); onClicked: netPage.apply() }
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: netPage.status !== ""
+                        text: netPage.status
+                        color: netPage.statusError ? Theme.error : Theme.textDim
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Theme.fontSmall
+                    }
+                    SettingsCard {
+                        title: qsTr("Connections")
+                        Layout.fillWidth: true
+                        SettingRow {
+                            title: qsTr("Connections per server")
+                            description: qsTr("Across all downloads from the same site. Some servers block clients that open too many.")
+                            divider: false
+                            FSpinBox {
+                                from: 0; to: 64
+                                zeroText: qsTr("No limit")
+                                Component.onCompleted: value = App.maxConnectionsPerServer()
+                                onValueModified: App.setMaxConnectionsPerServer(value)
+                            }
+                        }
                     }
                 }
 

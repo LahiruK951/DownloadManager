@@ -19,6 +19,8 @@ public:
     QByteArray contentType;  // e.g. "text/html" to imitate an expired file-host link
     QByteArray basicAuth;    // "user:password" required (HTTP Basic), empty = open
     int unauthorized = 0;    // 401 answers sent
+    int open = 0, peakOpen = 0;       // concurrent connections now / at most
+    QList<QByteArray> requestLines;   // "GET http://host/path HTTP/1.1" when used as a proxy
 
     int requests = 0;
     int rangedRequests = 0;
@@ -42,6 +44,8 @@ private:
     void handle(QTcpSocket* sock)
     {
         auto buf = std::make_shared<QByteArray>();
+        peakOpen = qMax(peakOpen, ++open);
+        connect(sock, &QTcpSocket::disconnected, this, [this] { --open; });
         connect(sock, &QTcpSocket::disconnected, sock, &QObject::deleteLater);
         connect(sock, &QTcpSocket::readyRead, sock, [this, sock, buf] {
             buf->append(sock->readAll());
@@ -49,6 +53,7 @@ private:
                 return;
             disconnect(sock, &QTcpSocket::readyRead, nullptr, nullptr);
             ++requests;
+            requestLines.append(buf->left(buf->indexOf("\r\n")));
 
             if (!basicAuth.isEmpty() && !buf->contains("Authorization: Basic " + basicAuth.toBase64() + "\r\n")) {
                 ++unauthorized;

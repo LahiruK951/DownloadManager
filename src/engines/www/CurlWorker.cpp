@@ -42,7 +42,7 @@ void CurlWorker::startTask(const TaskParams& params)
             m_tasks.erase(it);
         }
         TaskParams p = params;
-        p.maxConnections = std::min(p.maxConnections, m_maxConn);
+        p.maxConnections = std::min(p.maxConnections, connectionCap());
         auto t = std::make_unique<HttpTask>(this, p);
         HttpTask* raw = t.get();
         m_tasks.emplace(p.id, std::move(t));
@@ -87,7 +87,18 @@ void CurlWorker::setMaxConnections(int perDownload)
     post([this, perDownload] {
         m_maxConn = std::max(1, perDownload);
         for (auto& [id, t] : m_tasks)
-            t->setMaxConnections(m_maxConn);
+            t->setMaxConnections(connectionCap());
+    });
+}
+
+void CurlWorker::setMaxConnectionsPerServer(int n)
+{
+    post([this, n] {
+        m_perServer = std::max(0, n);
+        // curl queues extra transfers to the same host until a connection frees up.
+        curl_multi_setopt(m_multi, CURLMOPT_MAX_HOST_CONNECTIONS, long(m_perServer));
+        for (auto& [id, t] : m_tasks)
+            t->setMaxConnections(connectionCap());
     });
 }
 

@@ -224,6 +224,33 @@ void AppController::playWhileDownloading(qint64 id)
     updateStats();
 }
 
+QVariantMap AppController::proxySettings() const { return m_mgr->proxySettings().toMap(); }
+
+QString AppController::setProxySettings(int mode, const QString& type, const QString& host, int port,
+                                        const QString& user, const QString& password, bool keepPassword)
+{
+    ProxySettings ps = m_mgr->proxySettings();
+    ps.mode = qBound(0, mode, 2);
+    if (ps.mode == ProxySettings::Manual) {
+        if (host.trimmed().isEmpty())
+            return tr("Enter the proxy's address.");
+        if (port <= 0 || port > 65535)
+            return tr("Enter a port between 1 and 65535.");
+        ps.type = type == QLatin1String("socks5") ? QStringLiteral("socks5") : QStringLiteral("http");
+        ps.host = host.trimmed();
+        ps.port = port;
+        ps.user = user.trimmed();
+        if (!keepPassword || !password.isEmpty())
+            ps.password = ps.user.isEmpty() ? QString() : password;
+    }
+    m_mgr->setProxySettings(ps);
+    emit settingsChanged();
+    return {};
+}
+
+int AppController::maxConnectionsPerServer() const { return m_mgr->maxConnectionsPerServer(); }
+void AppController::setMaxConnectionsPerServer(int n) { m_mgr->setMaxConnectionsPerServer(n); }
+
 QVariantMap AppController::convertDefaults(const QString& format) const
 {
     const QString p = format == QLatin1String("mp4") ? QStringLiteral("mp4Converter") : QStringLiteral("mp3Converter");

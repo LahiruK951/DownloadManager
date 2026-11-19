@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "core/Database.h"
+#include "core/Secret.h"
 #include "core/DownloadEngine.h"
 #include "core/FileNamer.h"
 #include "engines/www/WwwEngine.h"
@@ -98,6 +99,7 @@ void DownloadManager::load()
 {
     m_nextId = m_db->maxId();
     m_tags = m_db->loadTags();
+    applyQtProxy(proxySettings());
     for (const DownloadRecord& r : m_db->loadDownloads()) {
         auto* d = new Download(r, this);
         if (d->rec.state == Download::Starting || d->rec.state == Download::Downloading)
@@ -284,7 +286,7 @@ void DownloadManager::startDownload(Download* d)
     p.referrer = d->rec.referrer;
     p.cookies = d->rec.cookies;
     p.userAgent = d->rec.userAgent.isEmpty() ? defaultUserAgent() : d->rec.userAgent;
-    p.proxy = systemProxyFor(d->rec.url);
+    p.proxy = proxyFor(d->rec.url);
     if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
         loginFor(d->rec.url, &p.user, &p.password);
     p.existingFile = d->rec.existingFileReaction;
@@ -528,6 +530,7 @@ void DownloadManager::applyLimits()
     for (DownloadEngine* e : m_engines) {
         e->setSpeedLimit(qint64(l.speedLimitKBps) * 1024);
         e->setMaxConnections(l.maxConnections);
+        e->setMaxConnectionsPerServer(maxConnectionsPerServer());
         e->setUploadLimit(uploadLimitKBps() * 1024);
         e->setSeedRatio(seedRatio());
     }
@@ -1193,4 +1196,61 @@ QString DownloadManager::convertFile(Download* d, const ConvertOptions& o)
     });
     job->start();
     return {};
+}
+
+// ------------------------------------------------------------------ network settings
+
+ProxySettings DownloadManager::proxySettings() const
+{
+    ProxySettings ps;
+    ps.mode = qBound(0, m_db->setting(QStringLiteral("ProxyMode"), 0).toInt(), 2);
+    ps.type = m_db->setting(QStringLiteral("ProxyType"), QStringLiteral("http")).toString();
+    ps.host = m_db->setting(QStringLiteral("ProxyHost")).toString();
+    ps.port = m_db->setting(QStringLiteral("ProxyPort"), 8080).toInt();
+    ps.user = m_db->setting(QStringLiteral("ProxyUser")).toString();
+    ps.password = Secret::unprotect(QByteArray::fromBase64(m_db->setting(QStringLiteral("ProxyPassword")).toByteArray()));
+    return ps;
+}
+
+void DownloadManager::setProxySettings(const ProxySettings& ps)
+{
+    m_db->setSetting(QStringLiteral("ProxyMode"), ps.mode);
+    m_db->setSetting(QStringLiteral("ProxyType"), ps.type);
+    m_db->setSetting(QStringLiteral("ProxyHost"), ps.host.trimmed());
+    m_db->setSetting(QStringLiteral("ProxyPort"), ps.port);
+    m_db->setSetting(QStringLiteral("ProxyUser"), ps.user);
+    m_db->setSetting(QStringLiteral("ProxyPassword"), ps.password.isEmpty() ? QByteArray() : Secret::protect(ps.password).toBase64());
+    applyQtProxy(ps);
+}
+
+// Qt's network stack (HLS/DASH segments, .torrent files) follows the same choice as curl.
+void DownloadManager::applyQtProxy(const ProxySettings& ps)
+{
+    if (ps.mode == ProxySettings::None || ps.manualValid()) {
+        QNetworkProxyFactory::setUseSystemConfiguration(false);
+        QNetworkProxy::setApplicationProxy(ps.qtProxy());
+    } else {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy(QNetworkProxy::DefaultProxy));
+        QNetworkProxyFactory::setUseSystemConfiguration(true);
+    }
+}
+
+QString DownloadManager::proxyFor(const QString& url) const
+{
+    const ProxySettings ps = proxySettings();
+    if (ps.mode == ProxySettings::System)
+        return systemProxyFor(url);
+    return ps.curlProxy(); // "none" or the manual proxy ("" if it's incomplete)
+}
+
+int DownloadManager::maxConnectionsPerServer() const
+{
+    return qBound(0, m_db->setting(QStringLiteral("MaxConnectionsPerServer"), 0).toInt(), 64);
+}
+
+void DownloadManager::setMaxConnectionsPerServer(int n)
+{
+    m_db->setSetting(QStringLiteral("MaxConnectionsPerServer"), qBound(0, n, 64));
+    for (DownloadEngine* e : m_engines)
+        e->setMaxConnectionsPerServer(maxConnectionsPerServer());
 }

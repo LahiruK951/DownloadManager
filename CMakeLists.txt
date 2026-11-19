@@ -22,6 +22,7 @@ add_library(fluxcore STATIC
     src/core/LinkCheck.h              src/core/LinkCheck.cpp
     src/core/Secret.h                 src/core/Secret.cpp
     src/core/Tag.h
+    src/core/ProxySettings.h
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
     src/core/TrafficMode.h

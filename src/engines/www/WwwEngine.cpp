@@ -31,5 +31,6 @@ void WwwEngine::start(const TaskParams& params) { m_worker->startTask(params); }
 void WwwEngine::stop(qint64 id) { m_worker->stopTask(id); }
 void WwwEngine::setSpeedLimit(qint64 bytesPerSec) { m_worker->setSpeedLimit(bytesPerSec); }
 void WwwEngine::setMaxConnections(int perDownload) { m_worker->setMaxConnections(perDownload); }
+void WwwEngine::setMaxConnectionsPerServer(int n) { m_worker->setMaxConnectionsPerServer(n); }
 void WwwEngine::setTaskSpeedLimit(qint64 id, qint64 bytesPerSec) { m_worker->setTaskSpeedLimit(id, bytesPerSec); }
 QHash<qint64, QByteArray> WwwEngine::shutdown() { return m_worker->shutdownAndWait(); }

@@ -19,6 +19,7 @@ public:
     virtual void stop(qint64 id) = 0;
     virtual void setSpeedLimit(qint64 bytesPerSec) = 0;   // 0 = unlimited
     virtual void setMaxConnections(int perDownload) = 0;
+    virtual void setMaxConnectionsPerServer(int /*n*/) {} // 0 = no limit
     virtual void setUploadLimit(qint64 /*bytesPerSec*/) {}
     virtual void setSeedRatio(double /*ratio*/) {}
     virtual void setFileWanted(qint64 /*id*/, int /*index*/, bool /*wanted*/) {}

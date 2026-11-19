@@ -227,6 +227,13 @@ public:
     Q_INVOKABLE bool canConvert(qint64 id, const QString& format) const;
     // Torrent audio/video: download in order and open the partial file once its start is there.
     Q_INVOKABLE void playWhileDownloading(qint64 id);
+    // Network: {mode 0 system / 1 none / 2 manual, type http|socks5, host, port, user, hasPassword}
+    Q_INVOKABLE QVariantMap proxySettings() const;
+    // password: "" with keepPassword keeps the saved one. Returns an error text or "".
+    Q_INVOKABLE QString setProxySettings(int mode, const QString& type, const QString& host, int port,
+                                         const QString& user, const QString& password, bool keepPassword);
+    Q_INVOKABLE int maxConnectionsPerServer() const;
+    Q_INVOKABLE void setMaxConnectionsPerServer(int n);
     Q_INVOKABLE bool canPlayWhileDownloading(qint64 id) const;
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();

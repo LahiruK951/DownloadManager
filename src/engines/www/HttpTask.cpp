@@ -182,8 +182,10 @@ void HttpTask::startSegment(Segment* s)
         curl_easy_setopt(h, CURLOPT_PASSWORD, pass.constData());
         curl_easy_setopt(h, CURLOPT_HTTPAUTH, long(CURLAUTH_ANY));
     }
-    const QByteArray proxy = m_p.proxy.toUtf8();
-    if (!proxy.isEmpty())
+    const QByteArray proxy = m_p.proxy == QLatin1String("none") ? QByteArray() : m_p.proxy.toUtf8();
+    if (m_p.proxy == QLatin1String("none"))
+        curl_easy_setopt(h, CURLOPT_PROXY, ""); // direct, even if http_proxy is set in the environment
+    else if (!proxy.isEmpty())
         curl_easy_setopt(h, CURLOPT_PROXY, proxy.constData());
 
     // The probe asks for "0-" so a 206 reply tells us ranges are supported
