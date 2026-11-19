@@ -4,7 +4,7 @@ project(FluxDM VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network Sql Qml Quick QuickControls2 Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network Sql Qml Quick QuickControls2 Test LinguistTools)
 find_package(CURL CONFIG REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -143,6 +143,15 @@ qt_add_qml_module(fluxdm
     SOURCES
         src/ui/AppController.h src/ui/AppController.cpp
 )
+
+# ---------------------------------------------------------------- translations
+# i18n/fluxdm_<lang>.ts are updated from the sources with the "update_translations" target
+# (lupdate) and compiled into the app as :/i18n/fluxdm_<lang>.qm at every build.
+qt_add_translations(TARGETS fluxdm
+    SOURCE_TARGETS fluxdm fluxcore
+    TS_FILES i18n/fluxdm_es.ts
+    RESOURCE_PREFIX "/i18n"
+    LUPDATE_OPTIONS -no-obsolete -locations none)
 
 target_link_libraries(fluxdm PRIVATE fluxcore Qt6::Widgets Qt6::Quick Qt6::QuickControls2 Qt6::Qml)
 target_include_directories(fluxdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/ui) # for qmltyperegistrar

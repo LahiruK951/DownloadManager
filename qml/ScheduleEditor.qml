@@ -22,7 +22,8 @@ RowLayout {
     Row {
         spacing: 3
         Repeater {
-            model: [qsTr("M"), qsTr("T"), qsTr("W"), qsTr("T"), qsTr("F"), qsTr("S"), qsTr("S")]
+            // The second argument tells translators which day a letter stands for (T = Tuesday or Thursday).
+            model: [qsTr("M", "Monday"), qsTr("T", "Tuesday"), qsTr("W", "Wednesday"), qsTr("T", "Thursday"), qsTr("F", "Friday"), qsTr("S", "Saturday"), qsTr("S", "Sunday")]
             delegate: AbstractButton {
                 id: dayBtn
                 required property string modelData

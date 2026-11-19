@@ -50,6 +50,9 @@ class AppController : public QObject {
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
     Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
     Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged) // "" = Windows' language
+    Q_PROPERTY(QString languageInEffect READ languageInEffect CONSTANT)
+    Q_PROPERTY(QVariantList languages READ languages CONSTANT) // [{code, name}]
     Q_PROPERTY(bool previousSessionCrashed READ previousSessionCrashed CONSTANT)
     // Remote control from the local network (off by default).
     Q_PROPERTY(bool remoteEnabled READ remoteEnabled WRITE setRemoteEnabled NOTIFY remoteChanged)
@@ -116,6 +119,10 @@ public:
     int zoom() const;
     void setZoom(int percent);
     int zoomInEffect() const;
+    QString language() const;
+    void setLanguage(const QString& code);
+    QString languageInEffect() const { return m_languageAtStart; }
+    QVariantList languages() const;
     Q_INVOKABLE void restartApp();
     bool previousSessionCrashed() const;
     bool remoteEnabled() const;
@@ -358,6 +365,7 @@ private:
     QString m_updateStatus, m_updateFile;
     void setUpdate(int state, const QString& status);
     QString m_remoteError;
+    QString m_languageAtStart;
     void applyRemote();
     QList<qint64> m_playWhenReady; // playWhileDownloading() waiting for enough data
     QPointer<Download> m_selected;

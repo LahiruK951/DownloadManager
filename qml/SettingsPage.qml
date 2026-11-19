@@ -209,6 +209,27 @@ Popup {
                             FToggle { checked: App.compactView; onToggled: App.compactView = checked }
                         }
                         SettingRow {
+                            id: langRow
+                            title: qsTr("Language")
+                            description: App.language !== App.languageInEffect ? qsTr("Takes effect when FluxDM restarts.")
+                                         : qsTr("Translations other than English were made by machine and may read awkwardly. Corrections are welcome.")
+                            RowLayout {
+                                spacing: 8
+                                FButton {
+                                    visible: App.language !== App.languageInEffect
+                                    kind: "ghost"
+                                    text: qsTr("Restart now")
+                                    onClicked: App.restartApp()
+                                }
+                                FComboBox {
+                                    Layout.preferredWidth: 220
+                                    model: App.languages.map(l => l.name)
+                                    currentIndex: Math.max(0, App.languages.findIndex(l => l.code === App.language))
+                                    onActivated: (i) => App.language = App.languages[i].code
+                                }
+                            }
+                        }
+                        SettingRow {
                             id: zoomRow
                             readonly property var levels: [80, 90, 100, 110, 125, 150, 175, 200]
                             title: qsTr("Zoom")

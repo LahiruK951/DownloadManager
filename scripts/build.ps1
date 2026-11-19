@@ -3,7 +3,8 @@ param(
     [ValidateSet("msvc-release", "msvc-debug", "msvc-sandbox")][string]$Preset = "msvc-release",
     [switch]$ConfigureOnly,
     [switch]$Test,
-    [switch]$Run
+    [switch]$Run,
+    [switch]$UpdateTranslations  # refresh i18n\*.ts from the sources (lupdate) before building
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -33,6 +34,10 @@ try {
     cmake --preset $Preset
     if ($LASTEXITCODE) { throw "configure failed" }
     if ($ConfigureOnly) { return }
+    if ($UpdateTranslations) {
+        cmake --build --preset $Preset --target update_translations
+        if ($LASTEXITCODE) { throw "lupdate failed" }
+    }
     cmake --build --preset $Preset
     if ($LASTEXITCODE) { throw "build failed" }
 

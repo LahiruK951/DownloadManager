@@ -8,6 +8,7 @@
 #include <QLocalSocket>
 #include <QThread>
 #include <QSettings>
+#include <QTranslator>
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -79,6 +80,18 @@ int main(int argc, char* argv[])
         }
     } else if (!args.contains(QStringLiteral("--uninstall-cleanup")) && forwardToRunningInstance(args)) {
         return 0;
+    }
+
+    // Language: the setting, else Windows' language; English when there is no translation.
+    QTranslator translator;
+    {
+        const QString lang = QSettings(QDir(profileDir()).filePath(QStringLiteral("settings.ini")), QSettings::IniFormat)
+                                 .value(QStringLiteral("language")).toString();
+        const QLocale locale = lang.isEmpty() ? QLocale::system() : QLocale(lang);
+        if (lang != QLatin1String("en") && translator.load(locale, QStringLiteral("fluxdm"), QStringLiteral("_"), QStringLiteral(":/i18n"))) {
+            app.installTranslator(&translator);
+            QLocale::setDefault(locale);
+        }
     }
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));

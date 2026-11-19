@@ -74,6 +74,7 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         }
     });
     m_torrentWatcher->setFolder(torrentWatchFolder());
+    m_languageAtStart = language();
     m_updater = new Updater(QStringLiteral(FLUXDM_VERSION), this);
     connect(m_updater, &Updater::checked, this, [this](bool available, const QString& version, const QString&) {
         m_ui.setValue(QStringLiteral("updateLastCheck"), QDateTime::currentDateTime());
@@ -531,6 +532,33 @@ QString AppController::saveProblemReport(const QUrl& file)
 }
 
 void AppController::openLogsFolder() const { QDesktopServices::openUrl(QUrl::fromLocalFile(AppLog::logDir())); }
+
+QString AppController::language() const { return m_ui.value(QStringLiteral("language")).toString(); }
+
+void AppController::setLanguage(const QString& code)
+{
+    if (code == language())
+        return;
+    m_ui.setValue(QStringLiteral("language"), code);
+    m_ui.sync();
+    emit settingsChanged();
+}
+
+// "" (Windows' language), English, and every translation built into the app (:/i18n/fluxdm_<code>.qm).
+QVariantList AppController::languages() const
+{
+    const QString sys = QLocale::system().nativeLanguageName();
+    QVariantList out{QVariantMap{{QStringLiteral("code"), QString()}, {QStringLiteral("name"), tr("Windows language (%1)").arg(sys)}},
+                     QVariantMap{{QStringLiteral("code"), QStringLiteral("en")}, {QStringLiteral("name"), QStringLiteral("English")}}};
+    for (const QString& f : QDir(QStringLiteral(":/i18n")).entryList({QStringLiteral("fluxdm_*.qm")})) {
+        const QString code = f.mid(7, f.size() - 10);
+        QString name = QLocale(code).nativeLanguageName();
+        if (!name.isEmpty())
+            name[0] = name[0].toUpper();
+        out << QVariantMap{{QStringLiteral("code"), code}, {QStringLiteral("name"), name}};
+    }
+    return out;
+}
 
 int AppController::zoom() const { return m_ui.value(QStringLiteral("zoom"), 100).toInt(); }
 
