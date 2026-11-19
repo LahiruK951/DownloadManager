@@ -82,6 +82,10 @@ void DownloadManager::addEngine(DownloadEngine* e)
     connect(e, &DownloadEngine::failed, this, &DownloadManager::onFailed);
     connect(e, &DownloadEngine::stopped, this, &DownloadManager::onStopped);
     connect(e, &DownloadEngine::log, this, &DownloadManager::onLog);
+    connect(e, &DownloadEngine::filesAwaiting, this, [this](qint64 id, const QVariantList& files) {
+        if (Download* d = find(id))
+            d->setPendingFiles(files);
+    });
     applyLimits();
 }
 
@@ -175,6 +179,7 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
     r.referrer = referrer;
     r.cookies = cookies;
     r.existingFileReaction = existingFileDefault();
+    r.pickFiles = r.moduleUid == QLatin1String("downloadsbt") && chooseTorrentFiles();
     r.userAgent = userAgent;
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
@@ -281,6 +286,8 @@ void DownloadManager::startDownload(Download* d)
     if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
         loginFor(d->rec.url, &p.user, &p.password);
     p.existingFile = d->rec.existingFileReaction;
+    p.pickFiles = d->rec.pickFiles;
+    p.sequential = d->rec.sequential;
     p.resumeData = d->rec.resumeData;
     p.maxConnections = limits(m_effectiveMode).maxConnections;
     p.speedLimit = qint64(d->rec.speedLimitKBps) * 1024;
@@ -665,6 +672,7 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
     if (!resumeData.isEmpty())
         d->rec.resumeData = resumeData;
     d->setSegmentsFromResumeData();
+    d->setPendingFiles({});
     d->setState(Download::Error, error);
     // FDM-style automatic retries for transient failures: 30 s, 1, 2, 5, 10 min...
     if (isRetriable(error) && d->autoRetryCount < autoRetryLimit()) {
@@ -686,6 +694,7 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         return;
     if (d->pendingStops > 0)
         --d->pendingStops;
+    d->setPendingFiles({}); // the engine let go; it asks again on the next start
     if (d->completed()) { // seeding ended (ratio reached or stopped by the user)
         d->setSeeding(false);
         d->rec.resumeData.clear(); // don't resume seeding on the next start
@@ -714,6 +723,38 @@ void DownloadManager::onLog(qint64 id, const QString& line)
 }
 
 // ------------------------------------------------------------------ automatic retries
+
+bool DownloadManager::chooseTorrentFiles() const { return m_db->setting(QStringLiteral("BtChooseFiles"), true).toBool(); }
+void DownloadManager::setChooseTorrentFiles(bool on) { m_db->setSetting(QStringLiteral("BtChooseFiles"), on); }
+
+void DownloadManager::chooseFiles(Download* d, const QList<int>& wanted)
+{
+    if (!d || !d->awaitingFiles() || wanted.isEmpty())
+        return;
+    d->rec.pickFiles = false;
+    d->setPendingFiles({});
+    persist(d);
+    if (DownloadEngine* e = engineByUid(d->rec.moduleUid))
+        e->chooseFiles(d->id(), wanted);
+}
+
+void DownloadManager::setSequential(Download* d, bool on)
+{
+    if (!d || d->rec.sequential == on)
+        return;
+    d->rec.sequential = on;
+    d->addLog(on ? tr("Downloading in order") : tr("Downloading rarest pieces first"));
+    d->notify();
+    persist(d);
+    if (DownloadEngine* e = engineByUid(d->rec.moduleUid))
+        e->setSequential(d->id(), on);
+}
+
+QVariantMap DownloadManager::details(Download* d) const
+{
+    DownloadEngine* e = d ? engineByUid(d->rec.moduleUid) : nullptr;
+    return e ? e->details(d->id()) : QVariantMap();
+}
 
 int DownloadManager::existingFileDefault() const
 {

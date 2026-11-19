@@ -35,6 +35,9 @@ public:
     void setSeedRatio(double ratio) override;
     void setFileWanted(qint64 id, int index, bool wanted) override;
     void setTaskSpeedLimit(qint64 id, qint64 bytesPerSec) override;
+    void chooseFiles(qint64 id, const QList<int>& wanted) override;
+    void setSequential(qint64 id, bool on) override;
+    QVariantMap details(qint64 id) const override;
     QHash<qint64, QByteArray> shutdown() override;
 
     int listenPort() const;
@@ -51,6 +54,9 @@ private:
         bool finishedEmitted = false;   // libtorrent says finished, flush requested
         bool finishReported = false;    // data flushed, finished() emitted
         bool stopping = false;
+        bool pickFiles = false;     // pause for file selection once the file list is known
+        bool awaitingFiles = false; // paused, waiting for chooseFiles()
+        bool sequential = false;
         QByteArray lastResume;
         QVariantList lastFiles;
         QPointer<QNetworkReply> fetch;
@@ -65,6 +71,8 @@ private:
     void failTask(Task& t, const QString& error);
     Task* byHandle(const libtorrent::torrent_handle& h);
     QString finalPath(const Task& t) const;
+    QVariantList fileList(const Task& t) const; // [{index, name, size}] without pad files
+    void maybeAwaitFiles(Task& t);
 
     std::unique_ptr<libtorrent::session> m_ses;
     std::map<qint64, Task> m_tasks;

@@ -8,6 +8,8 @@
 #include <QNetworkRequest>
 
 #include <libtorrent/alert_types.hpp>
+#include <libtorrent/announce_entry.hpp>
+#include <libtorrent/peer_info.hpp>
 #include <libtorrent/load_torrent.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/read_resume_data.hpp>
@@ -97,6 +99,8 @@ void BtEngine::start(const TaskParams& p)
     t.seedOnly = p.seedOnly;
     t.speedLimit = p.speedLimit;
     t.lastResume = p.resumeData;
+    t.pickFiles = p.pickFiles && !p.seedOnly;
+    t.sequential = p.sequential;
 
     lt::error_code ec;
     if (!p.resumeData.isEmpty()) {
@@ -178,6 +182,20 @@ void BtEngine::addTorrent(Task& t, lt::add_torrent_params atp)
     atp.flags &= ~(lt::torrent_flags::auto_managed | lt::torrent_flags::paused | lt::torrent_flags::stop_when_ready);
     if (t.seedOnly)
         atp.flags |= lt::torrent_flags::upload_mode; // never download more in seed-only mode
+    if (t.sequential)
+        atp.flags |= lt::torrent_flags::sequential_download;
+    else
+        atp.flags &= ~lt::torrent_flags::sequential_download;
+    // File list already known (.torrent, or resume data with the info dict) and the user wants
+    // to choose: add it paused so not a byte is fetched before the choice.
+    if (t.pickFiles && atp.ti) {
+        int real = 0;
+        const lt::file_storage& fs = atp.ti->layout();
+        for (int i = 0; i < fs.num_files(); ++i)
+            real += fs.pad_file_at(lt::file_index_t(i)) ? 0 : 1;
+        if (real > 1)
+            atp.flags |= lt::torrent_flags::paused;
+    }
     lt::error_code ec;
     t.h = m_ses->add_torrent(std::move(atp), ec);
     if (ec) {
@@ -278,6 +296,129 @@ void BtEngine::emitMeta(Task& t)
                        .arg(ti->piece_length() / 1024));
     emit meta(t.id, qs(ti->name()), finalPath(t), ti->total_size(), true);
     t.h.save_resume_data(kResumeFlags); // persist the info dict right away (magnet → no refetch)
+    maybeAwaitFiles(t);
+}
+
+QVariantList BtEngine::fileList(const Task& t) const
+{
+    QVariantList files;
+    const auto ti = t.h.is_valid() ? t.h.torrent_file() : nullptr;
+    if (!ti)
+        return files;
+    const lt::file_storage& fs = ti->layout();
+    const QString root = qs(ti->name()) + QLatin1Char('/');
+    for (int i = 0; i < fs.num_files(); ++i) {
+        const lt::file_index_t fi(i);
+        if (fs.pad_file_at(fi))
+            continue;
+        QString name = QDir::fromNativeSeparators(qs(fs.file_path(fi)));
+        if (fs.num_files() > 1 && name.startsWith(root))
+            name = name.mid(root.size());
+        files << QVariantMap{{QStringLiteral("index"), i}, {QStringLiteral("name"), name},
+                             {QStringLiteral("size"), qint64(fs.file_size(fi))}};
+    }
+    return files;
+}
+
+// FDM-style "choose files": with several files, hold the torrent until the user picks.
+void BtEngine::maybeAwaitFiles(Task& t)
+{
+    if (!t.pickFiles || t.awaitingFiles)
+        return;
+    const QVariantList files = fileList(t);
+    if (files.size() < 2) { // nothing to choose
+        t.pickFiles = false;
+        t.h.resume();
+        return;
+    }
+    t.h.unset_flags(lt::torrent_flags::auto_managed);
+    t.h.pause(); // a magnet may already have requested a few blocks; stop there
+    t.awaitingFiles = true;
+    emit log(t.id, tr("Waiting for you to choose files (%1 in this torrent)").arg(files.size()));
+    emit filesAwaiting(t.id, files);
+}
+
+void BtEngine::chooseFiles(qint64 id, const QList<int>& wanted)
+{
+    auto it = m_tasks.find(id);
+    if (it == m_tasks.end() || !it->second.h.is_valid())
+        return;
+    Task& t = it->second;
+    const auto ti = t.h.torrent_file();
+    if (!ti)
+        return;
+    std::vector<lt::download_priority_t> prio(size_t(ti->num_files()), lt::dont_download);
+    for (int i : wanted)
+        if (i >= 0 && i < int(prio.size()))
+            prio[size_t(i)] = lt::default_priority;
+    t.h.prioritize_files(prio);
+    t.pickFiles = false;
+    t.awaitingFiles = false;
+    t.h.resume();
+    emit log(id, tr("Downloading %1 of %2 file(s)").arg(wanted.size()).arg(fileList(t).size()));
+    t.h.save_resume_data(kResumeFlags);
+}
+
+void BtEngine::setSequential(qint64 id, bool on)
+{
+    auto it = m_tasks.find(id);
+    if (it == m_tasks.end())
+        return;
+    it->second.sequential = on;
+    if (!it->second.h.is_valid())
+        return;
+    if (on)
+        it->second.h.set_flags(lt::torrent_flags::sequential_download);
+    else
+        it->second.h.unset_flags(lt::torrent_flags::sequential_download);
+}
+
+QVariantMap BtEngine::details(qint64 id) const
+{
+    auto it = m_tasks.find(id);
+    if (it == m_tasks.end() || !it->second.h.is_valid())
+        return {};
+    const lt::torrent_handle& h = it->second.h;
+
+    QVariantList peers;
+    std::vector<lt::peer_info> pi;
+    h.get_peer_info(pi);
+    for (const lt::peer_info& p : pi) {
+        const auto ep = p.remote_endpoint();
+        const QString host = qs(ep.address().to_string());
+        const QString addr = ep.address().is_v6() ? QStringLiteral("[%1]:%2").arg(host).arg(ep.port())
+                                                  : QStringLiteral("%1:%2").arg(host).arg(ep.port());
+        peers << QVariantMap{{QStringLiteral("address"), addr},
+                             {QStringLiteral("client"), QString::fromUtf8(p.client.c_str())},
+                             {QStringLiteral("down"), p.payload_down_speed},
+                             {QStringLiteral("up"), p.payload_up_speed},
+                             {QStringLiteral("progress"), double(p.progress)},
+                             {QStringLiteral("seed"), bool(p.flags & lt::peer_info::seed)}};
+    }
+
+    QVariantList trackers;
+    for (const lt::announce_entry& ae : h.trackers()) {
+        QString status = QStringLiteral("Not contacted yet");
+        int seeds = -1, leechers = -1;
+        for (const lt::announce_endpoint& ep : ae.endpoints) {
+            for (const lt::announce_infohash& ih : ep.info_hashes) {
+                if (ih.updating)
+                    status = QStringLiteral("Updating…");
+                else if (ih.fails > 0)
+                    status = ih.message.empty() ? qs(ih.last_error.message()) : qs(ih.message);
+                else if (ih.start_sent)
+                    status = QStringLiteral("Working");
+                seeds = qMax(seeds, ih.scrape_complete);
+                leechers = qMax(leechers, ih.scrape_incomplete);
+            }
+        }
+        trackers << QVariantMap{{QStringLiteral("url"), qs(ae.url)}, {QStringLiteral("tier"), int(ae.tier)},
+                                {QStringLiteral("status"), status}, {QStringLiteral("seeds"), seeds},
+                                {QStringLiteral("leechers"), leechers}};
+    }
+    const lt::torrent_status st = h.status({});
+    return {{QStringLiteral("peers"), peers}, {QStringLiteral("trackers"), trackers},
+            {QStringLiteral("sequential"), bool(st.flags & lt::torrent_flags::sequential_download)}};
 }
 
 // ------------------------------------------------------------------ polling

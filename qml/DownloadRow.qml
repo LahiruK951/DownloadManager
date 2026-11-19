@@ -14,6 +14,7 @@ Rectangle {
     signal requestRename(var download)
     signal requestLogin(var download)
     signal requestExisting(var download)
+    signal requestFiles(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -69,6 +70,7 @@ Rectangle {
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
+        if (d.awaitingFiles) return { text: qsTr("Choose files"), glyph: Theme.icons.check, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.fileExists) return { text: qsTr("File exists"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.needsLogin) return { text: qsTr("Sign-in needed"), glyph: String.fromCharCode(0xE8D7), fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.failed) return { text: qsTr("Error"), glyph: Theme.icons.warn, fg: Theme.error, bg: Theme.errorSoft }
@@ -225,6 +227,12 @@ Rectangle {
             spacing: 2
             opacity: row.showActions ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 100 } }
+            IconButton { // torrent waits for the file selection
+                visible: row.d.awaitingFiles
+                glyph: Theme.icons.check
+                tip: qsTr("Choose files…")
+                onClicked: row.requestFiles(row.d)
+            }
             IconButton { // "ask" found the file already there: let the user choose
                 visible: row.d.fileExists
                 glyph: Theme.icons.warn
@@ -238,7 +246,7 @@ Rectangle {
                 onClicked: row.requestLogin(row.d)
             }
             IconButton {
-                visible: !row.d.needsLogin && !row.d.fileExists
+                visible: !row.d.needsLogin && !row.d.fileExists && !row.d.awaitingFiles
                 glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
                      : (row.d.completed && row.d.fileMissing) ? Theme.icons.refresh
                      : row.d.completed ? Theme.icons.open
@@ -320,6 +328,12 @@ Rectangle {
         }
         FMenuSeparator {}
         FMenuItem {
+            glyph: Theme.icons.check
+            text: qsTr("Choose files…")
+            visible: row.d.awaitingFiles
+            onTriggered: row.requestFiles(row.d)
+        }
+        FMenuItem {
             glyph: Theme.icons.warn
             text: qsTr("Replace or keep both…")
             visible: row.d.fileExists
@@ -348,6 +362,13 @@ Rectangle {
             text: row.d.scheduled ? qsTr("Edit schedule…") : qsTr("Schedule…")
             visible: !row.d.completed
             onTriggered: row.requestSchedule(row.d)
+        }
+        FMenuItem {
+            text: qsTr("Download in order")
+            checkable: true
+            checked: row.d.sequential
+            visible: row.d.isTorrent && !row.d.completed
+            onTriggered: App.setSequential(row.d.id, !row.d.sequential)
         }
         FMenuItem {
             glyph: Theme.icons.bolt

@@ -60,6 +60,9 @@ class Download : public QObject {
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
     Q_PROPERTY(bool converting READ converting NOTIFY changed)
     Q_PROPERTY(bool needsLogin READ needsLogin NOTIFY changed) // failed asking for a user name/password
+    Q_PROPERTY(bool awaitingFiles READ awaitingFiles NOTIFY changed) // torrent: waiting for the user to pick files
+    Q_PROPERTY(QVariantList pendingFiles READ pendingFiles NOTIFY changed) // the files to pick from
+    Q_PROPERTY(bool sequential READ sequential NOTIFY changed)
     Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
 
 public:
@@ -128,6 +131,17 @@ public:
     int speedLimit() const { return rec.speedLimitKBps; }
     bool moving() const { return m_moving; }
     bool converting() const { return m_converting; }
+    bool awaitingFiles() const { return !m_pendingFiles.isEmpty(); }
+    QVariantList pendingFiles() const { return m_pendingFiles; }
+    void setPendingFiles(const QVariantList& files)
+    {
+        if (files.isEmpty() && m_pendingFiles.isEmpty())
+            return;
+        m_pendingFiles = files;
+        emit changed();
+        emit stateChanged(); // lets the UI ask right away
+    }
+    bool sequential() const { return rec.sequential; }
     bool fileExists() const { return failed() && rec.lastError.startsWith(QLatin1String("File already exists")); }
     bool needsLogin() const
     {
@@ -168,4 +182,5 @@ private:
     bool m_missing = false;
     bool m_moving = false;
     bool m_converting = false;
+    QVariantList m_pendingFiles;
 };

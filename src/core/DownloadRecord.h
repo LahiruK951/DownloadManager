@@ -29,6 +29,8 @@ struct DownloadRecord {
     int priority = 1;           // 0 low, 1 normal, 2 high
     int speedLimitKBps = 0;     // per-download cap, 0 = none
     int existingFileReaction = 0; // FileNamer::ExistingFile, fixed when the download is added
+    bool pickFiles = false;     // torrent: ask which files to download once the list is known
+    bool sequential = false;    // torrent: download in order
     QString contentCategory;    // from the file list of a multi-file download; "" = use the title
     bool scheduled = false;     // downloadsScheduleRecords row present
     ScheduleWindow schedule;

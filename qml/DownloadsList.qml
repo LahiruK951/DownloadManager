@@ -13,6 +13,7 @@ Item {
     signal requestRename(var download)
     signal requestLogin(var download)
     signal requestExisting(var download)
+    signal requestFiles(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -41,6 +42,7 @@ Item {
             onRequestRename: (d) => root.requestRename(d)
             onRequestLogin: (d) => root.requestLogin(d)
             onRequestExisting: (d) => root.requestExisting(d)
+            onRequestFiles: (d) => root.requestFiles(d)
         }
 
         focus: true

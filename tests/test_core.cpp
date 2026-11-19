@@ -878,6 +878,88 @@ private slots:
         QVERIFY(stopped.last().at(1).toByteArray().isEmpty());
     }
 
+    void torrentChooseFilesFirst()
+    {
+        namespace lt = libtorrent;
+        QTemporaryDir seedDir, dlDir, stateDir;
+        QDir(seedDir.path()).mkpath("pack");
+        const QByteArray a = makeData(1024 * 1024), b = makeData(1024 * 1024 + 0); // piece-aligned: no shared pieces
+        auto put = [&](const char* name, const QByteArray& data) {
+            QFile f(QDir(seedDir.filePath("pack")).filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(data);
+        };
+        put("a.bin", a);
+        put("b.bin", b);
+        lt::create_torrent ct(lt::list_files(seedDir.filePath("pack").toStdString()), 64 * 1024);
+        lt::set_piece_hashes(ct, seedDir.path().toStdString());
+        const std::vector<char> buf = ct.generate_buf();
+        const QString torrentPath = dlDir.filePath("pack.torrent");
+        {
+            QFile f(torrentPath);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(buf.data(), qint64(buf.size()));
+        }
+
+        lt::settings_pack sp;
+        sp.set_str(lt::settings_pack::listen_interfaces, "127.0.0.1:0");
+        sp.set_bool(lt::settings_pack::enable_dht, false);
+        sp.set_bool(lt::settings_pack::enable_lsd, false);
+        sp.set_bool(lt::settings_pack::enable_upnp, false);
+        sp.set_bool(lt::settings_pack::enable_natpmp, false);
+        lt::session seeder(sp);
+        lt::add_torrent_params atp = lt::load_torrent_buffer(lt::span<char const>(buf.data(), buf.size()));
+        atp.save_path = seedDir.path().toStdString();
+        atp.flags |= lt::torrent_flags::seed_mode;
+        atp.flags &= ~(lt::torrent_flags::paused | lt::torrent_flags::auto_managed);
+        seeder.add_torrent(std::move(atp));
+        QTRY_VERIFY_WITH_TIMEOUT(seeder.listen_port() != 0, 5000);
+
+        BtEngine eng(stateDir.path(), 0, true);
+        eng.setSeedRatio(0);
+        QSignalSpy awaiting(&eng, &DownloadEngine::filesAwaiting), stats(&eng, &DownloadEngine::stats);
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(21, torrentPath, dlDir.path());
+        p.pickFiles = true;
+        p.speedLimit = 256 * 1024; // a few seconds, so the peer list can be observed
+        eng.start(p);
+        QTRY_COMPARE_WITH_TIMEOUT(awaiting.count(), 1, 10000);
+        const QVariantList files = awaiting.first().at(1).toList();
+        QCOMPARE(files.size(), 2);
+        int bIndex = -1;
+        for (const QVariant& v : files)
+            if (v.toMap().value("name").toString() == QStringLiteral("b.bin"))
+                bIndex = v.toMap().value("index").toInt();
+        QVERIFY(bIndex >= 0);
+
+        // While it waits, peers are offered but nothing is downloaded.
+        QElapsedTimer t;
+        t.start();
+        while (t.elapsed() < 1500) {
+            QTest::qWait(100);
+            eng.addPeer(21, QStringLiteral("127.0.0.1"), seeder.listen_port());
+        }
+        for (const QList<QVariant>& s : stats)
+            QCOMPARE(s.at(0).value<TaskStats>().received, qint64(0));
+        QVERIFY(fin.isEmpty());
+
+        eng.setSequential(21, true);
+        QCOMPARE(eng.details(21).value("sequential").toBool(), true);
+        eng.chooseFiles(21, {bIndex});
+        t.restart();
+        bool sawPeer = false;
+        while (fin.isEmpty() && fail.isEmpty() && t.elapsed() < 60000) {
+            QTest::qWait(100);
+            eng.addPeer(21, QStringLiteral("127.0.0.1"), seeder.listen_port());
+            sawPeer = sawPeer || !eng.details(21).value("peers").toList().isEmpty();
+        }
+        QVERIFY2(!fin.isEmpty(), qPrintable(fail.isEmpty() ? QStringLiteral("timeout") : fail.last().at(1).toString()));
+        QVERIFY(sawPeer);
+        const QDir pack(QDir(dlDir.path()).filePath("pack"));
+        QVERIFY(readAll(pack.filePath("b.bin")) == b);
+        QVERIFY(!QFile::exists(pack.filePath("a.bin")) || QFileInfo(pack.filePath("a.bin")).size() == 0 || readAll(pack.filePath("a.bin")) != a);
+    }
+
     void torrentStopAndResume()
     {
         namespace lt = libtorrent;

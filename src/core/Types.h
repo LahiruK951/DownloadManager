@@ -21,6 +21,8 @@ struct TaskParams {
     QByteArray resumeData; // engine-specific opaque blob
     int maxConnections = 8;
     bool seedOnly = false; // BitTorrent: data is complete, just seed
+    bool pickFiles = false;  // BitTorrent: wait for the user to choose files once they are known
+    bool sequential = false; // BitTorrent: download pieces in order (playable while downloading)
     qint64 speedLimit = 0; // per-download cap in bytes/s, 0 = none
 };
 

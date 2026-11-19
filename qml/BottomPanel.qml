@@ -28,6 +28,74 @@ Rectangle {
         font.pixelSize: Theme.fontBody
     }
 
+    // Live torrent details (peers/trackers), refreshed every second while relevant.
+    property var details: ({})
+    readonly property bool hasDetails: details.peers !== undefined
+    function refreshDetails() { details = panel.d ? App.torrentDetails(panel.d.id) : ({}) }
+    onDChanged: refreshDetails()
+    onHasDetailsChanged: if (!hasDetails && App.bottomPanelTab >= 3) App.bottomPanelTab = 0
+    Timer {
+        interval: 1000
+        repeat: true
+        running: panel.visible && panel.d !== null && (panel.d.running || panel.d.seeding || panel.hasDetails)
+        onTriggered: panel.refreshDetails()
+    }
+
+    // Column widths: first column stretches, the rest are fixed.
+    readonly property var detailWidths: [0, 170, 90, 90, 56]
+    component DetailHeader: Item {
+        id: header
+        property var columns: []
+        width: ListView.view ? ListView.view.width : 0
+        height: 30
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            spacing: 12
+            Repeater {
+                model: header.columns
+                Text {
+                    required property string modelData
+                    required property int index
+                    Layout.fillWidth: index === 0
+                    Layout.preferredWidth: index === 0 ? -1 : panel.detailWidths[index]
+                    horizontalAlignment: index >= 2 ? Text.AlignRight : Text.AlignLeft
+                    text: modelData
+                    color: Theme.textDim
+                    font.pixelSize: Theme.fontSmall
+                    font.weight: Font.Medium
+                }
+            }
+        }
+    }
+    component DetailRow: Item {
+        id: detailRow
+        property var cells: []
+        property bool warn: false
+        height: 30
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            spacing: 12
+            Repeater {
+                model: detailRow.cells
+                Text {
+                    required property string modelData
+                    required property int index
+                    Layout.fillWidth: index === 0
+                    Layout.preferredWidth: index === 0 ? -1 : panel.detailWidths[index]
+                    horizontalAlignment: index >= 2 ? Text.AlignRight : Text.AlignLeft
+                    text: modelData
+                    elide: index <= 1 ? Text.ElideMiddle : Text.ElideRight
+                    color: index === 1 && detailRow.warn ? Theme.warning : (index === 0 ? Theme.text : Theme.textDim)
+                    font.pixelSize: Theme.fontBody
+                }
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -49,13 +117,14 @@ Rectangle {
                 background: Item {}
                 Layout.alignment: Qt.AlignBottom
                 Repeater {
-                    model: [qsTr("General"), qsTr("Files"), qsTr("Log")]
+                    model: [qsTr("General"), qsTr("Files"), qsTr("Log"), qsTr("Peers"), qsTr("Trackers")]
                     TabButton {
                         id: tab
                         required property string modelData
                         required property int index
                         readonly property bool current: tabs.currentIndex === index
-                        width: implicitWidth + 20
+                        visible: index < 3 || panel.hasDetails
+                        width: visible ? implicitWidth + 20 : 0
                         height: 40
                         hoverEnabled: true
                         contentItem: Text {
@@ -298,6 +367,55 @@ Rectangle {
                     selectedTextColor: "white"
                     font.family: "Consolas"
                     font.pixelSize: 12
+                }
+            }
+
+            // ---------------------------------------------------- Peers (torrents)
+            ListView {
+                id: peersView
+                clip: true
+                model: panel.details.peers || []
+                ScrollBar.vertical: ScrollBar {}
+                header: DetailHeader { columns: [qsTr("Address"), qsTr("Client"), qsTr("Down"), qsTr("Up"), qsTr("Has")] }
+                delegate: DetailRow {
+                    required property var modelData
+                    width: peersView.width
+                    cells: [modelData.address + (modelData.seed ? "  · " + qsTr("seed") : ""), modelData.client,
+                            modelData.down > 0 ? App.fmtSpeed(modelData.down) : "",
+                            modelData.up > 0 ? App.fmtSpeed(modelData.up) : "",
+                            Math.floor(modelData.progress * 100) + "%"]
+                }
+                Text {
+                    anchors.centerIn: parent
+                    visible: peersView.count === 0
+                    text: panel.d && (panel.d.running || panel.d.seeding) ? qsTr("Looking for peers…") : qsTr("Not connected")
+                    color: Theme.textDim
+                    font.pixelSize: Theme.fontBody
+                }
+            }
+
+            // ---------------------------------------------------- Trackers (torrents)
+            ListView {
+                id: trackersView
+                clip: true
+                model: panel.details.trackers || []
+                ScrollBar.vertical: ScrollBar {}
+                header: DetailHeader { columns: [qsTr("Tracker"), qsTr("Status"), qsTr("Seeds"), qsTr("Peers"), qsTr("Tier")] }
+                delegate: DetailRow {
+                    required property var modelData
+                    width: trackersView.width
+                    cells: [modelData.url, modelData.status,
+                            modelData.seeds >= 0 ? String(modelData.seeds) : "–",
+                            modelData.leechers >= 0 ? String(modelData.leechers) : "–",
+                            String(modelData.tier + 1)]
+                    warn: modelData.status !== "Working" && modelData.status !== "Not contacted yet" && modelData.status !== "Updating…"
+                }
+                Text {
+                    anchors.centerIn: parent
+                    visible: trackersView.count === 0
+                    text: qsTr("No trackers: peers come from DHT and local discovery")
+                    color: Theme.textDim
+                    font.pixelSize: Theme.fontBody
                 }
             }
         }

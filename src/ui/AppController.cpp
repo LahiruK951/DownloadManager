@@ -174,6 +174,25 @@ void AppController::setSort(const QString& key, bool descending)
     emit sortChanged();
 }
 
+bool AppController::chooseTorrentFiles() const { return m_mgr->chooseTorrentFiles(); }
+
+void AppController::setChooseTorrentFiles(bool on)
+{
+    m_mgr->setChooseTorrentFiles(on);
+    emit settingsChanged();
+}
+
+void AppController::chooseFiles(qint64 id, const QVariantList& wantedIndexes)
+{
+    QList<int> wanted;
+    for (const QVariant& v : wantedIndexes)
+        wanted << v.toInt();
+    m_mgr->chooseFiles(byId(id), wanted);
+}
+
+void AppController::setSequential(qint64 id, bool on) { m_mgr->setSequential(byId(id), on); }
+QVariantMap AppController::torrentDetails(qint64 id) const { return m_mgr->details(byId(id)); }
+
 bool AppController::preventSleep() const { return m_ui.value(QStringLiteral("preventSleep"), true).toBool(); }
 
 void AppController::setPreventSleep(bool on)
@@ -522,6 +541,8 @@ void AppController::watch(Download* d)
             emit loginRequired(d);
         else if (d->fileExists())
             emit fileConflict(d);
+        else if (d->awaitingFiles())
+            emit filesRequired(d);
     });
 }
 

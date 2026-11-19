@@ -69,6 +69,7 @@ ApplicationWindow {
         }
         function onNotice(text) { toast.show(text) }
         // Ask right away, like a browser does, unless the user is busy with another dialog.
+        function onFilesRequired(d) { if (!win.dialogOpen) torrentFilesDialog.openFor(d) }
         function onFileConflict(d) { if (!win.dialogOpen) fileExistsDialog.openFor(d) }
         function onLoginRequired(d) { if (!win.dialogOpen && App.devOpen !== "login-row") loginDialog.openFor(d) }
         function onWhenDoneCountdown(action) {
@@ -77,7 +78,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -126,6 +127,7 @@ ApplicationWindow {
                 onRequestRename: (d) => renameDialog.openFor(d)
                 onRequestLogin: (d) => loginDialog.openFor(d)
                 onRequestExisting: (d) => fileExistsDialog.openFor(d)
+                onRequestFiles: (d) => torrentFilesDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -178,6 +180,16 @@ ApplicationWindow {
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
         else if (v === "exists") devExistsTimer.start()
+        else if (v === "bt-files") { // a torrent-like demo download asking which files to get
+            App.select(App.downloads.idAt(0))
+            App.addDownloads("demo://tracker.example.org/The%20Long%20Night%20S01?size=4551000000&speed=6000000&bt=1&pick=1", App.selected.destDir, "", true, {})
+        }
+        else if (v === "bt-peers" || v === "bt-trackers") {
+            App.select(App.downloads.idAt(0))
+            App.addDownloads("demo://tracker.example.org/Open%20Movie%20Pack?size=2147483648&speed=3700000&start=0.35&bt=1", App.selected.destDir, "", true, {})
+            App.bottomPanelOpen = true
+            App.bottomPanelTab = v === "bt-peers" ? 3 : 4
+        }
         else if (v.startsWith("sort:")) App.setSort(v.split(":")[1], v.split(":")[2] === "desc") // sort:<key>:<asc|desc>
         else if (v === "sort-menu") devSortTimer.start()
         else if (v === "login" || v === "login-row") {
@@ -200,6 +212,7 @@ ApplicationWindow {
     RenameDialog { id: renameDialog }
     LoginDialog { id: loginDialog }
     FileExistsDialog { id: fileExistsDialog }
+    TorrentFilesDialog { id: torrentFilesDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog

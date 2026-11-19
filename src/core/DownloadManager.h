@@ -79,6 +79,13 @@ public:
     int existingFileDefault() const;
     void setExistingFileDefault(int reaction);
     void setExistingFileReaction(Download* d, int reaction);
+
+    // BitTorrent: ask which files to download before starting (default on).
+    bool chooseTorrentFiles() const;
+    void setChooseTorrentFiles(bool on);
+    void chooseFiles(Download* d, const QList<int>& wanted);
+    void setSequential(Download* d, bool on);
+    QVariantMap details(Download* d) const;
     int autoRetryLimit() const;
     void setAutoRetryLimit(int n);
     static bool isRetriable(const QString& error);

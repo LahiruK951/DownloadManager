@@ -73,6 +73,10 @@ bool Database::open(const QString& dir, QString* error)
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN speedLimit INTEGER DEFAULT 0"));
         if (!cols.contains(QStringLiteral("existingFileReaction")))
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN existingFileReaction INTEGER DEFAULT 0"));
+        if (!cols.contains(QStringLiteral("pickFiles")))
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN pickFiles INTEGER DEFAULT 0"));
+        if (!cols.contains(QStringLiteral("sequential")))
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN sequential INTEGER DEFAULT 0"));
         if (!cols.contains(QStringLiteral("contentCategory")))
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN contentCategory TEXT"));
     }
@@ -109,7 +113,7 @@ QList<DownloadRecord> Database::loadDownloads()
     if (!q.exec(QStringLiteral(
             "SELECT id, moduleUid, url, referrer, cookies, userAgent, destinationPath, preferredFileTitle, title,"
             " filePath, creationTime, finishedTime, resumeData, lastResult, state, totalBytes, receivedBytes,"
-            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction FROM downloads ORDER BY id DESC"))) {
+            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential FROM downloads ORDER BY id DESC"))) {
         qWarning() << q.lastError().text();
         return out;
     }
@@ -139,6 +143,8 @@ QList<DownloadRecord> Database::loadDownloads()
         r.speedLimitKBps = q.value(19).toInt();
         r.contentCategory = q.value(20).toString();
         r.existingFileReaction = q.value(21).toInt();
+        r.pickFiles = q.value(22).toBool();
+        r.sequential = q.value(23).toBool();
         out.append(r);
     }
 
@@ -167,8 +173,8 @@ void Database::save(const DownloadRecord& r)
     q.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO downloads (id, moduleUid, url, referrer, cookies, userAgent, destinationPath,"
         " preferredFileTitle, title, filePath, creationTime, finishedTime, resumeData, lastResult, state,"
-        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     q.addBindValue(r.id);
     q.addBindValue(r.moduleUid);
     q.addBindValue(r.url);
@@ -191,6 +197,8 @@ void Database::save(const DownloadRecord& r)
     q.addBindValue(r.speedLimitKBps);
     q.addBindValue(r.contentCategory);
     q.addBindValue(r.existingFileReaction);
+    q.addBindValue(r.pickFiles ? 1 : 0);
+    q.addBindValue(r.sequential ? 1 : 0);
     if (!q.exec())
         qWarning() << "save download:" << q.lastError().text();
 

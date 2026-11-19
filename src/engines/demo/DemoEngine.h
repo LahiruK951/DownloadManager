@@ -7,6 +7,7 @@
 // Developer-only module: simulates downloads for demo:// URLs so the UI can be
 // exercised and screenshotted without any network. Query parameters:
 //   size=<bytes>  speed=<bytes/s>  start=<0..1>  conns=<n>  fail=1 (404) | fail=401 (login)
+//   bt=1 (fake peers/trackers in details())  pick=1 (wait for chooseFiles, like a torrent)
 // Registered only when FLUXDM_DEV_DEMO is set.
 class DemoEngine : public DownloadEngine {
     Q_OBJECT
@@ -19,6 +20,8 @@ public:
     void stop(qint64 id) override;
     void setSpeedLimit(qint64 bytesPerSec) override { m_limit = bytesPerSec; }
     void setMaxConnections(int) override {}
+    void chooseFiles(qint64 id, const QList<int>& wanted) override;
+    QVariantMap details(qint64 id) const override;
     QHash<qint64, QByteArray> shutdown() override;
 
 private:
@@ -30,6 +33,8 @@ private:
         int conns = 8;
         bool fail = false;
         bool failLogin = false;
+        bool bt = false;
+        bool waiting = false; // pick=1 until chooseFiles()
         int ticks = 0;
     };
     void tick();

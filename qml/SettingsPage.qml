@@ -549,6 +549,11 @@ Popup {
                         }
                     }
                     SettingRow {
+                        title: qsTr("Choose files before downloading")
+                        description: qsTr("When a torrent has several files, ask which ones to get before anything is downloaded.")
+                        FToggle { checked: App.chooseTorrentFiles; onToggled: App.chooseTorrentFiles = checked }
+                    }
+                    SettingRow {
                         title: qsTr("Open magnet links and .torrent files with FluxDM")
                         description: qsTr("Registers FluxDM for your Windows account only.")
                         divider: false

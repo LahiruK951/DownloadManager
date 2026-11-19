@@ -92,6 +92,7 @@ set(FLUXDM_QML_FILES
     qml/RenameDialog.qml
     qml/LoginDialog.qml
     qml/FileExistsDialog.qml
+    qml/TorrentFilesDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

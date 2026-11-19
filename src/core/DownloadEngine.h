@@ -2,6 +2,7 @@
 #include <QHash>
 #include <QObject>
 #include <QUrl>
+#include <QVariantMap>
 #include "core/Types.h"
 
 // A download "module" (FDM: downloadswww, downloadsbt, downloadsm3u, ...).
@@ -22,6 +23,11 @@ public:
     virtual void setSeedRatio(double /*ratio*/) {}
     virtual void setFileWanted(qint64 /*id*/, int /*index*/, bool /*wanted*/) {}
     virtual void setTaskSpeedLimit(qint64 /*id*/, qint64 /*bytesPerSec*/) {}
+    // BitTorrent: start a task that waited for file selection, with these file indexes wanted.
+    virtual void chooseFiles(qint64 /*id*/, const QList<int>& /*wanted*/) {}
+    virtual void setSequential(qint64 /*id*/, bool /*on*/) {}
+    // Live details for the UI (BitTorrent: {peers: [...], trackers: [...]}).
+    virtual QVariantMap details(qint64 /*id*/) const { return {}; }
     // Stops everything synchronously and returns final resume data per task.
     virtual QHash<qint64, QByteArray> shutdown() = 0;
 
@@ -33,4 +39,6 @@ signals:
     void failed(qint64 id, const QString& error, const QByteArray& resumeData);
     void stopped(qint64 id, const QByteArray& resumeData);
     void log(qint64 id, const QString& line);
+    // The task is paused until chooseFiles(): files = [{index, name, size}]
+    void filesAwaiting(qint64 id, const QVariantList& files);
 };

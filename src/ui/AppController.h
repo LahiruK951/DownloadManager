@@ -45,6 +45,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
+    Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
     Q_PROPERTY(bool sortDescending READ sortDescending NOTIFY sortChanged)
     Q_PROPERTY(bool notifyOnComplete READ notifyOnComplete WRITE setNotifyOnComplete NOTIFY settingsChanged)
@@ -93,6 +94,8 @@ public:
     void setCloseButtonHidesApp(bool v);
     bool monitorClipboard() const;
     bool preventSleep() const;
+    bool chooseTorrentFiles() const;
+    void setChooseTorrentFiles(bool on);
     QString sortKey() const;
     bool sortDescending() const;
     Q_INVOKABLE void setSort(const QString& key, bool descending);
@@ -206,6 +209,9 @@ public:
     Q_INVOKABLE bool fileExistsIn(const QString& folder, const QString& name) const;
     Q_INVOKABLE QString expectedName(const QString& text) const; // likely file name of a single link
     Q_INVOKABLE void resolveExisting(qint64 id, int reaction); // answer to "file already exists"
+    Q_INVOKABLE void chooseFiles(qint64 id, const QVariantList& wantedIndexes);
+    Q_INVOKABLE void setSequential(qint64 id, bool on);
+    Q_INVOKABLE QVariantMap torrentDetails(qint64 id) const; // {peers: [...], trackers: [...]}
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
@@ -245,6 +251,7 @@ signals:
     void notice(const QString& text); // short message for the toast
     void sortChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
+    void filesRequired(QObject* download); // torrent waits for the user to pick files
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 
 private:
