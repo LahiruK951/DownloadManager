@@ -11,6 +11,7 @@ FDialog {
     readonly property int linkCount: App.countLinks(urlsField.text)
     readonly property bool torrent: App.isTorrentLink(urlsField.text)
     readonly property bool stream: App.linkModule(urlsField.text) === "downloadsm3u"
+    readonly property bool dash: App.linkModule(urlsField.text) === "downloadsfragments"
     property bool folderTouched: false
     // The name is already taken in the chosen folder: let the user decide here and now.
     readonly property bool nameTaken: linkCount === 1 && !torrent && App.fileExistsIn(folderField.editText, nameField.text !== "" ? nameField.text : App.expectedName(urlsField.text))
@@ -75,6 +76,7 @@ FDialog {
                 text: dlg.linkCount === 0 ? qsTr("Tip: ranges like file[1-20].zip expand into several downloads")
                      : dlg.torrent ? qsTr("BitTorrent download")
                      : dlg.stream ? qsTr("Video stream (HLS) — saved as one video file")
+                     : dlg.dash ? qsTr("Video stream (DASH) — best video and audio, combined into one file")
                      : dlg.linkCount === 1 ? qsTr("1 file") : qsTr("%1 files").arg(dlg.linkCount)
             }
         }

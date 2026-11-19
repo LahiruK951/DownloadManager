@@ -45,7 +45,7 @@ async function loadMedia() {
     const li = document.createElement("li");
     const kind = document.createElement("span");
     kind.className = "kind";
-    kind.textContent = m.kind === "m3u8" ? "stream" : m.kind;
+    kind.textContent = m.kind === "m3u8" || m.kind === "mpd" ? "stream" : m.kind;
     const name = document.createElement("span");
     name.className = "name";
     let label = m.url;

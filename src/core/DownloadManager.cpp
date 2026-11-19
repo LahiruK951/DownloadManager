@@ -288,6 +288,7 @@ void DownloadManager::startDownload(Download* d)
     if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
         loginFor(d->rec.url, &p.user, &p.password);
     p.existingFile = d->rec.existingFileReaction;
+    p.ffmpeg = ffmpegPath();
     p.pickFiles = d->rec.pickFiles;
     p.sequential = d->rec.sequential;
     p.resumeData = d->rec.resumeData;

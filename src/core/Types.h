@@ -17,6 +17,7 @@ struct TaskParams {
     QString proxy;         // "http://host:port" or empty
     QString user;          // server login (HTTP auth / FTP); empty = none or in the URL
     QString password;
+    QString ffmpeg;        // for engines that combine tracks (DASH); empty = not available
     int existingFile = 0;  // FileNamer::ExistingFile: keep both / overwrite / ask
     QByteArray resumeData; // engine-specific opaque blob
     int maxConnections = 8;

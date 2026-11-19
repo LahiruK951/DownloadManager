@@ -37,6 +37,8 @@ add_library(fluxcore STATIC
     # module "downloadsm3u": HLS streams
     src/engines/hls/M3u8.h            src/engines/hls/M3u8.cpp
     src/engines/hls/HlsEngine.h       src/engines/hls/HlsEngine.cpp
+    src/engines/dash/Mpd.h            src/engines/dash/Mpd.cpp
+    src/engines/dash/DashEngine.h     src/engines/dash/DashEngine.cpp
     src/core/Aes128.h                 src/core/Aes128.cpp
     # developer-only simulated module (FLUXDM_DEV_DEMO)
     src/engines/demo/DemoEngine.h     src/engines/demo/DemoEngine.cpp

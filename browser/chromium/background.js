@@ -103,11 +103,12 @@ chrome.contextMenus.onClicked.addListener((info) => {
 });
 
 // ---------------------------------------------------------------- media detection
-// Remember HLS playlists and media files each tab loads, so the popup can offer them
+// Remember HLS playlists, DASH manifests and media files each tab loads, so the popup can offer them
 // (FDM's "download video from this page"). Kept in session storage: the service worker
 // may be restarted at any time.
 
-const MEDIA_RE = /\.(m3u8|mp4|webm|m4v|mov|mp3|m4a|flac)(\?|#|$)/i;
+const MEDIA_RE = /\.(m3u8|mpd|mp4|webm|m4v|mov|mp3|m4a|flac)(\?|#|$)/i;
+const MANIFESTS = ["m3u8", "mpd"]; // streams: the manifest is what FluxDM downloads
 const MAX_PER_TAB = 30;
 
 function mediaKind(url) {
@@ -141,8 +142,8 @@ chrome.webRequest.onBeforeRequest.addListener(
     const plain = details.url.split("#")[0];
     tabMedia(details.tabId).then((list) => {
       if (list.some((m) => m.url === plain)) return;
-      // On HLS pages the player fetches fMP4/ts segments by XHR: the playlist is the useful entry.
-      if (kind !== "m3u8" && details.type === "xmlhttprequest" && list.some((m) => m.kind === "m3u8")) return;
+      // On HLS/DASH pages the player fetches fMP4/ts segments by XHR: the manifest is the useful entry.
+      if (!MANIFESTS.includes(kind) && details.type === "xmlhttprequest" && list.some((m) => MANIFESTS.includes(m.kind))) return;
       list.unshift({ url: plain, kind, time: Date.now() });
       setTabMedia(details.tabId, list.slice(0, MAX_PER_TAB));
     });

@@ -14,6 +14,8 @@
 #include "core/Aes128.h"
 #include "core/FileMover.h"
 #include "engines/hls/HlsEngine.h"
+#include "engines/dash/DashEngine.h"
+#include "engines/dash/Mpd.h"
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
@@ -692,6 +694,183 @@ private slots:
         QVERIFY(!d->converting());
         QCOMPARE(done.first().at(2).toString(), QString());
         QVERIFY(QFile::exists(dir.filePath("song.mp3")));
+    }
+
+    void mpdParsing()
+    {
+        QCOMPARE(Mpd::parseDuration("PT1H2M3.5S"), 3723.5);
+        QCOMPARE(Mpd::parseDuration("PT10S"), 10.0);
+        QCOMPARE(Mpd::parseDuration("P1DT1S"), 86401.0);
+        QCOMPARE(Mpd::parseDuration("garbage"), -1.0);
+        QCOMPARE(Mpd::expandTemplate("v/$RepresentationID$/seg-$Number%05d$.m4s?a=$$x", "720p", 42, 0, 0),
+                 QStringLiteral("v/720p/seg-00042.m4s?a=$x"));
+        QCOMPARE(Mpd::expandTemplate("t-$Time$-$Bandwidth$.m4s", "a", 0, 96000, 128000), QStringLiteral("t-96000-128000.m4s"));
+
+        const QUrl base("https://cdn.example.com/shows/ep1/manifest.mpd?token=abc");
+        // SegmentTemplate with a fixed duration, BaseURL on the Period, three representations.
+        const QByteArray tmpl = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT10S">
+ <Period><BaseURL>media/</BaseURL>
+  <AdaptationSet mimeType="video/mp4">
+   <SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number%03d$.m4s" startNumber="1" duration="4000" timescale="1000"/>
+   <Representation id="v360" bandwidth="800000" width="640" height="360" codecs="avc1.4d401e"/>
+   <Representation id="v1080" bandwidth="5000000" width="1920" height="1080" codecs="avc1.640028"/>
+  </AdaptationSet>
+  <AdaptationSet contentType="audio" mimeType="audio/mp4" lang="en">
+   <Representation id="a128" bandwidth="128000" codecs="mp4a.40.2">
+    <SegmentTemplate initialization="audio/init.mp4" media="audio/$Number$.m4s" duration="4" timescale="1"/>
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>)";
+        MpdManifest m = Mpd::parse(tmpl, base);
+        QVERIFY2(m.valid, qPrintable(m.error));
+        QCOMPARE(m.duration, 10.0);
+        const MpdRepresentation* v = m.best("video");
+        QVERIFY(v && v->id == QStringLiteral("v1080") && v->height == 1080);
+        QCOMPARE(v->init.url.toString(), QStringLiteral("https://cdn.example.com/shows/ep1/media/v1080/init.mp4"));
+        QCOMPARE(v->segments.size(), 3); // ceil(10 / 4)
+        QCOMPARE(v->segments.last().url.toString(), QStringLiteral("https://cdn.example.com/shows/ep1/media/v1080/003.m4s"));
+        const MpdRepresentation* a = m.best("audio");
+        QVERIFY(a && a->lang == QStringLiteral("en"));
+        QCOMPARE(a->segments.first().url.toString(), QStringLiteral("https://cdn.example.com/shows/ep1/media/audio/1.m4s"));
+
+        // SegmentTimeline: explicit start, repeats, and $Time$.
+        const QByteArray timeline = R"(<MPD type="static" mediaPresentationDuration="PT8S"><Period>
+  <AdaptationSet mimeType="video/mp4"><SegmentTemplate timescale="90000" initialization="i-$RepresentationID$.mp4" media="s-$Time$.m4s">
+   <SegmentTimeline><S t="0" d="180000" r="2"/><S d="90000"/><S d="90000" r="-1"/></SegmentTimeline></SegmentTemplate>
+   <Representation id="v" bandwidth="1"/></AdaptationSet></Period></MPD>)";
+        m = Mpd::parse(timeline, base);
+        QVERIFY2(m.valid, qPrintable(m.error));
+        const MpdRepresentation* t = m.best("video");
+        QStringList names;
+        for (const MpdSegment& s : t->segments)
+            names << s.url.fileName();
+        // 3 x 2 s, then 1 s, then 1 s repeated until 8 s
+        QCOMPARE(names, (QStringList{"s-0.m4s", "s-180000.m4s", "s-360000.m4s", "s-540000.m4s", "s-630000.m4s"}));
+
+        // SegmentList with byte ranges inside one file.
+        const QByteArray list = R"(<MPD type="static" mediaPresentationDuration="PT6S"><Period><AdaptationSet mimeType="audio/mp4">
+  <Representation id="a" bandwidth="64000"><BaseURL>track.mp4</BaseURL>
+   <SegmentList><Initialization range="0-799"/><SegmentURL mediaRange="800-1999"/><SegmentURL mediaRange="2000-2999"/></SegmentList>
+  </Representation></AdaptationSet></Period></MPD>)";
+        m = Mpd::parse(list, base);
+        QVERIFY2(m.valid, qPrintable(m.error));
+        const MpdRepresentation* l = m.best("audio");
+        QCOMPARE(l->init.rangeEnd, qint64(799));
+        QCOMPARE(l->segments.size(), 2);
+        QCOMPARE(l->segments[1].rangeStart, qint64(2000));
+        QCOMPARE(l->segments[1].url.fileName(), QStringLiteral("track.mp4"));
+
+        // SegmentBase / bare BaseURL: one file per representation.
+        const QByteArray single = R"(<MPD type="static" mediaPresentationDuration="PT6S"><Period><AdaptationSet mimeType="video/mp4">
+  <Representation id="v" bandwidth="1"><BaseURL>https://other.example.net/full.mp4</BaseURL><SegmentBase indexRange="0-99"/></Representation>
+  </AdaptationSet></Period></MPD>)";
+        m = Mpd::parse(single, base);
+        QVERIFY2(m.valid, qPrintable(m.error));
+        QCOMPARE(m.best("video")->segments.size(), 1);
+        QCOMPARE(m.best("video")->segments[0].url.host(), QStringLiteral("other.example.net"));
+
+        // What can't be downloaded says why.
+        QVERIFY(Mpd::parse(R"(<MPD type="dynamic"><Period/></MPD>)", base).error.contains("Live"));
+        QVERIFY(Mpd::parse(QByteArray(tmpl).replace("<Representation id=\"v360\"",
+                                                    "<ContentProtection schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\"/><Representation id=\"v360\""), base)
+                    .error.contains("DRM"));
+        QVERIFY(!Mpd::parse("<html>nope</html>", base).valid);
+    }
+
+    // Serves every file of a folder (a DASH stream made by ffmpeg) by path.
+    static void serveFolder(HlsServer& srv, const QString& dir, const QString& prefix)
+    {
+        for (const QFileInfo& fi : QDir(dir).entryInfoList(QDir::Files)) {
+            QFile f(fi.absoluteFilePath());
+            if (f.open(QIODevice::ReadOnly))
+                srv.files.insert(prefix + fi.fileName(), f.readAll());
+        }
+    }
+
+    void dashDownload()
+    {
+        const QString ffmpeg = testFfmpeg();
+        if (ffmpeg.isEmpty())
+            QSKIP("no ffmpeg (set FLUXDM_FFMPEG)");
+        QTemporaryDir src, out1, out2;
+        // A 6-second stream with separate video and audio adaptation sets, 1-second segments.
+        QVERIFY(makeMedia(ffmpeg, {"-f", "lavfi", "-i", "testsrc=duration=6:size=320x240:rate=10", "-f", "lavfi", "-i", "sine=duration=6",
+                                   "-map", "0:v", "-map", "1:a", "-c:v", "mpeg4", "-c:a", "aac", "-f", "dash", "-seg_duration", "1",
+                                   "-use_template", "1", "-use_timeline", "1", "-adaptation_sets", "id=0,streams=v id=1,streams=a",
+                                   QDir(src.path()).filePath("show.mpd")}));
+        HlsServer srv;
+        serveFolder(srv, src.path(), "/dash/my-show/");
+        QVERIFY(srv.start());
+        QVERIFY(srv.files.size() > 8); // manifest, 2 init segments, media segments
+
+        DashEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed), meta(&eng, &DownloadEngine::meta);
+        TaskParams p = params(31, srv.url("/dash/my-show/show.mpd"), out1.path());
+        p.ffmpeg = ffmpeg;
+        eng.start(p);
+        Outcome o = waitForEnd(fin, fail, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("show.mp4"));
+        QCOMPARE(meta.count(), 1);
+        QCOMPARE(QDir(out1.path()).entryList(QDir::Files), QStringList{"show.mp4"}); // parts cleaned up
+        // Both tracks made it into the one file.
+        QProcess probe;
+        probe.start(ffmpeg, {"-hide_banner", "-i", o.path});
+        QVERIFY(probe.waitForFinished(20000));
+        const QString info = QString::fromLocal8Bit(probe.readAllStandardError());
+        QVERIFY2(info.contains("Video:") && info.contains("Audio:"), qPrintable(info));
+
+        // Without ffmpeg: the two tracks are kept as two playable files.
+        DashEngine eng2;
+        QSignalSpy fin2(&eng2, &DownloadEngine::finished), fail2(&eng2, &DownloadEngine::failed);
+        TaskParams p2 = params(32, srv.url("/dash/my-show/show.mpd"), out2.path());
+        eng2.start(p2);
+        o = waitForEnd(fin2, fail2, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QDir(out2.path()).entryList(QDir::Files), (QStringList{"show.m4a", "show.mp4"}));
+
+        // Stop half-way and resume from the saved state: finished segments aren't fetched again.
+        QTemporaryDir out3;
+        srv.delayMs = 400;
+        srv.hits.clear();
+        DashEngine eng3;
+        eng3.setMaxConnections(1); // one segment at a time, so the stop lands mid-way
+        QSignalSpy fin3(&eng3, &DownloadEngine::finished), fail3(&eng3, &DownloadEngine::failed), stopped(&eng3, &DownloadEngine::stopped);
+        QSignalSpy stats(&eng3, &DownloadEngine::stats);
+        TaskParams p3 = params(33, srv.url("/dash/my-show/show.mpd"), out3.path());
+        p3.ffmpeg = ffmpeg;
+        eng3.start(p3);
+        auto chunkHits = [&] {
+            int n = 0;
+            for (auto it = srv.hits.cbegin(); it != srv.hits.cend(); ++it)
+                n += it.key().contains("chunk-") ? it.value() : 0;
+            return n;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(chunkHits() >= 3, 20000); // a few media segments are on disk
+        QVERIFY(fin3.isEmpty());
+        eng3.stop(33);
+        QTRY_VERIFY_WITH_TIMEOUT(!stopped.isEmpty(), 5000);
+        p3.resumeData = stopped.last().at(1).toByteArray();
+        QVERIFY(QJsonDocument::fromJson(p3.resumeData).object().value("kind").toString() == QStringLiteral("dash"));
+        srv.delayMs = 0;
+        eng3.start(p3);
+        o = waitForEnd(fin3, fail3, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        // Each segment once, except at most the one that was in flight when we stopped.
+        int chunks = 0, repeats = 0;
+        for (auto it = srv.hits.cbegin(); it != srv.hits.cend(); ++it)
+            if (it.key().contains("chunk-")) {
+                ++chunks;
+                repeats += it.value() - 1;
+            }
+        QCOMPARE(chunks, 11);
+        QVERIFY2(repeats <= 1, qPrintable(QString::number(repeats)));
+        probe.start(ffmpeg, {"-hide_banner", "-i", o.path});
+        QVERIFY(probe.waitForFinished(20000));
+        const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
+        QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
     }
 
     void userTags()
@@ -1462,7 +1641,7 @@ private slots:
         HlsServer srv;
         QList<QByteArray> plain;
         const QByteArray expected = setupHls(srv, 16, &plain);
-        srv.delayMs = 120;
+        srv.delayMs = 400;
         QVERIFY(srv.start());
         QTemporaryDir dir;
         HlsEngine eng;
