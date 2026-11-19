@@ -173,7 +173,7 @@ ApplicationWindow {
             App.bottomPanelOpen = true
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
         } else if (v.startsWith("settings")) {
-            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser", "settings-network"].indexOf(v))
+            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser", "settings-network", "settings-remote"].indexOf(v))
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "add-hls") addDialog.openWith("https://media.example.com/shows/night-drive/master.m3u8")

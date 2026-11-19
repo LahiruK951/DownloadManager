@@ -25,6 +25,7 @@ add_library(fluxcore STATIC
     src/core/ProxySettings.h
     src/core/BrowserHost.h
     src/core/AppLog.h                 src/core/AppLog.cpp
+    src/core/RemoteServer.h           src/core/RemoteServer.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -50,6 +51,8 @@ add_library(fluxcore STATIC
     src/dev/DevDemo.h
 )
 target_include_directories(fluxcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# The remote-control web page (served by RemoteServer from :/remote/index.html).
+qt_add_resources(fluxcore "remote_ui" PREFIX "/remote" BASE src/remote FILES src/remote/index.html)
 target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl)
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}")
 if(MSVC)

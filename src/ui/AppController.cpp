@@ -74,6 +74,13 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         }
     });
     m_torrentWatcher->setFolder(torrentWatchFolder());
+    // Remote control: links added from a phone go through the same path as the Add dialog.
+    m_remote = new RemoteServer(m_mgr, this);
+    m_remote->setAddHandler([this](const QString& url) { return addDownloads(url, QString(), QString(), true, {}, -1); });
+    if (m_ui.value(QStringLiteral("remoteCode")).toString().isEmpty())
+        m_ui.setValue(QStringLiteral("remoteCode"), RemoteServer::newAccessCode());
+    m_remote->setAccessCode(m_ui.value(QStringLiteral("remoteCode")).toString());
+    applyRemote();
     connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
         emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
     });
@@ -384,6 +391,48 @@ void AppController::chooseFiles(qint64 id, const QVariantList& wantedIndexes)
 
 void AppController::setSequential(qint64 id, bool on) { m_mgr->setSequential(byId(id), on); }
 QVariantMap AppController::torrentDetails(qint64 id) const { return m_mgr->details(byId(id)); }
+
+bool AppController::remoteEnabled() const { return m_ui.value(QStringLiteral("remoteEnabled"), false).toBool(); }
+int AppController::remotePort() const { return m_ui.value(QStringLiteral("remotePort"), 6810).toInt(); }
+QString AppController::remoteCode() const { return m_remote ? m_remote->accessCode() : QString(); }
+
+QStringList AppController::remoteAddresses() const
+{
+    QStringList out;
+    if (m_remote && m_remote->isRunning())
+        for (const QString& ip : RemoteServer::lanAddresses())
+            out << QStringLiteral("http://%1:%2").arg(ip).arg(m_remote->port());
+    return out;
+}
+
+void AppController::setRemoteEnabled(bool on)
+{
+    m_ui.setValue(QStringLiteral("remoteEnabled"), on);
+    applyRemote();
+}
+
+void AppController::setRemotePort(int port)
+{
+    m_ui.setValue(QStringLiteral("remotePort"), qBound(1024, port, 65535));
+    applyRemote();
+}
+
+void AppController::newRemoteCode()
+{
+    const QString code = RemoteServer::newAccessCode();
+    m_ui.setValue(QStringLiteral("remoteCode"), code);
+    m_remote->setAccessCode(code); // signed-in phones have to sign in again
+    emit remoteChanged();
+}
+
+void AppController::applyRemote()
+{
+    m_remoteError.clear();
+    m_remote->stop();
+    if (remoteEnabled() && !m_remote->start(quint16(remotePort())))
+        m_remoteError = tr("Port %1 is in use by another program. Choose another one.").arg(remotePort());
+    emit remoteChanged();
+}
 
 bool AppController::previousSessionCrashed() const { return AppLog::previousSessionCrashed(); }
 

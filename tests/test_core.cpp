@@ -35,6 +35,9 @@
 #include "core/TorrentFolderWatcher.h"
 #include "core/BrowserHost.h"
 #include "core/AppLog.h"
+#include "core/RemoteServer.h"
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -995,6 +998,96 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void remoteControl()
+    {
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress("192.168.1.5")));
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress("10.20.30.40")));
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress("172.20.0.1")));
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress("::ffff:192.168.0.9")));
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress("fe80::1")));
+        QVERIFY(RemoteServer::isLocalNetwork(QHostAddress::LocalHost));
+        QVERIFY(!RemoteServer::isLocalNetwork(QHostAddress("8.8.8.8")));
+        QVERIFY(!RemoteServer::isLocalNetwork(QHostAddress("172.32.0.1")));
+        QVERIFY(!RemoteServer::isLocalNetwork(QHostAddress("2001:db8::1")));
+        QCOMPARE(RemoteServer::newAccessCode().size(), 6);
+
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadRecord r;
+        r.id = 1;
+        r.title = QStringLiteral("<b>report</b>.pdf"); // titles are data, never markup
+        r.state = Download::Paused;
+        db.save(r);
+        DownloadManager mgr(&db);
+        mgr.load();
+        RemoteServer srv(&mgr);
+        srv.setAccessCode("123456");
+        QString added;
+        srv.setAddHandler([&](const QString& url) { added = url; return QString(); });
+        QVERIFY(srv.start(0, QHostAddress::LocalHost));
+
+        QNetworkAccessManager nam;
+        auto call = [&](const QString& path, const QJsonObject& body, const QByteArray& token, int* code) {
+            QNetworkRequest req(QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(srv.port()).arg(path)));
+            if (!token.isEmpty())
+                req.setRawHeader("X-FluxDM-Token", token);
+            QNetworkReply* rep;
+            if (body.isEmpty() && path != "/api/login" && !path.startsWith("/api/") ) {
+                rep = nam.get(req);
+            } else if (body.isEmpty() && path == "/api/downloads") {
+                rep = nam.get(req);
+            } else {
+                req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+                rep = nam.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+            }
+            QSignalSpy done(rep, &QNetworkReply::finished);
+            done.wait(5000);
+            *code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const QByteArray data = rep->readAll();
+            rep->deleteLater();
+            return data;
+        };
+        int code = 0;
+        QByteArray page = call("/", {}, {}, &code);
+        QCOMPARE(code, 200);
+        QVERIFY(page.contains("FluxDM remote"));
+        call("/api/downloads", {}, {}, &code);
+        QCOMPARE(code, 401); // not signed in
+        call("/api/login", {{"code", "000000"}}, {}, &code);
+        QCOMPARE(code, 403);
+        const QByteArray token = QJsonDocument::fromJson(call("/api/login", {{"code", "123456"}}, {}, &code)).object().value("token").toString().toLatin1();
+        QCOMPARE(code, 200);
+        QCOMPARE(token.size(), 64);
+
+        const QJsonObject list = QJsonDocument::fromJson(call("/api/downloads", {}, token, &code)).object();
+        QCOMPARE(code, 200);
+        QCOMPARE(list.value("downloads").toArray().first().toObject().value("title").toString(), QStringLiteral("<b>report</b>.pdf"));
+        call("/api/add", {{"url", "https://example.com/file.zip"}}, token, &code);
+        QCOMPARE(code, 200);
+        QCOMPARE(added, QStringLiteral("https://example.com/file.zip"));
+        call("/api/mode", {{"mode", 0}}, token, &code);
+        QCOMPARE(code, 200);
+        QCOMPARE(mgr.trafficMode(), 0);
+        call("/api/pause", {{"id", 1}}, token, &code);
+        QCOMPARE(code, 200);
+        call("/api/nope", {{"x", 1}}, token, &code);
+        QCOMPARE(code, 404);
+        call("/api/logout", {{"x", 1}}, token, &code);
+        call("/api/downloads", {}, token, &code);
+        QCOMPARE(code, 401); // signed out
+
+        // A new access code signs everyone out; five wrong codes lock that address out.
+        const QByteArray token2 = QJsonDocument::fromJson(call("/api/login", {{"code", "123456"}}, {}, &code)).object().value("token").toString().toLatin1();
+        srv.setAccessCode("654321");
+        call("/api/downloads", {}, token2, &code);
+        QCOMPARE(code, 401);
+        for (int i = 0; i < 5; ++i)
+            call("/api/login", {{"code", "111111"}}, {}, &code);
+        call("/api/login", {{"code", "654321"}}, {}, &code);
+        QCOMPARE(code, 429);
     }
 
     void siteLinksAndYtdlpOutput()

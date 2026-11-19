@@ -1,6 +1,7 @@
 #pragma once
 #include "core/SleepGuard.h"
 #include "core/TorrentFolderWatcher.h"
+#include "core/RemoteServer.h"
 #include <QAbstractItemModel>
 #include <QDateTime>
 #include <QObject>
@@ -49,6 +50,12 @@ class AppController : public QObject {
     Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
     Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
     Q_PROPERTY(bool previousSessionCrashed READ previousSessionCrashed CONSTANT)
+    // Remote control from the local network (off by default).
+    Q_PROPERTY(bool remoteEnabled READ remoteEnabled WRITE setRemoteEnabled NOTIFY remoteChanged)
+    Q_PROPERTY(int remotePort READ remotePort WRITE setRemotePort NOTIFY remoteChanged)
+    Q_PROPERTY(QString remoteCode READ remoteCode NOTIFY remoteChanged)
+    Q_PROPERTY(QStringList remoteAddresses READ remoteAddresses NOTIFY remoteChanged)
+    Q_PROPERTY(QString remoteError READ remoteError NOTIFY remoteChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
@@ -105,6 +112,14 @@ public:
     int zoomInEffect() const;
     Q_INVOKABLE void restartApp();
     bool previousSessionCrashed() const;
+    bool remoteEnabled() const;
+    void setRemoteEnabled(bool on);
+    int remotePort() const;
+    void setRemotePort(int port);
+    QString remoteCode() const;
+    QStringList remoteAddresses() const;
+    QString remoteError() const { return m_remoteError; }
+    Q_INVOKABLE void newRemoteCode();
     // Report a problem: the text that would be shared, and ways to share it (nothing is sent).
     Q_INVOKABLE QString problemReport() const;
     Q_INVOKABLE void copyProblemReport();
@@ -297,6 +312,7 @@ signals:
     void whenDoneCountdown(int action);
     void notice(const QString& text); // short message for the toast
     void sortChanged();
+    void remoteChanged();
     void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void filesRequired(QObject* download); // torrent waits for the user to pick files
@@ -320,6 +336,9 @@ private:
     QSettings m_ui;
     SleepGuard m_sleepGuard; // keeps the PC awake while downloading
     TorrentFolderWatcher* m_torrentWatcher = nullptr;
+    RemoteServer* m_remote = nullptr;
+    QString m_remoteError;
+    void applyRemote();
     QList<qint64> m_playWhenReady; // playWhileDownloading() waiting for enough data
     QPointer<Download> m_selected;
     QList<qint64> m_sel; // multi-selection (includes the current item)
