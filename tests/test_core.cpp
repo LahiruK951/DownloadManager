@@ -37,6 +37,7 @@
 #include "core/AppLog.h"
 #include "core/RemoteServer.h"
 #include "core/Updater.h"
+#include "core/AttachmentCheck.h"
 #include <QStandardPaths>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -1001,6 +1002,44 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void antivirusAndMarkOfTheWeb()
+    {
+#ifndef Q_OS_WIN
+        QSKIP("Windows only");
+#else
+        QTemporaryDir dir;
+        const QString path = dir.filePath("notes.txt");
+        {
+            QFile f(path);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("plain text, nothing to see here\n");
+        }
+        QString msg;
+        const auto r = AttachmentCheck::check(path, "https://downloads.example.com/notes.txt", "https://example.com/page", &msg);
+        QVERIFY2(r == AttachmentCheck::Clean, qPrintable(msg));
+        // The Mark of the Web: an NTFS stream saying "from the internet, from this address".
+        QFile zone(path + ":Zone.Identifier");
+        QVERIFY(zone.open(QIODevice::ReadOnly));
+        const QByteArray z = zone.readAll();
+        QVERIFY2(z.contains("ZoneId=3") && z.contains("downloads.example.com"), z.constData());
+        QCOMPARE(AttachmentCheck::check(dir.filePath("missing.bin"), {}, {}, &msg), AttachmentCheck::Unavailable);
+
+        // After a download finishes, the manager runs the check and logs it.
+        RangeServer srv;
+        srv.data = makeData(100 * 1024);
+        QVERIFY(srv.start());
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        QVERIFY(mgr.antivirusCheck()); // on by default
+        Download* d = mgr.add(srv.url("/report.txt"), dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d->log().join('\n').contains("antivirus"), 30000);
+        QVERIFY(d->completed());
+#endif
     }
 
     void updater()

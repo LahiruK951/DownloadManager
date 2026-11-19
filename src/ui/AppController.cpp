@@ -101,6 +101,10 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         m_ui.setValue(QStringLiteral("remoteCode"), RemoteServer::newAccessCode());
     m_remote->setAccessCode(m_ui.value(QStringLiteral("remoteCode")).toString());
     applyRemote();
+    connect(m_mgr, &DownloadManager::antivirusChecked, this, [this](Download* d, bool blocked, const QString& msg) {
+        if (blocked)
+            emit notice(QStringLiteral("%1: %2").arg(d->title(), msg));
+    });
     connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
         emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
     });
@@ -390,6 +394,14 @@ void AppController::setTorrentWatchFolder(const QString& folder)
         return;
     m_ui.setValue(QStringLiteral("torrentWatchFolder"), f);
     m_torrentWatcher->setFolder(f);
+    emit settingsChanged();
+}
+
+bool AppController::antivirusCheck() const { return m_mgr->antivirusCheck(); }
+
+void AppController::setAntivirusCheck(bool on)
+{
+    m_mgr->setAntivirusCheck(on);
     emit settingsChanged();
 }
 

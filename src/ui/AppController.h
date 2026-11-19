@@ -66,6 +66,7 @@ class AppController : public QObject {
     Q_PROPERTY(int updateState READ updateState NOTIFY updateChanged)
     Q_PROPERTY(QString updateStatus READ updateStatus NOTIFY updateChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
+    Q_PROPERTY(bool antivirusCheck READ antivirusCheck WRITE setAntivirusCheck NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
     Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
@@ -148,6 +149,8 @@ public:
     Q_INVOKABLE QString saveProblemReport(const QUrl& file); // error text or ""
     Q_INVOKABLE void openLogsFolder() const;
     bool chooseTorrentFiles() const;
+    bool antivirusCheck() const;
+    void setAntivirusCheck(bool on);
     QVariantList tags() const;
     QString torrentWatchFolder() const;
     void setTorrentWatchFolder(const QString& folder);

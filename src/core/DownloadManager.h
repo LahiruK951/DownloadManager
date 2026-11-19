@@ -110,6 +110,10 @@ public:
     QString convertFile(Download* d, const ConvertOptions& o);
     static QString convertibleFile(const Download* d); // the media file to convert, "" if none
 
+    // Antivirus check of finished files (Windows attachment services; on by default).
+    bool antivirusCheck() const;
+    void setAntivirusCheck(bool on);
+
     // Network: proxy for all web traffic and the per-server connection cap.
     ProxySettings proxySettings() const;
     void setProxySettings(const ProxySettings& ps);
@@ -135,6 +139,7 @@ signals:
     void tagsChanged();
     void queueReordered();
     void conversionFinished(Download* d, const QString& output, const QString& error);
+    void antivirusChecked(Download* d, bool blocked, const QString& message);
 
 private:
     void schedule();
@@ -148,6 +153,7 @@ private:
     void checkMissingFiles();
     void convertToMp4(Download* d);
     void openDownloadedTorrent(Download* d);
+    void checkWithAntivirus(Download* d);
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;
 

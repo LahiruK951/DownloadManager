@@ -27,6 +27,7 @@ add_library(fluxcore STATIC
     src/core/AppLog.h                 src/core/AppLog.cpp
     src/core/RemoteServer.h           src/core/RemoteServer.cpp
     src/core/Updater.h                src/core/Updater.cpp
+    src/core/AttachmentCheck.h        src/core/AttachmentCheck.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -60,7 +61,7 @@ set(FLUXDM_UPDATE_URL "" CACHE STRING "Update manifest URL (https://.../latest.j
 target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}" FLUXDM_UPDATE_URL="${FLUXDM_UPDATE_URL}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
-    target_link_libraries(fluxcore PUBLIC bcrypt crypt32 dbghelp)
+    target_link_libraries(fluxcore PUBLIC bcrypt crypt32 dbghelp ole32)
 endif()
 
 # module "downloadsbt": BitTorrent via libtorrent-rasterbar (optional)

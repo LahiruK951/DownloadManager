@@ -19,6 +19,8 @@
 #include <algorithm>
 
 #include "core/AppLog.h"
+#include "core/AttachmentCheck.h"
+#include <QThread>
 #include "core/Database.h"
 #include "core/Secret.h"
 #include "core/DownloadEngine.h"
@@ -659,6 +661,40 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         convertToMp4(d);
     if (d->rec.moduleUid == QLatin1String("downloadswww") && FileNamer::looksLikeTorrentFile(filePath))
         openDownloadedTorrent(d);
+    else if (!d->isTorrent() && antivirusCheck() && QFileInfo(filePath).isFile())
+        checkWithAntivirus(d);
+}
+
+bool DownloadManager::antivirusCheck() const { return m_db->setting(QStringLiteral("AntivirusCheck"), true).toBool(); }
+void DownloadManager::setAntivirusCheck(bool on) { m_db->setSetting(QStringLiteral("AntivirusCheck"), on); }
+
+// Like a browser: the antivirus scans the new file and Windows marks it as coming from the internet.
+// Runs on its own thread (a scan of a large file takes a while).
+void DownloadManager::checkWithAntivirus(Download* d)
+{
+    const QString path = d->rec.filePath, url = d->rec.url, ref = d->rec.referrer;
+    auto result = std::make_shared<std::pair<int, QString>>(AttachmentCheck::Unavailable, QString());
+    QThread* th = QThread::create([path, url, ref, result] { result->first = AttachmentCheck::check(path, url, ref, &result->second); });
+    QPointer<Download> guard(d);
+    connect(th, &QThread::finished, this, [this, th, guard, path, result] {
+        th->deleteLater();
+        if (!guard || guard->rec.filePath != path)
+            return;
+        if (result->first == AttachmentCheck::Blocked) {
+            const QString msg = tr("Blocked by your antivirus: %1").arg(result->second);
+            guard->addLog(msg);
+            guard->setFileMissing(!QFileInfo::exists(path));
+            guard->setState(Download::Error, msg);
+            persist(guard);
+            emit antivirusChecked(guard, true, msg);
+        } else if (result->first == AttachmentCheck::Clean) {
+            guard->addLog(tr("Checked by your antivirus"));
+            emit antivirusChecked(guard, false, {});
+        } else {
+            guard->addLog(tr("Not checked by an antivirus (%1)").arg(result->second));
+        }
+    });
+    th->start();
 }
 
 void DownloadManager::openDownloadedTorrent(Download* d)

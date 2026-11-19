@@ -344,6 +344,11 @@ Popup {
                         }
                     }
                     SettingRow {
+                        title: qsTr("Check finished downloads with your antivirus")
+                        description: qsTr("Like a browser: Windows scans each new file and marks it as coming from the internet, so it warns before running it.")
+                        FToggle { checked: App.antivirusCheck; onToggled: App.antivirusCheck = checked }
+                    }
+                    SettingRow {
                         title: qsTr("If the file already exists")
                         description: qsTr("For new downloads. “Replace” only removes the old file once the new one is complete.")
                         FComboBox {
