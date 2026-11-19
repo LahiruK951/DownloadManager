@@ -107,8 +107,9 @@ public:
     QString devOpen() const { return qEnvironmentVariable("FLUXDM_DEV_OPEN"); }
 
     // --- actions
+    // existingFile: FileNamer::ExistingFile for these downloads, -1 = the default from Settings
     Q_INVOKABLE QString addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
-                                     const QVariantMap& schedule = {});
+                                     const QVariantMap& schedule = {}, int existingFile = -1);
     Q_INVOKABLE int countLinks(const QString& text) const;
     Q_INVOKABLE bool isTorrentLink(const QString& text) const;
     Q_INVOKABLE QString linkModule(const QString& text) const; // module uid of the first link, "" if none
@@ -191,6 +192,11 @@ public:
     Q_INVOKABLE QString loginUser(qint64 id) const;    // known user name for that server, or ""
     Q_INVOKABLE void signIn(qint64 id, const QString& user, const QString& password, bool remember);
     Q_INVOKABLE int savedLoginCount() const;
+    Q_INVOKABLE int existingFileDefault() const;
+    Q_INVOKABLE void setExistingFileDefault(int reaction);
+    Q_INVOKABLE bool fileExistsIn(const QString& folder, const QString& name) const;
+    Q_INVOKABLE QString expectedName(const QString& text) const; // likely file name of a single link
+    Q_INVOKABLE void resolveExisting(qint64 id, int reaction); // answer to "file already exists"
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
@@ -228,6 +234,7 @@ signals:
     void whenDoneChanged();
     void whenDoneCountdown(int action);
     void notice(const QString& text); // short message for the toast
+    void fileConflict(QObject* download);  // "ask" found an existing file
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 
 private:

@@ -69,6 +69,7 @@ ApplicationWindow {
         }
         function onNotice(text) { toast.show(text) }
         // Ask right away, like a browser does, unless the user is busy with another dialog.
+        function onFileConflict(d) { if (!win.dialogOpen) fileExistsDialog.openFor(d) }
         function onLoginRequired(d) { if (!win.dialogOpen && App.devOpen !== "login-row") loginDialog.openFor(d) }
         function onWhenDoneCountdown(action) {
             win.bringToFront()
@@ -76,7 +77,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -124,6 +125,7 @@ ApplicationWindow {
                 onRequestMove: moveDialog.open()
                 onRequestRename: (d) => renameDialog.openFor(d)
                 onRequestLogin: (d) => loginDialog.openFor(d)
+                onRequestExisting: (d) => fileExistsDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -175,6 +177,7 @@ ApplicationWindow {
         else if (v === "multi") { App.select(App.downloads.idAt(0)); App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(3)) }
         else if (v === "toast") devToastTimer.start()
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
+        else if (v === "exists") devExistsTimer.start()
         else if (v === "login" || v === "login-row") {
             App.select(App.downloads.idAt(0)) // reuse the demo profile's folder, never the real default
             App.addDownloads("demo://intranet.example.com/reports/q3-figures.xlsx?size=2400000&fail=401", App.selected.destDir, "", true, {})
@@ -194,6 +197,7 @@ ApplicationWindow {
     SpeedLimitDialog { id: speedLimitDialog }
     RenameDialog { id: renameDialog }
     LoginDialog { id: loginDialog }
+    FileExistsDialog { id: fileExistsDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
@@ -237,6 +241,14 @@ ApplicationWindow {
             App.select(App.downloads.idAt(i))
             if (v === "ctx-multi") { App.toggleSelect(App.downloads.idAt(1)); App.toggleSelect(App.downloads.idAt(2)) }
             downloadsList.showContextMenu(i)
+        }
+    }
+    Timer {
+        id: devExistsTimer
+        interval: 1200 // demo downloads write their placeholder files when they finish
+        onTriggered: {
+            App.select(App.downloads.idAt(5))
+            addDialog.openWith("https://downloads.example.com/" + App.selected.title, App.selected.destDir)
         }
     }
     Timer { id: devToastTimer; interval: 1200; onTriggered: toast.show(qsTr("Imported 12 download(s) (paused).")) }

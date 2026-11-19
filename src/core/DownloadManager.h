@@ -75,6 +75,10 @@ public:
     qint64 uploadLimitKBps() const;
     void setUploadLimitKBps(qint64 kbps);
     double seedRatio() const;
+    // What to do when a file with the same name exists (global default for new downloads).
+    int existingFileDefault() const;
+    void setExistingFileDefault(int reaction);
+    void setExistingFileReaction(Download* d, int reaction);
     int autoRetryLimit() const;
     void setAutoRetryLimit(int n);
     static bool isRetriable(const QString& error);

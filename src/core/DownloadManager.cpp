@@ -174,6 +174,7 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
         r.title = r.url.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive) ? tr("Magnet link") : QUrl(r.url).host();
     r.referrer = referrer;
     r.cookies = cookies;
+    r.existingFileReaction = existingFileDefault();
     r.userAgent = userAgent;
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
@@ -279,6 +280,7 @@ void DownloadManager::startDownload(Download* d)
     p.proxy = systemProxyFor(d->rec.url);
     if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
         loginFor(d->rec.url, &p.user, &p.password);
+    p.existingFile = d->rec.existingFileReaction;
     p.resumeData = d->rec.resumeData;
     p.maxConnections = limits(m_effectiveMode).maxConnections;
     p.speedLimit = qint64(d->rec.speedLimitKBps) * 1024;
@@ -713,6 +715,24 @@ void DownloadManager::onLog(qint64 id, const QString& line)
 
 // ------------------------------------------------------------------ automatic retries
 
+int DownloadManager::existingFileDefault() const
+{
+    return qBound(0, m_db->setting(QStringLiteral("ExistingFileReaction"), int(FileNamer::KeepBoth)).toInt(), 2);
+}
+
+void DownloadManager::setExistingFileDefault(int reaction)
+{
+    m_db->setSetting(QStringLiteral("ExistingFileReaction"), qBound(0, reaction, 2));
+}
+
+void DownloadManager::setExistingFileReaction(Download* d, int reaction)
+{
+    if (!d)
+        return;
+    d->rec.existingFileReaction = qBound(0, reaction, 2);
+    persist(d);
+}
+
 int DownloadManager::autoRetryLimit() const { return qBound(0, m_db->setting(QStringLiteral("AutoRetryCount"), 5).toInt(), 50); }
 
 void DownloadManager::setAutoRetryLimit(int n) { m_db->setSetting(QStringLiteral("AutoRetryCount"), qBound(0, n, 50)); }
@@ -722,7 +742,7 @@ bool DownloadManager::isRetriable(const QString& error)
     // Permanent problems: retrying cannot help.
     static const QRegularExpression permanent(QStringLiteral(
         R"(HTTP error 4(0[0-7]|09|1\d|2[0-8]|3\d|4\d|5\d)\b|Disk write|Cannot create|Cannot allocate|Cannot rename|Unsupported|)"
-        R"(already being downloaded|web page instead|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
+        R"(already being downloaded|web page instead|File already exists|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
         QRegularExpression::CaseInsensitiveOption);
     return !error.isEmpty() && !permanent.match(error).hasMatch();
 }

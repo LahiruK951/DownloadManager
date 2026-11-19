@@ -12,6 +12,7 @@ Item {
     signal requestMove()
     signal requestRename(var download)
     signal requestLogin(var download)
+    signal requestExisting(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -39,6 +40,7 @@ Item {
             onRequestMove: root.requestMove()
             onRequestRename: (d) => root.requestRename(d)
             onRequestLogin: (d) => root.requestLogin(d)
+            onRequestExisting: (d) => root.requestExisting(d)
         }
 
         focus: true

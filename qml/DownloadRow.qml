@@ -13,6 +13,7 @@ Rectangle {
     signal requestMove()
     signal requestRename(var download)
     signal requestLogin(var download)
+    signal requestExisting(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -68,6 +69,7 @@ Rectangle {
         if (d.completed && d.seeding) return { text: qsTr("Seeding"), glyph: Theme.icons.upload, fg: Theme.accent, bg: Theme.accentSoft }
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
+        if (d.fileExists) return { text: qsTr("File exists"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.needsLogin) return { text: qsTr("Sign-in needed"), glyph: String.fromCharCode(0xE8D7), fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.failed) return { text: qsTr("Error"), glyph: Theme.icons.warn, fg: Theme.error, bg: Theme.errorSoft }
         if (d.paused) return { text: qsTr("Paused"), glyph: Theme.icons.pause, fg: Theme.textDim, bg: Theme.surfaceAlt }
@@ -223,6 +225,12 @@ Rectangle {
             spacing: 2
             opacity: row.showActions ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 100 } }
+            IconButton { // "ask" found the file already there: let the user choose
+                visible: row.d.fileExists
+                glyph: Theme.icons.warn
+                tip: qsTr("Replace or keep both…")
+                onClicked: row.requestExisting(row.d)
+            }
             IconButton { // a server asked for a login: offer it instead of a plain retry
                 visible: row.d.needsLogin
                 glyph: String.fromCharCode(0xE8D7) // Permissions (key)
@@ -230,7 +238,7 @@ Rectangle {
                 onClicked: row.requestLogin(row.d)
             }
             IconButton {
-                visible: !row.d.needsLogin
+                visible: !row.d.needsLogin && !row.d.fileExists
                 glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
                      : (row.d.completed && row.d.fileMissing) ? Theme.icons.refresh
                      : row.d.completed ? Theme.icons.open
@@ -311,6 +319,12 @@ Rectangle {
             onTriggered: App.openPage(row.d.id)
         }
         FMenuSeparator {}
+        FMenuItem {
+            glyph: Theme.icons.warn
+            text: qsTr("Replace or keep both…")
+            visible: row.d.fileExists
+            onTriggered: row.requestExisting(row.d)
+        }
         FMenuItem {
             glyph: String.fromCharCode(0xE8D7) // Permissions (key)
             text: qsTr("Sign in…")

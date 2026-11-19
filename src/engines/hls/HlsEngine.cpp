@@ -172,7 +172,12 @@ void HlsEngine::onMediaPlaylist(Task& t)
             name = outputBaseName(QUrl(t.p.url)) + (t.pl.initSection.isValid() ? QStringLiteral(".mp4") : QStringLiteral(".ts"));
         name = FileNamer::sanitize(name);
         QDir().mkpath(t.p.destDir);
-        t.finalPath = FileNamer::uniquePath(t.p.destDir, name);
+        bool exists = false;
+        t.finalPath = FileNamer::resolveTarget(t.p.destDir, name, t.p.existingFile, &exists);
+        if (exists) {
+            fail(t, QStringLiteral("File already exists: %1").arg(name));
+            return;
+        }
         t.fileName = QFileInfo(t.finalPath).fileName();
         t.partPath = t.finalPath + FileNamer::kPartSuffix;
     }
@@ -340,9 +345,7 @@ void HlsEngine::finish(Task& t)
 {
     const qint64 id = t.id;
     t.file.close();
-    QString target = t.finalPath;
-    if (QFile::exists(target))
-        target = FileNamer::uniquePath(QFileInfo(target).absolutePath(), QFileInfo(target).fileName());
+    const QString target = FileNamer::completionTarget(t.finalPath, t.p.existingFile);
     if (!QFile::rename(t.partPath, target)) {
         fail(t, tr("Cannot rename the downloaded file to %1").arg(target));
         return;

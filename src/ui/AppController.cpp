@@ -221,7 +221,7 @@ QString AppController::version() const { return QStringLiteral(FLUXDM_VERSION); 
 // ------------------------------------------------------------------ actions
 
 QString AppController::addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
-                                    const QVariantMap& schedule)
+                                    const QVariantMap& schedule, int existingFile)
 {
     static const QRegularExpression ws(QStringLiteral("\\s+"));
     const QStringList urls = BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts));
@@ -247,6 +247,8 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
         last = m_mgr->add(u, QDir::toNativeSeparators(dir), name, start || sched,
                           meta.value(QStringLiteral("referrer")).toString(), meta.value(QStringLiteral("cookies")).toString(),
                           meta.value(QStringLiteral("userAgent")).toString(), sched ? &w : nullptr);
+        if (last && existingFile >= 0)
+            m_mgr->setExistingFileReaction(last, existingFile);
     }
     rememberFolder(dir);
     if (last)
@@ -494,6 +496,8 @@ void AppController::watch(Download* d)
     connect(d, &Download::stateChanged, this, [this, d] {
         if (d->needsLogin())
             emit loginRequired(d);
+        else if (d->fileExists())
+            emit fileConflict(d);
     });
 }
 
@@ -521,6 +525,30 @@ void AppController::signIn(qint64 id, const QString& user, const QString& passwo
     d->addLog(tr("Signing in as %1").arg(user.trimmed()));
     m_mgr->resume(d);
     emit settingsChanged(); // saved-login count
+}
+
+int AppController::existingFileDefault() const { return m_mgr->existingFileDefault(); }
+
+void AppController::setExistingFileDefault(int reaction)
+{
+    m_mgr->setExistingFileDefault(reaction);
+    emit settingsChanged();
+}
+
+bool AppController::fileExistsIn(const QString& folder, const QString& name) const
+{
+    const QString n = name.trimmed();
+    return !n.isEmpty() && QFileInfo::exists(QDir(folder.trimmed().isEmpty() ? defaultFolder() : folder.trimmed()).filePath(n));
+}
+
+void AppController::resolveExisting(qint64 id, int reaction)
+{
+    Download* d = byId(id);
+    if (!d || !d->fileExists() || (reaction != FileNamer::KeepBoth && reaction != FileNamer::Overwrite))
+        return;
+    m_mgr->setExistingFileReaction(d, reaction);
+    d->addLog(reaction == FileNamer::Overwrite ? tr("Replacing the existing file") : tr("Keeping both files"));
+    m_mgr->resume(d);
 }
 
 int AppController::savedLoginCount() const { return m_mgr->savedLoginCount(); }
@@ -910,6 +938,18 @@ bool AppController::startHidden() const { return QCoreApplication::arguments().c
 QString AppController::suggestedName(const QString& url) const
 {
     return m_browserMeta.value(url.trimmed()).value(QStringLiteral("fileName")).toString();
+}
+
+// Best guess of the saved name before the server is asked: the browser's name, else the link's.
+// The server may still name it differently (Content-Disposition).
+QString AppController::expectedName(const QString& text) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    const QStringList links = text.split(ws, Qt::SkipEmptyParts);
+    if (links.size() != 1)
+        return {};
+    const QString browser = suggestedName(links.first());
+    return browser.isEmpty() ? FileNamer::sanitize(FileNamer::fromUrl(QUrl(links.first()))) : browser;
 }
 
 QString AppController::handleBrowserRequest(const QVariantMap& r)

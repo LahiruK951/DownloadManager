@@ -12,21 +12,25 @@ FDialog {
     readonly property bool torrent: App.isTorrentLink(urlsField.text)
     readonly property bool stream: App.linkModule(urlsField.text) === "downloadsm3u"
     property bool folderTouched: false
+    // The name is already taken in the chosen folder: let the user decide here and now.
+    readonly property bool nameTaken: linkCount === 1 && !torrent && App.fileExistsIn(folderField.editText, nameField.text !== "" ? nameField.text : App.expectedName(urlsField.text))
+    property int existingChoice: 0 // 0 keep both, 1 replace
     readonly property string autoFolder: App.folderFor(urlsField.text)
     onAutoFolderChanged: if (!folderTouched && visible) folderField.editText = autoFolder
 
-    function openWith(text) {
+    function openWith(text, folder) { // folder: optional, else the best one for the link
         urlsField.text = text || ""
         nameField.text = App.suggestedName(text || "")
         errorText.text = ""
         startBox.checked = true
+        existingChoice = 0
         const s = App.defaultSchedule()
         schedBox.checked = false
         schedEditor.days = s.days
         schedEditor.fromMin = s.from
         schedEditor.toMin = s.to
         open()
-        folderField.editText = App.folderFor(text || "")
+        folderField.editText = folder || App.folderFor(text || "")
         folderTouched = false
         urlsField.area.forceActiveFocus()
         urlsField.area.cursorPosition = urlsField.area.length
@@ -34,7 +38,8 @@ FDialog {
 
     function submit() {
         const err = App.addDownloads(urlsField.text, folderField.editText, nameField.text, startBox.checked,
-                                     { enabled: schedBox.checked, days: schedEditor.days, from: schedEditor.fromMin, to: schedEditor.toMin })
+                                     { enabled: schedBox.checked, days: schedEditor.days, from: schedEditor.fromMin, to: schedEditor.toMin },
+                                     nameTaken ? existingChoice : -1)
         if (err === "") close()
         else errorText.text = err
     }
@@ -100,6 +105,30 @@ FDialog {
             visible: dlg.linkCount <= 1 && !dlg.torrent
             placeholderText: qsTr("Automatic (from the server)")
             onAccepted: dlg.submit()
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            visible: dlg.nameTaken
+            spacing: 8
+            Text {
+                text: Theme.icons.warn
+                font.family: Theme.iconFont
+                font.pixelSize: 12
+                color: Theme.warning
+            }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("A file with this name is already in the folder.")
+                elide: Text.ElideRight
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
+            FSegmented {
+                itemHeight: 22
+                model: [qsTr("Keep both"), qsTr("Replace")]
+                currentIndex: dlg.existingChoice
+                onActivated: (i) => dlg.existingChoice = i
+            }
         }
 
         Rectangle { Layout.fillWidth: true; Layout.topMargin: 12; height: 1; color: Theme.border }

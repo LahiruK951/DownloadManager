@@ -549,6 +549,112 @@ private slots:
         QVERIFY(!DownloadManager::isRetriable(o.error));
     }
 
+    void existingFileRules()
+    {
+        QTemporaryDir dir;
+        auto put = [&](const QString& name, const QByteArray& data) {
+            QFile f(QDir(dir.path()).filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(data);
+        };
+        put(QStringLiteral("a.zip"), "old");
+        put(QStringLiteral("b.zip.fluxpart"), "partial"); // another download is writing b.zip
+        const QString d = dir.path();
+        bool conflict = true;
+        QCOMPARE(QFileInfo(FileNamer::resolveTarget(d, "new.zip", FileNamer::Ask, &conflict)).fileName(), QStringLiteral("new.zip"));
+        QVERIFY(!conflict);
+        QCOMPARE(QFileInfo(FileNamer::resolveTarget(d, "a.zip", FileNamer::KeepBoth, &conflict)).fileName(), QStringLiteral("a (1).zip"));
+        QCOMPARE(QFileInfo(FileNamer::resolveTarget(d, "a.zip", FileNamer::Overwrite, &conflict)).fileName(), QStringLiteral("a.zip"));
+        QVERIFY(!conflict);
+        FileNamer::resolveTarget(d, "a.zip", FileNamer::Ask, &conflict);
+        QVERIFY(conflict);
+        // Never write into another download's part file, whatever the setting.
+        QCOMPARE(QFileInfo(FileNamer::resolveTarget(d, "b.zip", FileNamer::Overwrite, &conflict)).fileName(), QStringLiteral("b (1).zip"));
+        QVERIFY(!conflict);
+
+        const QString a = QDir(d).filePath("a.zip");
+        QCOMPARE(QFileInfo(FileNamer::completionTarget(a, FileNamer::KeepBoth)).fileName(), QStringLiteral("a (1).zip"));
+        QVERIFY(QFile::exists(a));
+        QCOMPARE(FileNamer::completionTarget(a, FileNamer::Overwrite), a);
+        QVERIFY(!QFile::exists(a)); // removed so the finished file can take its place
+    }
+
+    void existingFileInEngine()
+    {
+        RangeServer srv;
+        srv.data = makeData(400 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        const QString existing = QDir(dir.path()).filePath("report.bin");
+        auto writeOld = [&] {
+            QFile f(existing);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("old contents");
+        };
+        writeOld();
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+
+        TaskParams p = params(11, srv.url("/report.bin"), dir.path());
+        p.existingFile = FileNamer::Ask;
+        eng.start(p);
+        Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.startsWith("File already exists"), qPrintable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(o.error));
+        QCOMPARE(readAll(existing), QByteArray("old contents"));
+        QCOMPARE(QDir(dir.path()).entryList(QDir::Files).size(), 1); // nothing else created
+
+        fail.clear();
+        p.id = 12;
+        p.existingFile = FileNamer::KeepBoth;
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("report (1).bin"));
+        QCOMPARE(readAll(existing), QByteArray("old contents"));
+
+        fin.clear();
+        p.id = 13;
+        p.existingFile = FileNamer::Overwrite;
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("report.bin"));
+        QVERIFY(readAll(existing) == srv.data);
+    }
+
+    void askThenReplace()
+    {
+        RangeServer srv;
+        srv.data = makeData(200 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        {
+            QFile f(QDir(dir.path()).filePath("notes.bin"));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("keep me?");
+        }
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        mgr.setExistingFileDefault(FileNamer::Ask);
+        QCOMPARE(mgr.existingFileDefault(), int(FileNamer::Ask));
+        Download* d = mgr.add(srv.url("/notes.bin"), dir.path(), {}, true);
+        QCOMPARE(d->rec.existingFileReaction, int(FileNamer::Ask));
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 20000);
+        QVERIFY(d->fileExists());
+        QVERIFY(!d->autoRetryAt.isValid());
+
+        mgr.setExistingFileReaction(d, FileNamer::Overwrite); // the dialog's "Replace"
+        mgr.resume(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+        QCOMPARE(QFileInfo(d->filePath()).fileName(), QStringLiteral("notes.bin"));
+        QVERIFY(readAll(d->filePath()) == srv.data);
+    }
+
     void httpLogin()
     {
         RangeServer srv;

@@ -60,6 +60,7 @@ class Download : public QObject {
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
     Q_PROPERTY(bool converting READ converting NOTIFY changed)
     Q_PROPERTY(bool needsLogin READ needsLogin NOTIFY changed) // failed asking for a user name/password
+    Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -127,6 +128,7 @@ public:
     int speedLimit() const { return rec.speedLimitKBps; }
     bool moving() const { return m_moving; }
     bool converting() const { return m_converting; }
+    bool fileExists() const { return failed() && rec.lastError.startsWith(QLatin1String("File already exists")); }
     bool needsLogin() const
     {
         return failed() && (rec.lastError.startsWith(QLatin1String("HTTP error 401")) || rec.lastError.startsWith(QLatin1String("Login ")));

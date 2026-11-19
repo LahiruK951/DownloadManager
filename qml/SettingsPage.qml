@@ -246,6 +246,16 @@ Popup {
                         }
                     }
                     SettingRow {
+                        title: qsTr("If the file already exists")
+                        description: qsTr("For new downloads. “Replace” only removes the old file once the new one is complete.")
+                        FComboBox {
+                            Layout.preferredWidth: 200
+                            model: [qsTr("Keep both (add a number)"), qsTr("Replace it"), qsTr("Ask me")]
+                            currentIndex: (App.defaultFolder, App.existingFileDefault())
+                            onActivated: (i) => App.setExistingFileDefault(i)
+                        }
+                    }
+                    SettingRow {
                         // re-read whenever settings change (signing in with "remember" emits it)
                         readonly property int count: (App.defaultFolder, App.savedLoginCount())
                         title: qsTr("Saved server logins")

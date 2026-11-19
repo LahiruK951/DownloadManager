@@ -105,9 +105,7 @@ void HttpTask::complete()
         releaseHandle(s.get());
     m_file.close();
 
-    QString target = m_finalPath;
-    if (QFile::exists(target)) // someone created it meanwhile
-        target = FileNamer::uniquePath(QFileInfo(target).absolutePath(), QFileInfo(target).fileName());
+    const QString target = FileNamer::completionTarget(m_finalPath, m_p.existingFile);
     if (!QFile::rename(m_partPath, target)) {
         fail(QStringLiteral("Cannot rename the downloaded file to %1").arg(target));
         return;
@@ -370,7 +368,13 @@ bool HttpTask::initMeta(Segment* s, long code)
     name = FileNamer::sanitize(name);
 
     QDir().mkpath(m_p.destDir);
-    m_finalPath = FileNamer::uniquePath(m_p.destDir, name);
+    bool exists = false;
+    m_finalPath = FileNamer::resolveTarget(m_p.destDir, name, m_p.existingFile, &exists);
+    if (exists) { // "ask": stop before touching anything; the user decides
+        s->fatal = QStringLiteral("File already exists: %1").arg(name);
+        m_fatalTask = true;
+        return false;
+    }
     m_fileName = QFileInfo(m_finalPath).fileName();
     m_partPath = m_finalPath + FileNamer::kPartSuffix;
 

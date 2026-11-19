@@ -106,6 +106,33 @@ QString uniquePath(const QString& dir, const QString& name, const QString& partS
     }
 }
 
+QString resolveTarget(const QString& dir, const QString& name, int reaction, bool* conflict, const QString& partSuffix)
+{
+    *conflict = false;
+    const QString path = QDir(dir).filePath(name);
+    if (QFile::exists(path + partSuffix)) // another download is writing this name right now
+        return uniquePath(dir, name, partSuffix);
+    if (!QFile::exists(path))
+        return path;
+    if (reaction == Overwrite)
+        return path;
+    if (reaction == Ask) {
+        *conflict = true;
+        return path;
+    }
+    return uniquePath(dir, name, partSuffix);
+}
+
+QString completionTarget(const QString& target, int reaction)
+{
+    if (!QFile::exists(target))
+        return target;
+    if (reaction != KeepBoth && QFile::remove(target)) // overwrite (an answered "Ask" is stored as Overwrite)
+        return target;
+    const QFileInfo fi(target);
+    return uniquePath(fi.absolutePath(), fi.fileName());
+}
+
 QString category(const QString& fileName)
 {
     static const QHash<QString, QString> map = [] {
