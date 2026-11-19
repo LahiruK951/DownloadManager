@@ -36,18 +36,25 @@ Data: `%LOCALAPPDATA%\FluxDM\FluxDM\` (`db.sqlite`, `settings.ini`, `backup\db\`
 
 Download modules (FDM's plugin layout):
 - **downloadswww** – HTTP/HTTPS/FTP: up to 32 connections with dynamic splitting, crash-safe resume,
-  retries, Content-Disposition names, system proxy, per-download and global speed caps.
-- **downloadsbt** – BitTorrent (libtorrent 2.1): magnets, local/web `.torrent`, file selection, seeding to a
-  share ratio, upload limit, DHT/LSD/UPnP, opt-in magnet/.torrent association.
-- **downloadsm3u** – HLS video streams: best variant, parallel segments, AES-128, fMP4, resume.
+  retries, Content-Disposition names, system proxy, per-download and global speed caps, server logins
+  (401/FTP; saved per server, DPAPI-encrypted), "file exists" choice (keep both / replace / ask), clear
+  errors for dead links (web page instead of the file, expired signed links).
+- **downloadsbt** – BitTorrent (libtorrent 2.1): magnets, local/web `.torrent`, choose files before
+  downloading, Peers/Trackers tabs, download in order, seeding to a share ratio, upload limit, DHT/LSD/UPnP,
+  opt-in magnet/.torrent association.
+- **downloadsm3u** – HLS video streams: best variant, parallel segments, AES-128, fMP4, resume, MP4 remux
+  with ffmpeg.
 
 App:
 - Traffic modes Snail/Medium/High with a weekly **snail schedule**; per-download schedules;
   "when done" sleep/hibernate/shut down/exit; automatic retries; batch links `file[1-20].zip`.
 - Browser integration: `fluxdm-nativehost.exe` + Chrome/Edge/Brave extension (catches downloads,
   context menu, detects video streams on the page).
-- Library: multi-select, folders by file type, move to folder, missing-file detection, import/export,
-  per-download speed limit, completion notification + sound, tray, clipboard monitor, light/dark.
+- Library: multi-select, sorting (date/name/size/status), folders by file type, move to folder, rename,
+  open/open with, missing-file detection, import/export, per-download speed limit, completion notification
+  + sound, keeps the PC awake while downloading, tray, clipboard monitor, light/dark.
 - UI built from a small design system (`qml/F*.qml`), full-page settings.
 
-Next: ffmpeg conversion of streams to MP4, DASH, site extractors, remote control, installer.
+Next (gap analysis vs FDM 6): user tags, MP3/MP4 converter + media preview, DASH, per-server connection
+cap and manual proxy, Firefox extension, torrent watch folder; later site downloads (yt-dlp), installer and
+updater, translations, remote control, Linux/macOS builds.
