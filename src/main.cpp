@@ -25,6 +25,7 @@
 #include "dev/DevDemo.h"
 #include "engines/demo/DemoEngine.h"
 #include "engines/dash/DashEngine.h"
+#include "engines/sites/SiteEngine.h"
 #include "engines/hls/HlsEngine.h"
 #include "ui/AppController.h"
 #include "ui/AppIcon.h"
@@ -117,6 +118,7 @@ int main(int argc, char* argv[])
 #endif
         mgr.addEngine(new HlsEngine); // .m3u8 links: takes precedence over plain HTTP
         mgr.addEngine(new DashEngine); // .mpd links (FDM: downloadsfragments)
+        mgr.addEngine(new SiteEngine); // YouTube & co. through yt-dlp (FDM: downloadsms)
         const bool demo = qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO");
         if (demo)
             mgr.addEngine(new DemoEngine);

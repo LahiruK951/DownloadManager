@@ -296,6 +296,8 @@ void DownloadManager::startDownload(Download* d)
         loginFor(d->rec.url, &p.user, &p.password);
     p.existingFile = d->rec.existingFileReaction;
     p.ffmpeg = ffmpegPath();
+    if (const QString y = ytdlpPath(); !y.isEmpty())
+        p.siteTool = {y};
     p.pickFiles = d->rec.pickFiles;
     p.sequential = d->rec.sequential;
     p.resumeData = d->rec.resumeData;
@@ -972,6 +974,20 @@ bool DownloadManager::convertStreams() const { return m_db->setting(QStringLiter
 void DownloadManager::setConvertStreams(bool on) { m_db->setSetting(QStringLiteral("ConvertStreamsToMp4"), on); }
 QString DownloadManager::ffmpegSetting() const { return m_db->setting(QStringLiteral("FfmpegPath")).toString(); }
 void DownloadManager::setFfmpegSetting(const QString& path) { m_db->setSetting(QStringLiteral("FfmpegPath"), QDir::toNativeSeparators(path.trimmed())); }
+
+QString DownloadManager::ytdlpSetting() const { return m_db->setting(QStringLiteral("YtDlpPath")).toString(); }
+void DownloadManager::setYtdlpSetting(const QString& path) { m_db->setSetting(QStringLiteral("YtDlpPath"), QDir::toNativeSeparators(path.trimmed())); }
+
+QString DownloadManager::ytdlpPath() const
+{
+    for (const QString& candidate : {ytdlpSetting(), qEnvironmentVariable("FLUXDM_YTDLP")})
+        if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable())
+            return candidate;
+    const QString beside = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("yt-dlp.exe"));
+    if (QFileInfo(beside).isExecutable())
+        return beside;
+    return QStandardPaths::findExecutable(QStringLiteral("yt-dlp"));
+}
 
 QString DownloadManager::ffmpegPath() const
 {

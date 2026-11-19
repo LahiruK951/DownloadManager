@@ -62,6 +62,9 @@ public:
     bool convertStreams() const;
     void setConvertStreams(bool on);
     QString ffmpegSetting() const;
+    QString ytdlpSetting() const;
+    void setYtdlpSetting(const QString& path);
+    QString ytdlpPath() const; // setting, FLUXDM_YTDLP, next to FluxDM, PATH; "" if none
     void setFfmpegSetting(const QString& path);
     QString ffmpegPath() const; // resolved: setting, FLUXDM_FFMPEG, then PATH; "" if none
     void stopSeeding(Download* d);

@@ -16,6 +16,7 @@
 #include "engines/hls/HlsEngine.h"
 #include "engines/dash/DashEngine.h"
 #include "engines/dash/Mpd.h"
+#include "engines/sites/SiteEngine.h"
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
@@ -994,6 +995,103 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void siteLinksAndYtdlpOutput()
+    {
+        QVERIFY(SiteEngine::isSupportedSite(QUrl("https://www.youtube.com/watch?v=abc")));
+        QVERIFY(SiteEngine::isSupportedSite(QUrl("https://youtu.be/abc")));
+        QVERIFY(SiteEngine::isSupportedSite(QUrl("https://player.vimeo.com/video/1")));
+        QVERIFY(!SiteEngine::isSupportedSite(QUrl("https://notyoutube.com/watch")));       // not a subdomain
+        QVERIFY(!SiteEngine::isSupportedSite(QUrl("https://cdn.vimeo.com/files/clip.mp4"))); // a file: plain HTTP
+        QVERIFY(!SiteEngine::isSupportedSite(QUrl("ftp://youtube.com/x")));
+
+        auto l = SiteEngine::parse("FLUXDM-PROGRESS 1024 4096 NA 2048.5");
+        QCOMPARE(l.kind, SiteEngine::Line::Progress);
+        QCOMPARE(l.done, qint64(1024));
+        QCOMPARE(l.total, qint64(4096));
+        QCOMPARE(l.speed, 2048.5);
+        l = SiteEngine::parse("FLUXDM-PROGRESS 10 NA 900.0 None"); // only an estimate
+        QCOMPARE(l.total, qint64(900));
+        QCOMPARE(SiteEngine::parse("[download] Destination: C:\\v\\A [x].f137.mp4").path, QStringLiteral("C:\\v\\A [x].f137.mp4"));
+        QCOMPARE(SiteEngine::parse("[Merger] Merging formats into \"C:\\v\\A [x].mp4\"").path, QStringLiteral("C:\\v\\A [x].mp4"));
+        QCOMPARE(SiteEngine::parse("[download] C:\\v\\A.mp4 has already been downloaded").kind, SiteEngine::Line::AlreadyThere);
+        l = SiteEngine::parse("ERROR: [youtube] abc123: Video unavailable. This video is private");
+        QCOMPARE(l.kind, SiteEngine::Line::Error);
+        QCOMPARE(l.text, QStringLiteral("Video unavailable. This video is private"));
+
+        TaskParams p = params(1, "https://youtu.be/abc", "C:/dl");
+        p.ffmpeg = "C:/tools/ffmpeg.exe";
+        p.proxy = "socks5h://127.0.0.1:1080";
+        const QString args = SiteEngine::arguments(p, 4, 1000000).join(' ');
+        QVERIFY(args.contains("-f bv*+ba/b") && args.contains("--ffmpeg-location"));
+        QVERIFY(args.contains("--limit-rate 1000000") && args.contains("--proxy socks5h://127.0.0.1:1080") && args.contains("-N 4"));
+        QVERIFY(args.endsWith("-- https://youtu.be/abc"));
+        p.ffmpeg.clear();
+        QVERIFY(SiteEngine::arguments(p, 4, 0).join(' ').contains("-f b ")); // no merging without ffmpeg
+    }
+
+    void siteDownloadThroughYtdlp()
+    {
+        const QString python = QDir(qEnvironmentVariable("LOCALAPPDATA")).filePath("Programs/Python/Python312/python.exe");
+        const QString script = QFINDTESTDATA("fake_ytdlp.py");
+        if (!QFileInfo(python).isExecutable() || script.isEmpty())
+            QSKIP("needs Python for the yt-dlp stand-in");
+        QTemporaryDir dir;
+        SiteEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        QSignalSpy stats(&eng, &DownloadEngine::stats), meta(&eng, &DownloadEngine::meta), stopped(&eng, &DownloadEngine::stopped);
+
+        TaskParams p = params(51, "https://www.youtube.com/watch?v=ok", dir.path());
+        p.siteTool = {python, "-I", script};
+        p.ffmpeg = "ffmpeg.exe"; // only passed through to the stand-in
+        eng.start(p);
+        Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).fileName(), QStringLiteral("Test Clip [ok].mp4"));
+        QCOMPARE(QFileInfo(o.path).size(), qint64(350000));
+        QCOMPARE(meta.first().at(1).toString(), QStringLiteral("Test Clip [ok].mp4")); // ".f137" removed right away
+        // Progress counts the video stream, then adds the audio stream on top.
+        qint64 maxReceived = 0;
+        for (const auto& s : stats)
+            maxReceived = qMax(maxReceived, s.at(0).value<TaskStats>().received);
+        QCOMPARE(maxReceived, qint64(350000));
+
+        fin.clear();
+        fail.clear();
+        p.id = 52;
+        p.url = "https://youtu.be/?v=gone";
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QCOMPARE(o.error, QStringLiteral("Video unavailable"));
+
+        fail.clear();
+        p.id = 53;
+        p.siteTool.clear(); // yt-dlp missing
+        eng.start(p);
+        o = waitForEnd(fin, fail, 5000);
+        QVERIFY(o.failed && o.error.contains("yt-dlp"));
+
+        // Stop half-way, start again: the .part file is continued, not restarted.
+        fin.clear();
+        fail.clear();
+        stats.clear();
+        p.id = 54;
+        p.url = "https://www.youtube.com/watch?v=slow";
+        p.siteTool = {python, "-I", script};
+        eng.start(p);
+        QTRY_VERIFY_WITH_TIMEOUT(!stats.isEmpty() && stats.last().at(0).value<TaskStats>().received > 100000, 20000);
+        eng.stop(54);
+        QTRY_VERIFY_WITH_TIMEOUT(!stopped.isEmpty(), 10000);
+        const qint64 partSize = QFileInfo(dir.filePath("Test Clip [slow].mp4.part")).size();
+        QVERIFY(partSize > 100000 && partSize < 400000);
+        stats.clear();
+        eng.start(p);
+        o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QCOMPARE(QFileInfo(o.path).size(), qint64(400000));
+        QVERIFY(stats.first().at(0).value<TaskStats>().received > partSize - 20000); // picked up where it was
     }
 
     void appLogAndCrashReports()

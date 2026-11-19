@@ -1533,3 +1533,6 @@ void AppController::setConvertStreams(bool on) { m_mgr->setConvertStreams(on); }
 QString AppController::ffmpegSetting() const { return m_mgr->ffmpegSetting(); }
 void AppController::setFfmpegSetting(const QString& path) { m_mgr->setFfmpegSetting(path); }
 QString AppController::ffmpegFound() const { return QDir::toNativeSeparators(m_mgr->ffmpegPath()); }
+QString AppController::ytdlpSetting() const { return m_mgr->ytdlpSetting(); }
+void AppController::setYtdlpSetting(const QString& path) { m_mgr->setYtdlpSetting(path); }
+QString AppController::ytdlpFound() const { return QDir::toNativeSeparators(m_mgr->ytdlpPath()); }

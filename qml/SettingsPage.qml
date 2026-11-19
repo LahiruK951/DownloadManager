@@ -11,6 +11,7 @@ Popup {
     property var rules: []
     property int folderRev: 0
     property string ffmpeg: ""
+    property string ytdlp: ""
     readonly property var modeNames: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
@@ -47,6 +48,8 @@ Popup {
         assocToggle.checked = App.torrentAssociated()
         ffmpegField.text = App.ffmpegSetting()
         page.ffmpeg = App.ffmpegFound()
+        ytdlpField.text = App.ytdlpSetting()
+        page.ytdlp = App.ytdlpFound()
         browserToggle.checked = App.browserIntegrated()
         browserError.text = ""
     }
@@ -314,6 +317,21 @@ Popup {
                                 onEditingFinished: { App.setFfmpegSetting(text); page.ffmpeg = App.ffmpegFound() }
                             }
                             FButton { text: qsTr("Browse…"); onClicked: ffmpegDlg.open() }
+                        }
+                    }
+                    SettingRow {
+                        title: qsTr("yt-dlp location")
+                        description: page.ytdlp !== "" ? qsTr("For videos from YouTube and other sites: %1").arg(page.ytdlp)
+                                                       : qsTr("For videos from YouTube and other sites. Not found: put yt-dlp.exe next to FluxDM or on PATH, or choose it here.")
+                        RowLayout {
+                            spacing: 8
+                            FTextField {
+                                id: ytdlpField
+                                implicitWidth: 260
+                                placeholderText: qsTr("Automatic")
+                                onEditingFinished: { App.setYtdlpSetting(text); page.ytdlp = App.ytdlpFound() }
+                            }
+                            FButton { text: qsTr("Browse…"); onClicked: ytdlpDlg.open() }
                         }
                     }
                     SettingRow {
@@ -887,5 +905,16 @@ Popup {
         id: watchDlg
         title: qsTr("Folder to watch for .torrent files")
         onAccepted: App.torrentWatchFolder = App.urlToLocal(selectedFolder)
+    }
+
+    FileDialog {
+        id: ytdlpDlg
+        title: qsTr("Locate yt-dlp.exe")
+        nameFilters: [qsTr("yt-dlp (yt-dlp.exe)"), qsTr("Programs (*.exe)")]
+        onAccepted: {
+            ytdlpField.text = App.urlToLocal(selectedFile)
+            App.setYtdlpSetting(ytdlpField.text)
+            page.ytdlp = App.ytdlpFound()
+        }
     }
 }

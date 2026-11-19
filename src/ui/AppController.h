@@ -212,6 +212,9 @@ public:
     Q_INVOKABLE QString ffmpegSetting() const;
     Q_INVOKABLE void setFfmpegSetting(const QString& path);
     Q_INVOKABLE QString ffmpegFound() const; // resolved path or ""
+    Q_INVOKABLE QString ytdlpSetting() const;
+    Q_INVOKABLE void setYtdlpSetting(const QString& path);
+    Q_INVOKABLE QString ytdlpFound() const;
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
     Q_INVOKABLE QString openFile(qint64 id);         // error text or ""; falls back to "Open with"
