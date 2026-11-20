@@ -298,6 +298,7 @@ void DownloadManager::startDownload(Download* d)
         loginFor(d->rec.url, &p.user, &p.password);
     p.existingFile = d->rec.existingFileReaction;
     p.ffmpeg = ffmpegPath();
+    p.trustCertificate = m_db->trustedHosts().contains(QUrl(d->rec.url).host().toLower());
     if (const QString y = ytdlpPath(); !y.isEmpty())
         p.siteTool = {y};
     p.pickFiles = d->rec.pickFiles;
@@ -838,7 +839,7 @@ bool DownloadManager::isRetriable(const QString& error)
     // Permanent problems: retrying cannot help.
     static const QRegularExpression permanent(QStringLiteral(
         R"(HTTP error 4(0[0-7]|09|1\d|2[0-8]|3\d|4\d|5\d)\b|Disk write|Cannot create|Cannot allocate|Cannot rename|Unsupported|)"
-        R"(already being downloaded|web page instead|File already exists|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
+        R"(already being downloaded|Untrusted certificate|web page instead|File already exists|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
         QRegularExpression::CaseInsensitiveOption);
     return !error.isEmpty() && !permanent.match(error).hasMatch();
 }
@@ -1426,3 +1427,20 @@ QPair<int, int> DownloadManager::importFdm(const QList<FdmImport::Item>& items)
     checkMissingFiles();
     return {added, skipped};
 }
+
+// ------------------------------------------------------------------ trusted certificates
+
+void DownloadManager::trustCertificate(Download* d)
+{
+    if (!d)
+        return;
+    const QString host = QUrl(d->rec.url).host().toLower();
+    if (host.isEmpty())
+        return;
+    m_db->addTrustedHost(host);
+    d->addLog(tr("Trusting the certificate of %1 from now on").arg(host));
+    resume(d);
+}
+
+QStringList DownloadManager::trustedHosts() const { return m_db->trustedHosts(); }
+void DownloadManager::forgetTrustedHosts() { m_db->clearTrustedHosts(); }

@@ -16,6 +16,7 @@ Item {
     signal requestFiles(var download)
     signal requestNewTag(var downloadIds)
     signal requestConvert(var download, string format)
+    signal requestCertificate(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -47,6 +48,7 @@ Item {
             onRequestFiles: (d) => root.requestFiles(d)
             onRequestNewTag: (ids) => root.requestNewTag(ids)
             onRequestConvert: (d, f) => root.requestConvert(d, f)
+            onRequestCertificate: (d) => root.requestCertificate(d)
         }
 
         focus: true

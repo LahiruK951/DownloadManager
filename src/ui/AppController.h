@@ -302,6 +302,9 @@ public:
     Q_INVOKABLE void setMaxConnectionsPerServer(int n);
     Q_INVOKABLE bool canPlayWhileDownloading(qint64 id) const;
     Q_INVOKABLE void forgetLogins();
+    Q_INVOKABLE void trustCertificate(qint64 id);
+    Q_INVOKABLE int trustedHostCount() const;
+    Q_INVOKABLE void forgetTrustedHosts();
     Q_INVOKABLE void quit();
     Q_INVOKABLE void notifyHiddenToTray();
 
@@ -343,6 +346,7 @@ signals:
     void updateChanged();
     void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
+    void certificateRequired(QObject* download); // untrusted TLS certificate
     void filesRequired(QObject* download); // torrent waits for the user to pick files
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 

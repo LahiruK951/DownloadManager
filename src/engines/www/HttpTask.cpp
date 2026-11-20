@@ -174,6 +174,11 @@ void HttpTask::startSegment(Segment* s)
     const QByteArray cookies = m_p.cookies.toUtf8();
     if (!cookies.isEmpty())
         curl_easy_setopt(h, CURLOPT_COOKIE, cookies.constData());
+    // The user chose to trust this server despite its certificate (self-signed NAS, router, ...).
+    if (m_p.trustCertificate) {
+        curl_easy_setopt(h, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(h, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
     // Server login. curl only sends it to this host (not after a redirect elsewhere) and
     // picks the method the server asks for: Basic, Digest, NTLM, Negotiate.
     const QByteArray user = m_p.user.toUtf8(), pass = m_p.password.toUtf8();
@@ -459,6 +464,10 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
         return;
     }
 
+    if (rc == CURLE_PEER_FAILED_VERIFICATION || rc == CURLE_SSL_CACERT_BADFILE) {
+        fail(QStringLiteral("Untrusted certificate: %1").arg(curlErr));
+        return;
+    }
     if (rc == CURLE_LOGIN_DENIED || (code == 401 && !m_p.user.isEmpty())) {
         fail(m_p.user.isEmpty() ? QStringLiteral("Login required: the server asks for a user name and password")
                                 : QStringLiteral("Login failed: the server did not accept the user name or password"));

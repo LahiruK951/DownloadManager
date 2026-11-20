@@ -1005,6 +1005,45 @@ private slots:
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
     }
 
+    void untrustedCertificate()
+    {
+        const QString python = QDir(qEnvironmentVariable("LOCALAPPDATA")).filePath("Programs/Python/Python312/python.exe");
+        const QString openssl = QStringLiteral("C:/Program Files/Git/usr/bin/openssl.exe");
+        const QString script = QFINDTESTDATA("https_server.py");
+        if (!QFileInfo(python).isExecutable() || !QFileInfo(openssl).isExecutable() || script.isEmpty())
+            QSKIP("needs Python and OpenSSL (Git for Windows) for a self-signed HTTPS server");
+        QTemporaryDir dir;
+        const QString cert = dir.filePath("cert.pem"), key = dir.filePath("key.pem");
+        QProcess gen;
+        gen.start(openssl, {"req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-days", "2",
+                            "-subj", "/CN=127.0.0.1"});
+        QVERIFY(gen.waitForFinished(30000) && gen.exitCode() == 0);
+        QProcess server;
+        server.start(python, {"-I", script, cert, key, QString::number(150 * 1024)});
+        QVERIFY(server.waitForReadyRead(10000));
+        const int port = QString::fromLatin1(server.readLine()).section(' ', 1).trimmed().toInt();
+        QVERIFY(port > 0);
+        const QString url = QStringLiteral("https://127.0.0.1:%1/nas/backup.bin").arg(port);
+
+        Database db;
+        QVERIFY(db.open(dir.filePath("profile")));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(url, dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 20000);
+        QVERIFY2(d->certificateProblem(), qPrintable(d->error()));
+        QVERIFY(!d->autoRetryAt.isValid()); // retrying won't change the certificate
+        mgr.trustCertificate(d);           // "Trust this server and continue"
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+        QCOMPARE(QFileInfo(d->filePath()).size(), qint64(150 * 1024));
+        QCOMPARE(mgr.trustedHosts(), QStringList{"127.0.0.1"});
+        mgr.forgetTrustedHosts();
+        QVERIFY(mgr.trustedHosts().isEmpty());
+        server.kill();
+        server.waitForFinished(3000);
+    }
+
     void importFromFdm()
     {
         QTemporaryDir dir;

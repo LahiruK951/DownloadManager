@@ -360,6 +360,7 @@ Popup {
                     }
                     SettingRow {
                         // re-read whenever settings change (signing in with "remember" emits it)
+                        id: loginsRow
                         readonly property int count: (App.defaultFolder, App.savedLoginCount())
                         title: qsTr("Saved server logins")
                         description: count === 0 ? qsTr("None. When a server asks for a user name and password, you can let FluxDM remember it.")
@@ -367,7 +368,7 @@ Popup {
                                    : qsTr("%1 servers. Passwords are encrypted for your Windows account.").arg(count)
                         FButton {
                             text: qsTr("Forget all")
-                            enabled: parent.count > 0
+                            enabled: loginsRow.count > 0
                             onClicked: App.forgetLogins()
                         }
                     }
@@ -860,6 +861,13 @@ Popup {
                     SettingsCard {
                         title: qsTr("Connections")
                         Layout.fillWidth: true
+                        SettingRow {
+                            id: trustRow
+                            readonly property int count: (App.defaultFolder, App.trustedHostCount())
+                            title: qsTr("Servers trusted despite their certificate")
+                            description: count === 0 ? qsTr("None.") : qsTr("%1 server(s). FluxDM doesn't check their certificates.").arg(count)
+                            FButton { text: qsTr("Forget all"); enabled: trustRow.count > 0; onClicked: App.forgetTrustedHosts() }
+                        }
                         SettingRow {
                             title: qsTr("Connections per server")
                             description: qsTr("Across all downloads from the same site. Some servers block clients that open too many.")

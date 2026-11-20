@@ -948,6 +948,8 @@ void AppController::watch(Download* d)
             emit loginRequired(d);
         else if (d->fileExists())
             emit fileConflict(d);
+        else if (d->certificateProblem())
+            emit certificateRequired(d);
         else if (d->awaitingFiles())
             emit filesRequired(d);
     });
@@ -1001,6 +1003,15 @@ void AppController::resolveExisting(qint64 id, int reaction)
     m_mgr->setExistingFileReaction(d, reaction);
     d->addLog(reaction == FileNamer::Overwrite ? tr("Replacing the existing file") : tr("Keeping both files"));
     m_mgr->resume(d);
+}
+
+void AppController::trustCertificate(qint64 id) { m_mgr->trustCertificate(byId(id)); }
+int AppController::trustedHostCount() const { return int(m_mgr->trustedHosts().size()); }
+
+void AppController::forgetTrustedHosts()
+{
+    m_mgr->forgetTrustedHosts();
+    emit settingsChanged();
 }
 
 int AppController::savedLoginCount() const { return m_mgr->savedLoginCount(); }

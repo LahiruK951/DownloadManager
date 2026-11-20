@@ -57,6 +57,10 @@ public:
     bool loginFor(const QString& url, QString* user, QString* password) const;
     void setLogin(const QString& url, const QString& user, const QString& password, bool remember);
     int savedLoginCount() const;
+    // Untrusted certificates the user accepted, per host.
+    void trustCertificate(Download* d); // remember its host and try again
+    QStringList trustedHosts() const;
+    void forgetTrustedHosts();
     void forgetLogins();
 
     // Stream post-processing: remux HLS .ts to .mp4 with ffmpeg (FDM ships ffmpeg; we find one).

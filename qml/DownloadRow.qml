@@ -17,6 +17,7 @@ Rectangle {
     signal requestFiles(var download)
     signal requestNewTag(var downloadIds)
     signal requestConvert(var download, string format)
+    signal requestCertificate(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -73,6 +74,7 @@ Rectangle {
         if (d.completed && d.fileMissing) return { text: qsTr("File missing"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.completed) return { text: qsTr("Done"), glyph: Theme.icons.check, fg: Theme.success, bg: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14) }
         if (d.awaitingFiles) return { text: qsTr("Choose files"), glyph: Theme.icons.check, fg: Theme.accent, bg: Theme.accentSoft }
+        if (d.certificateProblem) return { text: qsTr("Certificate problem"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.fileExists) return { text: qsTr("File exists"), glyph: Theme.icons.warn, fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.needsLogin) return { text: qsTr("Sign-in needed"), glyph: String.fromCharCode(0xE8D7), fg: Theme.warning, bg: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.15) }
         if (d.failed) return { text: qsTr("Error"), glyph: Theme.icons.warn, fg: Theme.error, bg: Theme.errorSoft }
@@ -249,6 +251,12 @@ Rectangle {
             spacing: 2
             opacity: row.showActions ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 100 } }
+            IconButton { // untrusted certificate: let the user decide
+                visible: row.d.certificateProblem
+                glyph: Theme.icons.warn
+                tip: qsTr("Certificate problem…")
+                onClicked: row.requestCertificate(row.d)
+            }
             IconButton { // torrent waits for the file selection
                 visible: row.d.awaitingFiles
                 glyph: Theme.icons.check
@@ -268,7 +276,7 @@ Rectangle {
                 onClicked: row.requestLogin(row.d)
             }
             IconButton {
-                visible: !row.d.needsLogin && !row.d.fileExists && !row.d.awaitingFiles
+                visible: !row.d.needsLogin && !row.d.fileExists && !row.d.awaitingFiles && !row.d.certificateProblem
                 glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
                      : (row.d.completed && row.d.fileMissing) ? Theme.icons.refresh
                      : row.d.completed ? Theme.icons.open
@@ -393,6 +401,12 @@ Rectangle {
             onTriggered: App.openPage(row.d.id)
         }
         FMenuSeparator {}
+        FMenuItem {
+            glyph: Theme.icons.warn
+            text: qsTr("Certificate problem…")
+            visible: row.d.certificateProblem
+            onTriggered: row.requestCertificate(row.d)
+        }
         FMenuItem {
             glyph: Theme.icons.check
             text: qsTr("Choose files…")

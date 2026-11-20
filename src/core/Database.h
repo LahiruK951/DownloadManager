@@ -34,6 +34,11 @@ public:
     void clearLogins();
 
     // User tags (FDM: tags + downloadsTagsDetails); assignments live in downloadsTags.
+    // Servers whose untrusted TLS certificate the user accepted (FDM: sslKnownHosts).
+    QStringList trustedHosts();
+    void addTrustedHost(const QString& host);
+    void clearTrustedHosts();
+
     QList<Tag> loadTags();
     int saveTag(const Tag& t); // inserts when t.id == 0; returns the id
     void removeTag(int id);

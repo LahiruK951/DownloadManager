@@ -54,6 +54,7 @@ bool Database::open(const QString& dir, QString* error)
         "CREATE TABLE IF NOT EXISTS downloadsScheduleRecords (downloadId INTEGER PRIMARY KEY, days INTEGER, fromTime INTEGER, toTime INTEGER)",
         "CREATE TABLE IF NOT EXISTS Settings (Name TEXT PRIMARY KEY, Value TEXT)",
         "CREATE TABLE IF NOT EXISTS networkPasswords (server TEXT PRIMARY KEY, user TEXT, password BLOB)",
+        "CREATE TABLE IF NOT EXISTS sslKnownHosts (host TEXT PRIMARY KEY, since INTEGER)",
     };
     for (const char* s : schema)
         if (!exec(QString::fromLatin1(s))) {
@@ -392,3 +393,26 @@ void Database::removeTag(int id)
         q.exec();
     }
 }
+
+// ------------------------------------------------------------------ trusted certificates
+
+QStringList Database::trustedHosts()
+{
+    QStringList out;
+    QSqlQuery q(m_db);
+    if (q.exec(QStringLiteral("SELECT host FROM sslKnownHosts ORDER BY host")))
+        while (q.next())
+            out << q.value(0).toString();
+    return out;
+}
+
+void Database::addTrustedHost(const QString& host)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("INSERT OR REPLACE INTO sslKnownHosts (host, since) VALUES (?, ?)"));
+    q.addBindValue(host.toLower());
+    q.addBindValue(QDateTime::currentSecsSinceEpoch());
+    q.exec();
+}
+
+void Database::clearTrustedHosts() { exec(QStringLiteral("DELETE FROM sslKnownHosts")); }

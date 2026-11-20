@@ -113,6 +113,7 @@ set(FLUXDM_QML_FILES
     qml/TagDialog.qml
     qml/ConvertDialog.qml
     qml/ReportDialog.qml
+    qml/CertificateDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

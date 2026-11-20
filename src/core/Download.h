@@ -66,6 +66,7 @@ class Download : public QObject {
     Q_PROPERTY(bool sequential READ sequential NOTIFY changed)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // user tag ids
     Q_PROPERTY(qint64 queueOrder READ queueOrder NOTIFY changed)
+    Q_PROPERTY(bool certificateProblem READ certificateProblem NOTIFY changed) // stopped: untrusted TLS certificate
     Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
 
 public:
@@ -162,6 +163,7 @@ public:
         emit changed();
         emit tagsChanged();
     }
+    bool certificateProblem() const { return failed() && rec.lastError.startsWith(QLatin1String("Untrusted certificate")); }
     bool fileExists() const { return failed() && rec.lastError.startsWith(QLatin1String("File already exists")); }
     bool needsLogin() const
     {

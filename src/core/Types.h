@@ -19,6 +19,7 @@ struct TaskParams {
     QString user;          // server login (HTTP auth / FTP); empty = none or in the URL
     QString password;
     QString ffmpeg;        // for engines that combine tracks (DASH); empty = not available
+    bool trustCertificate = false; // the user accepted this server's untrusted certificate
     QStringList siteTool;  // yt-dlp command (program + prefix args) for site downloads; empty = missing
     int existingFile = 0;  // FileNamer::ExistingFile: keep both / overwrite / ask
     QByteArray resumeData; // engine-specific opaque blob

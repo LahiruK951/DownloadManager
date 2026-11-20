@@ -70,6 +70,7 @@ ApplicationWindow {
         function onNotice(text) { toast.show(text) }
         // Ask right away, like a browser does, unless the user is busy with another dialog.
         function onFilesRequired(d) { if (!win.dialogOpen) torrentFilesDialog.openFor(d) }
+        function onCertificateRequired(d) { if (!win.dialogOpen) certificateDialog.openFor(d) }
         function onFileConflict(d) { if (!win.dialogOpen) fileExistsDialog.openFor(d) }
         function onLoginRequired(d) { if (!win.dialogOpen && App.devOpen !== "login-row") loginDialog.openFor(d) }
         function onWhenDoneCountdown(action) {
@@ -78,7 +79,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -137,6 +138,7 @@ ApplicationWindow {
                 onRequestFiles: (d) => torrentFilesDialog.openFor(d)
                 onRequestNewTag: (ids) => tagDialog.openNew(ids)
                 onRequestConvert: (d, f) => convertDialog.openFor(d, f)
+                onRequestCertificate: (d) => certificateDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -240,6 +242,7 @@ ApplicationWindow {
     TagDialog { id: tagDialog }
     ConvertDialog { id: convertDialog }
     ReportDialog { id: reportDialog }
+    CertificateDialog { id: certificateDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
