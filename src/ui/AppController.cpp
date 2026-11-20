@@ -107,7 +107,7 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         QTimer::singleShot(15000, this, [this] { checkForUpdates(); });
     // Remote control: links added from a phone go through the same path as the Add dialog.
     m_remote = new RemoteServer(m_mgr, this);
-    m_remote->setAddHandler([this](const QString& url) { return addDownloads(url, QString(), QString(), true, {}, -1); });
+    m_remote->setAddHandler([this](const QString& url) { return addSilently(url, QString(), QString()); });
     if (m_ui.value(QStringLiteral("remoteCode")).toString().isEmpty())
         m_ui.setValue(QStringLiteral("remoteCode"), RemoteServer::newAccessCode());
     m_remote->setAccessCode(m_ui.value(QStringLiteral("remoteCode")).toString());
@@ -753,6 +753,49 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
     return {};
 }
 
+QVariantMap AppController::duplicateOf(const QString& text) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    QVariantMap out;
+    int count = 0;
+    for (const QString& u : BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts))) {
+        Download* d = m_mgr->findByUrl(u);
+        if (!d)
+            continue;
+        if (++count == 1) {
+            out[QStringLiteral("id")] = d->id();
+            out[QStringLiteral("title")] = d->title();
+            out[QStringLiteral("state")] = d->stateText();
+        }
+    }
+    if (count)
+        out[QStringLiteral("count")] = count;
+    return out;
+}
+
+QString AppController::addSilently(const QString& text, const QString& folder, const QString& fileName)
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    QStringList fresh;
+    Download* existing = nullptr;
+    for (const QString& u : BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts))) {
+        Download* d = m_mgr->findByUrl(u);
+        if (d && !d->completed() && d->rec.state != Download::Error) {
+            existing = d;
+            continue;
+        }
+        fresh << u;
+    }
+    if (fresh.isEmpty() && existing) {
+        select(existing->id());
+        emit notice(tr("Already in the list: %1").arg(existing->title()));
+        return {};
+    }
+    if (fresh.isEmpty())
+        return tr("Enter at least one link.");
+    return addDownloads(fresh.join(QLatin1Char('\n')), folder, fresh.size() == 1 ? fileName : QString(), true);
+}
+
 void AppController::selectionUpdated()
 {
     ++m_selRev;
@@ -1358,7 +1401,7 @@ void AppController::handleExternalArgs(const QStringList& args)
         return;
     }
     if (silent)
-        addDownloads(urls.join(QLatin1Char('\n')), folderFor(urls.first()), {}, true);
+        addSilently(urls.join(QLatin1Char('\n')), folderFor(urls.first()), {});
     else
         emit addDialogRequested(urls.join(QLatin1Char('\n')));
 }
@@ -1546,7 +1589,7 @@ QString AppController::handleBrowserRequest(const QVariantMap& r)
     m_browserMeta.insert(url, meta);
 
     if (browserAddSilently() || r.value(QStringLiteral("silent")).toBool()) {
-        const QString err = addDownloads(url, folderFor(url), suggestedName(url), true);
+        const QString err = addSilently(url, folderFor(url), suggestedName(url));
         return err;
     }
     emit addDialogRequested(url);

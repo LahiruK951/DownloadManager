@@ -32,6 +32,8 @@ public:
                   const QString& referrer = {}, const QString& cookies = {}, const QString& userAgent = {},
                   const ScheduleWindow* schedule = nullptr);
     Download* find(qint64 id) const;
+    // A download of the same address already in the list (newest first); the #fragment is ignored.
+    Download* findByUrl(const QString& url) const;
     const QList<Download*>& downloads() const { return m_list; }
 
     void pause(Download* d);

@@ -1080,6 +1080,25 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void duplicateLinks()
+    {
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* a = mgr.add(QStringLiteral("https://example.com/files/a.zip"), dir.path(), {}, false);
+        QVERIFY(a);
+        QCOMPARE(mgr.findByUrl(QStringLiteral("https://example.com/files/a.zip")), a);
+        QCOMPARE(mgr.findByUrl(QStringLiteral(" https://example.com/files/a.zip#top ")), a); // fragment, spaces
+        QVERIFY(!mgr.findByUrl(QStringLiteral("https://example.com/files/a.zip?v=2")));
+        QVERIFY(!mgr.findByUrl(QStringLiteral("https://example.com/files/b.zip")));
+        QVERIFY(!mgr.findByUrl(QString()));
+        Download* again = mgr.add(QStringLiteral("https://example.com/files/a.zip"), dir.path(), {}, false);
+        QCOMPARE(mgr.findByUrl(QStringLiteral("https://example.com/files/a.zip")), again); // newest first
+    }
+
     void statsAreCoalesced()
     {
         RangeServer srv;

@@ -188,6 +188,8 @@ public:
     Q_INVOKABLE QString addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
                                      const QVariantMap& schedule = {}, int existingFile = -1);
     Q_INVOKABLE int countLinks(const QString& text) const;
+    // Links in `text` that are already in the list: {count, id, title, state} of the first one; empty if none.
+    Q_INVOKABLE QVariantMap duplicateOf(const QString& text) const;
     Q_INVOKABLE bool isTorrentLink(const QString& text) const;
     Q_INVOKABLE QString linkModule(const QString& text) const; // module uid of the first link, "" if none
     Q_INVOKABLE void stopSeeding(qint64 id);
@@ -281,6 +283,9 @@ public:
     Q_INVOKABLE int existingFileDefault() const;
     Q_INVOKABLE void setExistingFileDefault(int reaction);
     Q_INVOKABLE bool fileExistsIn(const QString& folder, const QString& name) const;
+    // Adds without the dialog (browser, command line, remote page). A link that is already being
+    // downloaded (queued, running, paused) isn't added twice: the existing one is selected instead.
+    QString addSilently(const QString& text, const QString& folder, const QString& fileName);
     Q_INVOKABLE QString expectedName(const QString& text) const; // likely file name of a single link
     Q_INVOKABLE void resolveExisting(qint64 id, int reaction); // answer to "file already exists"
     Q_INVOKABLE void chooseFiles(qint64 id, const QVariantList& wantedIndexes);

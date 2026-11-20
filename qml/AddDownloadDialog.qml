@@ -17,6 +17,8 @@ FDialog {
     // The name is already taken in the chosen folder: let the user decide here and now.
     readonly property bool nameTaken: linkCount === 1 && !torrent && App.fileExistsIn(folderField.editText, nameField.text !== "" ? nameField.text : App.expectedName(urlsField.text))
     property int existingChoice: 0 // 0 keep both, 1 replace
+    // The link is already in the list: say so (adding again is still allowed).
+    readonly property var duplicate: linkCount > 0 ? App.duplicateOf(urlsField.text) : ({})
     readonly property string autoFolder: App.folderFor(urlsField.text)
     onAutoFolderChanged: if (!folderTouched && visible) folderField.editText = autoFolder
 
@@ -133,6 +135,32 @@ FDialog {
                 model: [qsTr("Keep both"), qsTr("Replace")]
                 currentIndex: dlg.existingChoice
                 onActivated: (i) => dlg.existingChoice = i
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            visible: dlg.duplicate.count > 0
+            spacing: 8
+            Text {
+                text: Theme.icons.warn
+                font.family: Theme.iconFont
+                font.pixelSize: 12
+                color: Theme.warning
+            }
+            Text {
+                Layout.fillWidth: true
+                text: dlg.duplicate.count > 1 ? qsTr("%1 of these links are already in your list.").arg(dlg.duplicate.count)
+                                              : qsTr("Already in your list: %1 (%2)").arg(dlg.duplicate.title || "").arg(dlg.duplicate.state || "")
+                elide: Text.ElideRight
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
+            FButton {
+                text: qsTr("Show")
+                visible: dlg.duplicate.count === 1
+                onClicked: { App.select(dlg.duplicate.id); dlg.close() }
             }
         }
 

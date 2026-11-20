@@ -168,6 +168,18 @@ QString DownloadManager::moduleFor(const QString& url) const
 
 Download* DownloadManager::find(qint64 id) const { return m_byId.value(id); }
 
+Download* DownloadManager::findByUrl(const QString& url) const
+{
+    const auto key = [](const QString& u) { return QUrl(u.trimmed()).adjusted(QUrl::RemoveFragment).toString(); };
+    const QString k = key(url);
+    if (k.isEmpty())
+        return nullptr;
+    for (Download* d : m_list)
+        if (key(d->rec.url) == k)
+            return d;
+    return nullptr;
+}
+
 Download* DownloadManager::add(const QString& url, const QString& destDir, const QString& fileName, bool start,
                                const QString& referrer, const QString& cookies, const QString& userAgent,
                                const ScheduleWindow* sched)
