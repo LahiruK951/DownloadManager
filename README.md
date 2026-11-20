@@ -11,6 +11,8 @@ scripts\build.ps1                    # configure + build + windeployqt  -> build
 scripts\build.ps1 -Test              # ... and run the test suite
 scripts\build.ps1 -Run               # ... and launch the app
 scripts\package.ps1                  # portable release zip -> dist\FluxDM-<version>-win64.zip
+scripts\package.ps1 -Installer       # ... plus FluxDM-<version>-setup.exe + latest.json (needs Inno Setup 6)
+scriptsuild.ps1 -UpdateTranslations # refresh i18n\*.ts from the sources (see i18n\README.md)
 scripts\shot.ps1                     # headless screenshots of every view -> build\shots
 ```
 
@@ -39,7 +41,8 @@ Download modules (FDM's plugin layout):
   retries, Content-Disposition names, system or manual (HTTP/SOCKS5) proxy, per-download, global and
   per-server limits, server logins
   (401/FTP; saved per server, DPAPI-encrypted), "file exists" choice (keep both / replace / ask), clear
-  errors for dead links (web page instead of the file, expired signed links).
+  errors for dead links (web page instead of the file, expired signed links), mirrors, POST (form)
+  downloads, trust-per-server for untrusted certificates.
 - **downloadsbt** – BitTorrent (libtorrent 2.1): magnets, local/web `.torrent`, choose files before
   downloading, Peers/Trackers tabs, download in order, seeding to a share ratio, upload limit, DHT/LSD/UPnP,
   opt-in magnet/.torrent association, watch folder for `.torrent` files.
@@ -47,6 +50,8 @@ Download modules (FDM's plugin layout):
   with ffmpeg.
 - **downloadsfragments** – DASH (`.mpd`) videos on demand: best video + audio, SegmentTemplate/Timeline/List/
   Base, resume, combined into one file with ffmpeg (stream copy).
+- **downloadsms** – videos from YouTube, Vimeo, Twitch, SoundCloud and similar sites through yt-dlp (best
+  video + audio, merged with ffmpeg), stop/continue.
 
 App:
 - Traffic modes Snail/Medium/High with a weekly **snail schedule**; per-download schedules;
@@ -56,8 +61,13 @@ App:
 - Library: user tags (colours, auto-assign by file type, per-tag folder), MP3/MP4 converter, play while
   downloading (torrents), multi-select, sorting (date/name/size/status), folders by file type, move to folder, rename,
   open/open with, missing-file detection, import/export, per-download speed limit, completion notification
-  + sound, keeps the PC awake while downloading, tray, clipboard monitor, light/dark.
+  + sound, keeps the PC awake while downloading, tray, clipboard monitor, light/dark, manual queue order,
+  separate download windows, zoom, import from Free Download Manager.
+- Safety: antivirus check + Mark of the Web for finished files, metered-connection handling.
+- Remote control from the local network (web page, access code; off by default).
+- App log, crash dumps and "Report a problem" (nothing is sent automatically); updater (SHA-256 checked)
+  and an Inno Setup installer script; translations (Spanish complete, machine-made).
 - UI built from a small design system (`qml/F*.qml`), full-page settings.
 
-Next (gap analysis vs FDM 6, tier 3): site downloads (yt-dlp), installer and updater, translations, remote
-control, crash reporting / report a problem, separate windows, manual queue order, zoom, Linux/macOS builds.
+Not done yet: building the installer (needs Inno Setup), a release host for updates, more languages,
+Linux/macOS builds, and FDM 3.9's legacy features (site explorer, HTML spider, partial ZIP).
