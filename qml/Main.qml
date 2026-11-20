@@ -88,6 +88,14 @@ ApplicationWindow {
     Shortcut { sequence: StandardKey.SelectAll; enabled: !win.dialogOpen && !topBar.searchFocused; onActivated: App.selectAll() }
     Shortcut { sequence: "Esc"; enabled: !win.dialogOpen && App.selectionCount > 1; onActivated: App.clearSelection() }
     Shortcut { sequence: StandardKey.Find; onActivated: topBar.focusSearch() }
+    Shortcut { sequence: "Ctrl+Shift+P"; enabled: !win.dialogOpen; onActivated: App.pauseAll() }
+    Shortcut { sequence: "Ctrl+Shift+R"; enabled: !win.dialogOpen; onActivated: App.resumeAll() }
+    Shortcut { sequence: "Ctrl+E"; enabled: !win.dialogOpen && App.selected !== null; onActivated: App.openFolder(App.selected.id) }
+    Shortcut { sequence: "Ctrl+I"; enabled: !win.dialogOpen; onActivated: App.bottomPanelOpen = !App.bottomPanelOpen }
+    Shortcut { sequence: "Ctrl+,"; enabled: !win.dialogOpen; onActivated: settingsDialog.open() }
+    Shortcut { sequence: "Ctrl+1"; enabled: !win.dialogOpen; onActivated: App.trafficMode = 0 }
+    Shortcut { sequence: "Ctrl+2"; enabled: !win.dialogOpen; onActivated: App.trafficMode = 1 }
+    Shortcut { sequence: "Ctrl+3"; enabled: !win.dialogOpen; onActivated: App.trafficMode = 2 }
 
     header: TopBar {
         id: topBar

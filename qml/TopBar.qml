@@ -55,12 +55,12 @@ Rectangle {
 
         IconButton {
             glyph: Theme.icons.play
-            tip: App.selectionCount > 0 ? qsTr("Resume selected") : qsTr("Resume all")
+            tip: App.selectionCount > 0 ? qsTr("Resume selected (Space)") : qsTr("Resume all (Ctrl+Shift+R)")
             onClicked: App.selectionCount > 0 ? App.resumeSelected() : App.resumeAll()
         }
         IconButton {
             glyph: Theme.icons.pause
-            tip: App.selectionCount > 0 ? qsTr("Pause selected") : qsTr("Pause all")
+            tip: App.selectionCount > 0 ? qsTr("Pause selected (Space)") : qsTr("Pause all (Ctrl+Shift+P)")
             onClicked: App.selectionCount > 0 ? App.pauseSelected() : App.pauseAll()
         }
         IconButton {
