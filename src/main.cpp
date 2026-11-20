@@ -28,6 +28,7 @@
 #include "engines/dash/DashEngine.h"
 #include "engines/sites/SiteEngine.h"
 #include "engines/hls/HlsEngine.h"
+#include "core/InstanceServer.h"
 #include "ui/AppController.h"
 #include "ui/AppIcon.h"
 #include "ui/TrayIcon.h"
@@ -150,38 +151,17 @@ int main(int argc, char* argv[])
         AppController::s_instance = &ctl;
         TrayIcon tray(&ctl);
 
-        QLocalServer server;
-        QObject::connect(&server, &QLocalServer::newConnection, &server, [&server, &ctl] {
-            while (QLocalSocket* c = server.nextPendingConnection()) {
-                QObject::connect(c, &QLocalSocket::readyRead, c, [c, &ctl] {
-                    if (!c->canReadLine())
-                        return;
-                    const QJsonDocument doc = QJsonDocument::fromJson(c->readLine());
-                    if (doc.isObject()) { // browser integration: {"cmd":"download", ...}
-                        const QString reply = ctl.handleBrowserRequest(doc.object().toVariantMap());
-                        c->write(QJsonDocument(QJsonObject{{QStringLiteral("ok"), reply.isEmpty()},
-                                                           {QStringLiteral("error"), reply}})
-                                     .toJson(QJsonDocument::Compact) + '\n');
-                        c->flush();
-                    } else { // second instance forwarding its command line
-                        QStringList list;
-                        for (const auto& v : doc.array())
-                            list << v.toString();
-                        ctl.handleExternalArgs(list);
-                    }
-                    c->disconnectFromServer();
-                });
-                QObject::connect(c, &QLocalSocket::disconnected, c, &QObject::deleteLater);
-            }
-        });
+        InstanceServer server;
+        server.setRequestHandler([&ctl](const QVariantMap& r) { return ctl.handleBrowserRequest(r); });
+        server.setArgsHandler([&ctl](const QStringList& args) { ctl.handleExternalArgs(args); });
 
         QQmlApplicationEngine engine;
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                          [] { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
         engine.loadFromModule("FluxDM", "Main");
         // Listen only once the UI exists, so a request that launched us (browser) isn't lost.
-        QLocalServer::removeServer(instanceName());
-        server.listen(instanceName());
+        if (!server.listen(instanceName()))
+            qWarning() << "Cannot open the single-instance channel" << instanceName();
 
         // Developer aid: FLUXDM_DEV_GRAB=<png> saves a render of the window and exits.
         const QString grabPath = qEnvironmentVariable("FLUXDM_DEV_GRAB");

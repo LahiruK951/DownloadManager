@@ -20,6 +20,8 @@
 #include "engines/sites/SiteEngine.h"
 #include "engines/www/FileWriter.h"
 #include "core/DiskSpace.h"
+#include "core/InstanceServer.h"
+#include <QLocalSocket>
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
@@ -1641,6 +1643,47 @@ private slots:
             call("/api/login", {{"code", "111111"}}, {}, &code);
         call("/api/login", {{"code", "654321"}}, {}, &code);
         QCOMPARE(code, 429);
+    }
+
+    void instanceChannel()
+    {
+        InstanceServer srv;
+        QVERIFY(srv.socketOptions().testFlag(QLocalServer::UserAccessOption));
+        const QString name = QStringLiteral("FluxDM-test-%1").arg(QCoreApplication::applicationPid());
+        QVERIFY(srv.listen(name));
+        QVariantMap got;
+        QStringList args;
+        srv.setRequestHandler([&](const QVariantMap& r) { got = r; return QString(); });
+        srv.setArgsHandler([&](const QStringList& a) { args = a; });
+
+        auto send = [&](const QByteArray& data) {
+            QLocalSocket s;
+            s.connectToServer(name);
+            if (!s.waitForConnected(2000))
+                return QByteArray("no connection");
+            s.write(data);
+            s.waitForBytesWritten(2000);
+            QByteArray reply;
+            QElapsedTimer t;
+            t.start();
+            while (s.state() == QLocalSocket::ConnectedState && t.elapsed() < 3000) {
+                QCoreApplication::processEvents();
+                s.waitForReadyRead(20);
+                reply += s.readAll();
+            }
+            return reply + s.readAll();
+        };
+        QVERIFY(send("{\"cmd\":\"ping\"}\n").contains("\"ok\":true"));
+        QCOMPARE(got.value("cmd").toString(), QStringLiteral("ping"));
+        send("[\"--silent\",\"https://example.com/a.zip\"]\n");
+        QTRY_COMPARE(args, (QStringList{"--silent", "https://example.com/a.zip"}));
+
+        // A huge message without a line end is dropped instead of filling memory.
+        got.clear();
+        QByteArray junk(InstanceServer::kMaxLine + 4096, 'x');
+        const QByteArray r = send(junk);
+        QVERIFY(r.isEmpty());
+        QVERIFY(got.isEmpty());
     }
 
     void remoteControlHardening()
