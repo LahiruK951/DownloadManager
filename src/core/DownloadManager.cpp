@@ -46,6 +46,9 @@ QString systemProxyFor(const QString& url)
 DownloadManager::DownloadManager(Database* db, QObject* parent)
     : QObject(parent), m_db(db)
 {
+    m_statsTimer.setSingleShot(true);
+    m_statsTimer.setInterval(100);
+    connect(&m_statsTimer, &QTimer::timeout, this, &DownloadManager::statsUpdated);
     m_db->setErrorHandler([this](const QString& err) {
         static const qint64 kQuietMs = 60 * 1000;
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -117,6 +120,7 @@ void DownloadManager::load()
         if (d->rec.state == Download::Starting || d->rec.state == Download::Downloading)
             d->rec.state = Download::Queued; // resume what was running when we quit
         m_list.append(d);
+        m_byId.insert(d->id(), d);
     }
     checkMissingFiles();
     schedule();
@@ -162,13 +166,7 @@ QString DownloadManager::moduleFor(const QString& url) const
     return e ? e->moduleUid() : QString();
 }
 
-Download* DownloadManager::find(qint64 id) const
-{
-    for (Download* d : m_list)
-        if (d->id() == id)
-            return d;
-    return nullptr;
-}
+Download* DownloadManager::find(qint64 id) const { return m_byId.value(id); }
 
 Download* DownloadManager::add(const QString& url, const QString& destDir, const QString& fileName, bool start,
                                const QString& referrer, const QString& cookies, const QString& userAgent,
@@ -210,6 +208,7 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
 
     auto* d = new Download(r, this);
     m_list.prepend(d);
+    m_byId.insert(d->id(), d);
     persist(d);
     d->addLog(tr("Added %1").arg(r.url));
     if (r.scheduled)
@@ -404,6 +403,7 @@ void DownloadManager::remove(Download* d, bool deleteFiles)
     }
     m_db->remove(d->id());
     m_list.removeOne(d);
+    m_byId.remove(d->id());
     emit downloadRemoved(d);
     d->deleteLater();
     schedule();
@@ -633,7 +633,7 @@ void DownloadManager::onStats(const TaskStats& st)
         if (d->rec.contentCategory != cat)
             persist(d); // keep it when the torrent is not loaded (finished, or before metadata)
     }
-    emit statsUpdated();
+    statsChanged();
 }
 
 void DownloadManager::onResumeData(qint64 id, const QByteArray& data)
@@ -666,7 +666,7 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         d->setSeeding(true);
     persist(d);
     emit downloadFinished(d);
-    emit statsUpdated();
+    statsChanged();
     schedule();
     if (d->rec.moduleUid == QLatin1String("downloadsm3u") && filePath.endsWith(QLatin1String(".ts"), Qt::CaseInsensitive)
         && convertStreams())
@@ -750,7 +750,7 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
         d->notify();
     }
     persist(d);
-    emit statsUpdated();
+    statsChanged();
     schedule();
 }
 
@@ -766,7 +766,7 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         d->setSeeding(false);
         d->rec.resumeData.clear(); // don't resume seeding on the next start
         persist(d);
-        emit statsUpdated();
+        statsChanged();
         return;
     }
     // If the download was already restarted, this stale data belongs to the old task.
@@ -780,7 +780,7 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         d->rec.resumeData = resumeData;
         m_db->saveProgress(id, d->rec.received, resumeData);
     }
-    emit statsUpdated();
+    statsChanged();
 }
 
 void DownloadManager::onLog(qint64 id, const QString& line)
@@ -1430,6 +1430,7 @@ QPair<int, int> DownloadManager::importFdm(const QList<FdmImport::Item>& items)
         }
         auto* d = new Download(r, this);
         m_list.prepend(d);
+        m_byId.insert(d->id(), d);
         d->addLog(tr("Imported from Free Download Manager"));
         persist(d);
         emit downloadAdded(d);

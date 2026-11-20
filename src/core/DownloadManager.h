@@ -142,7 +142,7 @@ signals:
     void downloadAdded(Download* d);
     void downloadRemoved(Download* d);
     void downloadFinished(Download* d);
-    void statsUpdated();
+    void statsUpdated(); // at most every 100 ms, however many downloads report
     void trafficModeChanged();
     void allDownloadsFinished();
     void tagsChanged();
@@ -181,6 +181,9 @@ private:
     QList<Tag> m_tags;
     QList<DownloadEngine*> m_engines;
     QList<Download*> m_list; // newest first
+    QHash<qint64, Download*> m_byId; // same downloads, for find()
+    QTimer m_statsTimer; // folds the per-task stats signals into one statsUpdated per tick
+    void statsChanged() { if (!m_statsTimer.isActive()) m_statsTimer.start(); }
     qint64 m_nextId = 0;
     int m_manualMode = TrafficMode::High;
     int m_effectiveMode = TrafficMode::High;

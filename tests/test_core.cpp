@@ -1080,6 +1080,36 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void statsAreCoalesced()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 8 * 1024; // slow, so all of them keep running
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        QList<Download*> list;
+        for (int i = 0; i < 4; ++i)
+            list << mgr.add(srv.url(QStringLiteral("/s%1.bin").arg(i)), dir.path(), {}, true);
+        for (Download* d : list)
+            QCOMPARE(mgr.find(d->id()), d);
+        QTRY_VERIFY_WITH_TIMEOUT(std::all_of(list.begin(), list.end(), [](Download* d) { return d->running(); }), 5000);
+
+        QSignalSpy spy(&mgr, &DownloadManager::statsUpdated);
+        QTest::qWait(2000);
+        // 4 tasks report every 500 ms (16 signals in 2 s); the UI hears about it at most every 100 ms.
+        QVERIFY2(spy.count() >= 2 && spy.count() <= 21, qPrintable(QString::number(spy.count())));
+
+        const qint64 gone = list.first()->id();
+        mgr.remove(list.first(), true);
+        QVERIFY(!mgr.find(gone));
+        QCOMPARE(mgr.find(list.last()->id()), list.last());
+    }
+
     void fileWriterFlushes()
     {
         QTemporaryDir dir;
