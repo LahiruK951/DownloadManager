@@ -73,6 +73,20 @@ bool FileWriter::write(qint64 offset, const char* data, qint64 len)
         offset += written;
         data += written;
         len -= written;
+        m_unflushed = true;
+    }
+    return true;
+}
+
+bool FileWriter::flush()
+{
+    if (!m_h || !m_unflushed)
+        return true;
+    m_unflushed = false;
+    ++m_flushes;
+    if (!FlushFileBuffers(static_cast<HANDLE>(m_h))) {
+        m_error = lastWinError();
+        return false;
     }
     return true;
 }
@@ -80,6 +94,7 @@ bool FileWriter::write(qint64 offset, const char* data, qint64 len)
 void FileWriter::close()
 {
     if (m_h) {
+        flush();
         CloseHandle(static_cast<HANDLE>(m_h));
         m_h = nullptr;
     }
@@ -118,10 +133,24 @@ bool FileWriter::write(qint64 offset, const char* data, qint64 len)
         m_error = m_f.errorString();
         return false;
     }
+    m_unflushed = true;
     return true;
 }
 
-void FileWriter::close() { m_f.close(); }
+bool FileWriter::flush()
+{
+    if (!m_f.isOpen() || !m_unflushed)
+        return true;
+    m_unflushed = false;
+    ++m_flushes;
+    return m_f.flush();
+}
+
+void FileWriter::close()
+{
+    flush();
+    m_f.close();
+}
 bool FileWriter::isOpen() const { return m_f.isOpen(); }
 
 #endif

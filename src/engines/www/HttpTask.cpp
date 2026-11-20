@@ -603,6 +603,14 @@ TaskStats HttpTask::stats(double dtSec)
     return st;
 }
 
+QByteArray HttpTask::durableResumeData()
+{
+    const QByteArray rd = resumeData();
+    if (!m_file.flush())
+        log(QStringLiteral("Cannot flush the file to disk: %1").arg(m_file.lastError()));
+    return rd;
+}
+
 QByteArray HttpTask::resumeData() const
 {
     if (!m_metaKnown || !m_resumable)

@@ -14,7 +14,11 @@ public:
     bool open(const QString& path, bool truncate, QString* error = nullptr);
     bool preallocate(qint64 size);
     bool write(qint64 offset, const char* data, qint64 len);
-    void close();
+    // Pushes written data from the OS cache to the disk, so resume data saved afterwards never
+    // claims bytes a power cut could still lose. No-op when nothing was written since the last flush.
+    bool flush();
+    void close(); // flushes first
+    qint64 flushes() const { return m_flushes; } // for tests
     bool isOpen() const;
     QString lastError() const { return m_error; }
 
@@ -25,4 +29,6 @@ private:
     QFile m_f;
 #endif
     QString m_error;
+    bool m_unflushed = false;
+    qint64 m_flushes = 0;
 };

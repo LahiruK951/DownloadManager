@@ -192,7 +192,7 @@ void CurlWorker::run()
         if (now - lastResume >= 2000) {
             for (auto& [id, t] : m_tasks)
                 if (!t->isDead() && t->takeDirty())
-                    emit resumeData(id, t->resumeData());
+                    emit resumeData(id, t->durableResumeData());
             lastResume = now;
         }
 

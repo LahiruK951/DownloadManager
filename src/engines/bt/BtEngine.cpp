@@ -4,6 +4,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
+#include <QDebug>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 
@@ -650,9 +652,12 @@ QHash<qint64, QByteArray> BtEngine::shutdown()
         }
     }
     // Seed-only tasks keep whatever they had; finished seeding ones are not resumed.
-    QFile state(QDir(m_stateDir).filePath(QStringLiteral("session.dat")));
-    if (state.open(QIODevice::WriteOnly))
-        state.write(toBytes(lt::write_session_params_buf(m_ses->session_state(lt::session_handle::save_dht_state))));
+    // Written to a temporary file and swapped in, so a crash here can't leave a truncated session.dat.
+    QSaveFile state(QDir(m_stateDir).filePath(QStringLiteral("session.dat")));
+    if (!state.open(QIODevice::WriteOnly)
+        || state.write(toBytes(lt::write_session_params_buf(m_ses->session_state(lt::session_handle::save_dht_state)))) < 0
+        || !state.commit())
+        qWarning() << "BitTorrent: cannot save session.dat:" << state.errorString();
     m_tasks.clear();
     m_ses.reset();
     return out;

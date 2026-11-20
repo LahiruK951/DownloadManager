@@ -17,6 +17,7 @@
 #include "engines/dash/DashEngine.h"
 #include "engines/dash/Mpd.h"
 #include "engines/sites/SiteEngine.h"
+#include "engines/www/FileWriter.h"
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
@@ -1077,6 +1078,25 @@ private slots:
         r.postData = p.postData;
         db.save(r);
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
+    }
+
+    void fileWriterFlushes()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("f.part");
+        FileWriter w;
+        QVERIFY(w.open(path, true));
+        QVERIFY(w.flush());
+        QCOMPARE(w.flushes(), 0); // nothing written yet
+        QVERIFY(w.write(0, "abcd", 4));
+        QVERIFY(w.flush());
+        QCOMPARE(w.flushes(), 1);
+        QVERIFY(w.flush());
+        QCOMPARE(w.flushes(), 1); // nothing new since
+        QVERIFY(w.write(4, "ef", 2));
+        w.close(); // flushes what is left
+        QCOMPARE(w.flushes(), 2);
+        QCOMPARE(readAll(path), QByteArray("abcdef"));
     }
 
     void databaseWriteFailures()
