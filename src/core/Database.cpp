@@ -123,6 +123,10 @@ bool Database::open(const QString& dir, QString* error)
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN postData BLOB"));
         if (!cols.contains(QStringLiteral("contentCategory")))
             exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN contentCategory TEXT"));
+        if (!cols.contains(QStringLiteral("expectedHash"))) {
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN expectedHash TEXT"));
+            exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN hashStatus INTEGER DEFAULT 0"));
+        }
     }
 
     QSqlQuery q(m_db);
@@ -168,7 +172,7 @@ QList<DownloadRecord> Database::loadDownloads()
     if (!q.exec(QStringLiteral(
             "SELECT id, moduleUid, url, referrer, cookies, userAgent, destinationPath, preferredFileTitle, title,"
             " filePath, creationTime, finishedTime, resumeData, lastResult, state, totalBytes, receivedBytes,"
-            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder, postData, mirrors FROM downloads ORDER BY id DESC"))) {
+            " resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder, postData, mirrors, expectedHash, hashStatus FROM downloads ORDER BY id DESC"))) {
         qWarning() << q.lastError().text();
         return out;
     }
@@ -203,6 +207,8 @@ QList<DownloadRecord> Database::loadDownloads()
         r.queueOrder = q.value(24).isNull() ? r.id : q.value(24).toLongLong();
         r.postData = revealed(q.value(25).toByteArray());
         r.mirrors = QString::fromUtf8(q.value(26).toByteArray()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        r.expectedHash = q.value(27).toString();
+        r.hashStatus = q.value(28).toInt();
         out.append(r);
     }
 
@@ -242,8 +248,8 @@ bool Database::save(const DownloadRecord& r)
     q.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO downloads (id, moduleUid, url, referrer, cookies, userAgent, destinationPath,"
         " preferredFileTitle, title, filePath, creationTime, finishedTime, resumeData, lastResult, state,"
-        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder, postData, mirrors)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        " totalBytes, receivedBytes, resumeSupport, priority, speedLimit, contentCategory, existingFileReaction, pickFiles, sequential, downloadOrder, postData, mirrors, expectedHash, hashStatus)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     q.addBindValue(r.id);
     q.addBindValue(r.moduleUid);
     q.addBindValue(r.url);
@@ -271,6 +277,8 @@ bool Database::save(const DownloadRecord& r)
     q.addBindValue(r.queueOrder ? r.queueOrder : r.id);
     q.addBindValue(hidden(r.postData));
     q.addBindValue(r.mirrors.join(QLatin1Char('\n')).toUtf8());
+    q.addBindValue(r.expectedHash);
+    q.addBindValue(r.hashStatus);
     bool ok = run(q, "save download");
 
     QSqlQuery s(m_db);

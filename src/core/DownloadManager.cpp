@@ -20,6 +20,7 @@
 
 #include "core/AppLog.h"
 #include "core/AttachmentCheck.h"
+#include "core/Checksum.h"
 #include "core/DiskSpace.h"
 #include <QThread>
 #include "core/Database.h"
@@ -121,6 +122,8 @@ void DownloadManager::load()
         auto* d = new Download(r, this);
         if (d->rec.state == Download::Starting || d->rec.state == Download::Downloading)
             d->rec.state = Download::Queued; // resume what was running when we quit
+        if (d->rec.hashStatus == Download::HashChecking)
+            d->rec.hashStatus = Download::HashNone; // interrupted by quitting
         m_list.append(d);
         m_byId.insert(d->id(), d);
     }
@@ -417,6 +420,7 @@ void DownloadManager::restart(Download* d)
     d->rec.finished = {};
     d->rec.resumable = -1;
     d->setSegmentsFromResumeData();
+    d->setHashResult(Download::HashNone, {});
     d->setState(Download::Queued);
     d->addLog(tr("Restarted"));
     persist(d);
@@ -712,6 +716,8 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         openDownloadedTorrent(d);
     else if (!d->isTorrent() && antivirusCheck() && QFileInfo(filePath).isFile())
         checkWithAntivirus(d);
+    if (!d->isTorrent() && !d->rec.expectedHash.isEmpty() && QFileInfo(filePath).isFile())
+        verifyChecksum(d);
 }
 
 bool DownloadManager::antivirusCheck() const { return m_db->setting(QStringLiteral("AntivirusCheck"), true).toBool(); }
@@ -744,6 +750,55 @@ void DownloadManager::checkWithAntivirus(Download* d)
         }
     });
     th->start();
+}
+
+void DownloadManager::setExpectedChecksum(Download* d, const QString& text)
+{
+    if (!d)
+        return;
+    d->rec.expectedHash = Checksum::parse(text).hex.isEmpty() ? QString() : text.trimmed();
+    d->setHashResult(Download::HashNone, {});
+    persist(d);
+}
+
+QString DownloadManager::verifyChecksum(Download* d, const QString& expectedText)
+{
+    if (!d || !d->completed() || d->isTorrent())
+        return tr("Only finished downloads can be checked");
+    if (d->hashStatus() == Download::HashChecking)
+        return tr("Already checking");
+    const QString text = expectedText.trimmed().isEmpty() ? d->rec.expectedHash : expectedText.trimmed();
+    const Checksum::Expected want = Checksum::parse(text);
+    if (!want.valid())
+        return tr("Paste an MD5, SHA-1, SHA-256 or SHA-512 checksum");
+    const QString path = d->rec.filePath;
+    if (!QFileInfo(path).isFile())
+        return tr("The file is missing");
+    d->rec.expectedHash = text;
+    d->setHashResult(Download::HashChecking, tr("Computing %1…").arg(want.name));
+    persist(d);
+    auto result = std::make_shared<std::pair<QString, QString>>(); // digest, error
+    QThread* th = QThread::create([path, want, result] { result->first = Checksum::ofFile(path, want.algo, &result->second); });
+    QPointer<Download> guard(d);
+    connect(th, &QThread::finished, this, [this, th, guard, path, want, result] {
+        th->deleteLater();
+        if (!guard)
+            return;
+        if (result->first.isEmpty()) {
+            guard->setHashResult(Download::HashFailed, tr("Could not read the file: %1").arg(result->second));
+        } else if (result->first == want.hex) {
+            guard->setHashResult(Download::HashMatch, tr("%1 matches").arg(want.name));
+            guard->addLog(tr("%1 checksum matches").arg(want.name));
+            emit checksumChecked(guard, true, guard->hashText());
+        } else {
+            guard->setHashResult(Download::HashMismatch, tr("%1 does not match: the file is %2").arg(want.name, result->first));
+            guard->addLog(tr("%1 checksum does NOT match (expected %2, file is %3)").arg(want.name, want.hex, result->first));
+            emit checksumChecked(guard, false, guard->hashText());
+        }
+        persist(guard);
+    });
+    th->start();
+    return {};
 }
 
 void DownloadManager::openDownloadedTorrent(Download* d)

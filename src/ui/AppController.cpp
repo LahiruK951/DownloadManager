@@ -30,6 +30,7 @@
 #include "core/AppLog.h"
 #include "core/BatchLinks.h"
 #include "core/Secret.h"
+#include "core/Checksum.h"
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
 #include "core/Download.h"
@@ -122,6 +123,10 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     connect(m_mgr, &DownloadManager::antivirusChecked, this, [this](Download* d, bool blocked, const QString& msg) {
         if (blocked)
             emit notice(QStringLiteral("%1: %2").arg(d->title(), msg));
+    });
+    connect(m_mgr, &DownloadManager::checksumChecked, this, [this](Download* d, bool match, const QString&) {
+        if (!match)
+            emit notice(tr("Checksum mismatch: %1 may be damaged or not the file that was published").arg(d->title()));
     });
     connect(m_mgr, &DownloadManager::storageError, this, [this](const QString& err) {
         emit notice(tr("Can't save download progress: %1. Check free space on the drive with FluxDM's data.").arg(err));
@@ -720,8 +725,11 @@ QString AppController::version() const { return QStringLiteral(FLUXDM_VERSION); 
 
 // ------------------------------------------------------------------ actions
 
+QString AppController::verifyChecksum(qint64 id, const QString& expected) { return m_mgr->verifyChecksum(byId(id), expected); }
+bool AppController::isChecksum(const QString& text) const { return Checksum::parse(text).valid(); }
+
 QString AppController::addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
-                                    const QVariantMap& schedule, int existingFile)
+                                    const QVariantMap& schedule, int existingFile, const QString& checksum)
 {
     static const QRegularExpression ws(QStringLiteral("\\s+"));
     const QStringList urls = BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts));
@@ -735,6 +743,8 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
     for (const QString& u : urls)
         if (!m_mgr->canHandle(u))
             return tr("Unsupported link: %1").arg(u);
+    if (!checksum.trimmed().isEmpty() && !Checksum::parse(checksum).valid())
+        return tr("The checksum isn't an MD5, SHA-1, SHA-256 or SHA-512 value.");
 
     const bool sched = schedule.value(QStringLiteral("enabled")).toBool();
     const ScheduleWindow w = ScheduleWindow::fromMap(schedule);
@@ -749,6 +759,8 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
                           meta.value(QStringLiteral("userAgent")).toString(), sched ? &w : nullptr);
         if (last && existingFile >= 0)
             m_mgr->setExistingFileReaction(last, existingFile);
+        if (last && urls.size() == 1 && !checksum.trimmed().isEmpty())
+            m_mgr->setExpectedChecksum(last, checksum);
         if (last && !meta.value(QStringLiteral("postData")).toString().isEmpty()) {
             last->rec.postData = meta.value(QStringLiteral("postData")).toString().toUtf8();
             last->addLog(tr("The server sends this file in answer to a form: FluxDM submits the same form"));

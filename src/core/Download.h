@@ -59,6 +59,9 @@ class Download : public QObject {
     Q_PROPERTY(int speedLimit READ speedLimit NOTIFY changed) // KB/s, 0 = none
     Q_PROPERTY(bool moving READ moving NOTIFY changed)
     Q_PROPERTY(bool converting READ converting NOTIFY changed)
+    Q_PROPERTY(int hashStatus READ hashStatus NOTIFY changed)        // HashStatus
+    Q_PROPERTY(QString expectedHash READ expectedHash NOTIFY changed)
+    Q_PROPERTY(QString hashText READ hashText NOTIFY changed)        // "SHA-256 matches" / what was computed
     Q_PROPERTY(double convertProgress READ convertProgress NOTIFY changed) // 0..1, -1 unknown
     Q_PROPERTY(bool needsLogin READ needsLogin NOTIFY changed) // failed asking for a user name/password
     Q_PROPERTY(bool awaitingFiles READ awaitingFiles NOTIFY changed) // torrent: waiting for the user to pick files
@@ -169,6 +172,17 @@ public:
     {
         return failed() && (rec.lastError.startsWith(QLatin1String("HTTP error 401")) || rec.lastError.startsWith(QLatin1String("Login ")));
     }
+    enum HashStatus { HashNone = 0, HashChecking = 1, HashMatch = 2, HashMismatch = 3, HashFailed = 4 };
+    Q_ENUM(HashStatus)
+    int hashStatus() const { return rec.hashStatus; }
+    QString expectedHash() const { return rec.expectedHash; }
+    QString hashText() const // the details are kept for this session; after a restart only the verdict
+    {
+        if (!m_hashText.isEmpty())
+            return m_hashText;
+        return rec.hashStatus == HashMatch ? tr("Checksum matches") : rec.hashStatus == HashMismatch ? tr("Checksum does not match") : QString();
+    }
+    void setHashResult(int status, const QString& text) { rec.hashStatus = status; m_hashText = text; emit changed(); }
     void setConverting(bool c) { if (m_converting != c) { m_converting = c; m_convertProgress = -1; emit changed(); } }
     double convertProgress() const { return m_convertProgress; }
     void setConvertProgress(double p) { m_convertProgress = p; emit changed(); }
@@ -209,4 +223,5 @@ private:
     bool m_converting = false;
     QVariantList m_pendingFiles;
     double m_convertProgress = -1;
+    QString m_hashText;
 };

@@ -33,6 +33,7 @@ Rectangle {
     // Live torrent details (peers/trackers), refreshed every second while relevant.
     property var details: ({})
     readonly property bool hasDetails: details.peers !== undefined
+    function scrollGeneralToEnd() { generalScroll.ScrollBar.vertical.position = 1 - generalScroll.ScrollBar.vertical.size } // dev screenshots
     function refreshDetails() { details = panel.d ? App.torrentDetails(panel.d.id) : ({}) }
     onDChanged: refreshDetails()
     onHasDetailsChanged: if (!hasDetails && tabs.currentIndex >= 3) tabs.currentIndex = 0
@@ -280,6 +281,46 @@ Rectangle {
                         InfoValue { text: panel.d ? App.fmtDate(panel.d.created) : "" }
                         InfoLabel { text: qsTr("Completed"); visible: panel.d && panel.d.completed }
                         InfoValue { visible: panel.d && panel.d.completed; text: panel.d ? App.fmtDate(panel.d.finishedAt) : "" }
+                        InfoLabel {
+                            text: qsTr("Checksum")
+                            visible: panel.d !== null && !panel.d.isTorrent && (panel.d.completed || panel.d.expectedHash !== "")
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: panel.d !== null && !panel.d.isTorrent && (panel.d.completed || panel.d.expectedHash !== "")
+                            spacing: 8
+                            Text {
+                                visible: panel.d && panel.d.hashStatus !== 0
+                                text: !panel.d ? "" : panel.d.hashStatus === 2 ? Theme.icons.check : panel.d.hashStatus === 1 ? Theme.icons.refresh : Theme.icons.warn
+                                font.family: Theme.iconFont
+                                font.pixelSize: 12
+                                color: !panel.d ? Theme.text : panel.d.hashStatus === 2 ? Theme.success : panel.d.hashStatus === 1 ? Theme.accent : Theme.error
+                            }
+                            InfoValue {
+                                visible: panel.d && (panel.d.hashStatus !== 0 || !panel.d.completed)
+                                Layout.fillWidth: !(panel.d && panel.d.completed)
+                                text: !panel.d ? "" : panel.d.hashStatus !== 0 ? panel.d.hashText : qsTr("Checked when the download finishes")
+                            }
+                            FTextField {
+                                id: hashInput
+                                visible: panel.d && panel.d.completed && panel.d.hashStatus !== 1
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: 420
+                                placeholderText: qsTr("Paste MD5, SHA-1 or SHA-256 to verify")
+                                onAccepted: verifyBtn.clicked()
+                            }
+                            FButton {
+                                id: verifyBtn
+                                visible: hashInput.visible
+                                text: qsTr("Verify")
+                                enabled: App.isChecksum(hashInput.text) || (panel.d && panel.d.expectedHash !== "" && hashInput.text === "")
+                                onClicked: {
+                                    const err = App.verifyChecksum(panel.d.id, hashInput.text)
+                                    if (err !== "") App.notice(err)
+                                    else hashInput.text = ""
+                                }
+                            }
+                        }
                     }
                 }
             }

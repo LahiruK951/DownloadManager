@@ -38,6 +38,8 @@ struct DownloadRecord {
     QList<int> tags;            // user tag ids (downloadsTags)
     qint64 queueOrder = 0;      // FDM downloadOrder: position in the queue (default: the id)
     QString contentCategory;    // from the file list of a multi-file download; "" = use the title
+    QString expectedHash;       // checksum to verify once finished (Checksum::parse text), "" = none
+    int hashStatus = 0;         // Download::HashStatus of the last verification
     bool scheduled = false;     // downloadsScheduleRecords row present
     ScheduleWindow schedule;
 };

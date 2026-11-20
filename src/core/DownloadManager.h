@@ -34,6 +34,10 @@ public:
     Download* find(qint64 id) const;
     // A download of the same address already in the list (newest first); the #fragment is ignored.
     Download* findByUrl(const QString& url) const;
+    // Compares a finished file with a published checksum (MD5/SHA-1/SHA-256/SHA-512) on a worker
+    // thread; `expected` "" re-checks the one stored with the download. Returns an error text.
+    QString verifyChecksum(Download* d, const QString& expected = {});
+    void setExpectedChecksum(Download* d, const QString& text); // checked when the download finishes
     const QList<Download*>& downloads() const { return m_list; }
 
     void pause(Download* d);
@@ -152,6 +156,7 @@ signals:
     void conversionFinished(Download* d, const QString& output, const QString& error);
     void antivirusChecked(Download* d, bool blocked, const QString& message);
     void storageError(const QString& message); // the database could not be written (rate-limited)
+    void checksumChecked(Download* d, bool match, const QString& text);
 
 public slots:
     // Downloads waiting for disk space continue once there is enough (also run every 15 s).

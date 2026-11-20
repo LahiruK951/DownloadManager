@@ -195,10 +195,11 @@ ApplicationWindow {
         const v = App.devOpen
         if (v === "" && App.previousSessionCrashed) crashTimer.start() // offer a report after a crash
         if (v === "") return
-        if (v === "panel" || v === "panel-log" || v === "panel-files") {
-            App.select(App.downloads.idAt(0))
+        if (v === "panel" || v === "panel-log" || v === "panel-files" || v === "panel-done") {
+            App.select(App.downloads.idAt(v === "panel-done" ? 5 : 0))
             App.bottomPanelOpen = true
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
+            if (v === "panel-done") Qt.callLater(bottomPanel.scrollGeneralToEnd)
         } else if (v.startsWith("settings")) {
             settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser", "settings-network", "settings-remote"].indexOf(v))
         }

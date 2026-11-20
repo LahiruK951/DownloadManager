@@ -22,6 +22,7 @@
 #include "core/DiskSpace.h"
 #include "core/InstanceServer.h"
 #include "core/Secret.h"
+#include "core/Checksum.h"
 #include <QLocalSocket>
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
@@ -1084,6 +1085,56 @@ private slots:
         r.postData = p.postData;
         db.save(r);
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
+    }
+
+    void checksumVerification()
+    {
+        const QString sha = QStringLiteral("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855");
+        QCOMPARE(Checksum::parse(sha).name, QStringLiteral("SHA-256"));
+        QCOMPARE(Checksum::parse("SHA256: " + sha).hex, sha.toLower());
+        QCOMPARE(Checksum::parse(sha.toLower() + "  ubuntu.iso").algo, QCryptographicHash::Sha256);
+        QCOMPARE(Checksum::parse("d41d8cd98f00b204e9800998ecf8427e").name, QStringLiteral("MD5"));
+        QCOMPARE(Checksum::parse("da39a3ee5e6b4b0d3255bfef95601890afd80709").name, QStringLiteral("SHA-1"));
+        QVERIFY(!Checksum::parse("not a hash").valid());
+        QVERIFY(!Checksum::parse("abc123").valid());
+
+        RangeServer srv;
+        srv.data = makeData(300 * 1024);
+        QVERIFY(srv.start());
+        const QString good = QString::fromLatin1(QCryptographicHash::hash(srv.data, QCryptographicHash::Sha256).toHex());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        QSignalSpy checked(&mgr, &DownloadManager::checksumChecked);
+
+        // Published checksum given when adding: verified on completion.
+        Download* a = mgr.add(srv.url("/a.bin"), dir.path(), {}, false);
+        mgr.setExpectedChecksum(a, "sha256:" + good);
+        mgr.resume(a);
+        QTRY_COMPARE_WITH_TIMEOUT(a->hashStatus(), int(Download::HashMatch), 20000);
+        QCOMPARE(checked.count(), 1);
+        QVERIFY(checked.first().at(1).toBool());
+
+        // A wrong one is reported.
+        Download* b = mgr.add(srv.url("/b.bin"), dir.path(), {}, false);
+        mgr.setExpectedChecksum(b, "d41d8cd98f00b204e9800998ecf8427e");
+        mgr.resume(b);
+        QTRY_COMPARE_WITH_TIMEOUT(b->hashStatus(), int(Download::HashMismatch), 20000);
+        QVERIFY(!checked.last().at(1).toBool());
+        QVERIFY(b->hashText().contains("does not match"));
+
+        // Checked later by hand; bad input refused.
+        QVERIFY(!mgr.verifyChecksum(b, "xyz").isEmpty());
+        QVERIFY(mgr.verifyChecksum(b, good).isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(b->hashStatus(), int(Download::HashMatch), 10000);
+
+        // The verdict is kept.
+        const auto rows = db.loadDownloads();
+        for (const DownloadRecord& r : rows)
+            QCOMPARE(r.hashStatus, int(Download::HashMatch));
     }
 
     void diskFullWaitsForSpace()

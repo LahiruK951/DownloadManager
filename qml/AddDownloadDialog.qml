@@ -25,6 +25,7 @@ FDialog {
     function openWith(text, folder) { // folder: optional, else the best one for the link
         urlsField.text = text || ""
         nameField.text = App.suggestedName(text || "")
+        hashField.text = ""
         errorText.text = ""
         startBox.checked = true
         existingChoice = 0
@@ -43,7 +44,7 @@ FDialog {
     function submit() {
         const err = App.addDownloads(urlsField.text, folderField.editText, nameField.text, startBox.checked,
                                      { enabled: schedBox.checked, days: schedEditor.days, from: schedEditor.fromMin, to: schedEditor.toMin },
-                                     nameTaken ? existingChoice : -1)
+                                     nameTaken ? existingChoice : -1, hashField.visible ? hashField.text : "")
         if (err === "") close()
         else errorText.text = err
     }
@@ -111,6 +112,14 @@ FDialog {
             Layout.fillWidth: true
             visible: dlg.linkCount <= 1 && !dlg.torrent
             placeholderText: qsTr("Automatic (from the server)")
+            onAccepted: dlg.submit()
+        }
+        FTextField {
+            id: hashField
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            visible: dlg.linkCount === 1 && !dlg.torrent
+            placeholderText: qsTr("Checksum to verify (optional): MD5, SHA-1 or SHA-256")
             onAccepted: dlg.submit()
         }
         RowLayout {

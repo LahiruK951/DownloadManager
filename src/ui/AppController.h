@@ -186,7 +186,9 @@ public:
     // --- actions
     // existingFile: FileNamer::ExistingFile for these downloads, -1 = the default from Settings
     Q_INVOKABLE QString addDownloads(const QString& text, const QString& folder, const QString& fileName, bool start,
-                                     const QVariantMap& schedule = {}, int existingFile = -1);
+                                     const QVariantMap& schedule = {}, int existingFile = -1, const QString& checksum = {});
+    Q_INVOKABLE QString verifyChecksum(qint64 id, const QString& expected); // "" = started
+    Q_INVOKABLE bool isChecksum(const QString& text) const; // a hash of a known length is in it
     Q_INVOKABLE int countLinks(const QString& text) const;
     // Links in `text` that are already in the list: {count, id, title, state} of the first one; empty if none.
     Q_INVOKABLE QVariantMap duplicateOf(const QString& text) const;
