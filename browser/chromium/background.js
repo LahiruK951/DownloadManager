@@ -38,7 +38,7 @@ function baseName(path) {
   return (path || "").split(/[\\/]/).pop();
 }
 
-async function handOff(url, referrer, fileName) {
+async function handOff(url, referrer, fileName, postData) {
   return sendToHost({
     cmd: "download",
     url,
@@ -46,7 +46,35 @@ async function handOff(url, referrer, fileName) {
     cookies: await cookieHeader(url),
     userAgent: navigator.userAgent,
     fileName: fileName || "",
+    postData: postData || "",
   });
+}
+
+// Forms the browser submitted in the last minute, by URL: some servers only send the file as the
+// answer to a POST, so FluxDM has to submit the same form again (FDM does this too).
+const recentPosts = new Map();
+chrome.webRequest.onBeforeRequest.addListener(
+  (d) => {
+    if (d.method !== "POST" || !d.requestBody) return;
+    let body = "";
+    if (d.requestBody.formData) {
+      const p = new URLSearchParams();
+      for (const [k, values] of Object.entries(d.requestBody.formData)) for (const v of values) p.append(k, v);
+      body = p.toString();
+    } else if (d.requestBody.raw && d.requestBody.raw[0] && d.requestBody.raw[0].bytes) {
+      body = new TextDecoder().decode(d.requestBody.raw[0].bytes);
+    }
+    if (!body || body.length > 65536) return;
+    recentPosts.set(d.url, { body, time: Date.now() });
+    for (const [u, v] of recentPosts) if (Date.now() - v.time > 60000) recentPosts.delete(u);
+  },
+  { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] },
+  ["requestBody"]
+);
+
+function postBodyFor(url) {
+  const p = recentPosts.get(url);
+  return p && Date.now() - p.time < 60000 ? p.body : "";
 }
 
 function skippedByExtension(url, list) {
@@ -78,7 +106,7 @@ chrome.downloads.onCreated.addListener(async (item) => {
     await chrome.downloads.cancel(item.id);
   } catch (e) {}
 
-  const reply = await handOff(url, item.referrer, baseName(item.filename));
+  const reply = await handOff(url, item.referrer, baseName(item.filename), postBodyFor(item.url) || postBodyFor(url));
   if (reply.ok) {
     try {
       await chrome.downloads.erase({ id: item.id });

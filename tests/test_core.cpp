@@ -1006,6 +1006,34 @@ private slots:
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
     }
 
+    void postDownload()
+    {
+        RangeServer srv;
+        srv.data = makeData(200 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(61, srv.url("/export.php"), dir.path());
+        p.fileName = QStringLiteral("export.csv");
+        p.postData = "report=sales&year=2026&token=abc";
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == srv.data);
+        QVERIFY2(srv.requestLines.first().startsWith("POST /export.php"), srv.requestLines.first().constData());
+        QVERIFY(srv.bodies.first().contains("report=sales&year=2026&token=abc"));
+
+        // Kept with the download, so a restart submits the form again.
+        Database db;
+        QVERIFY(db.open(dir.filePath("profile")));
+        DownloadRecord r;
+        r.id = 1;
+        r.postData = p.postData;
+        db.save(r);
+        QCOMPARE(db.loadDownloads().first().postData, p.postData);
+    }
+
     void meteredConnection()
     {
         RangeServer srv;

@@ -739,6 +739,10 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
                           meta.value(QStringLiteral("userAgent")).toString(), sched ? &w : nullptr);
         if (last && existingFile >= 0)
             m_mgr->setExistingFileReaction(last, existingFile);
+        if (last && !meta.value(QStringLiteral("postData")).toString().isEmpty()) {
+            last->rec.postData = meta.value(QStringLiteral("postData")).toString().toUtf8();
+            last->addLog(tr("The server sends this file in answer to a form: FluxDM submits the same form"));
+        }
     }
     rememberFolder(dir);
     if (last)
@@ -1506,7 +1510,7 @@ QString AppController::handleBrowserRequest(const QVariantMap& r)
     if (!m_mgr->canHandle(url))
         return tr("Unsupported link");
     QVariantMap meta;
-    for (const char* k : {"referrer", "cookies", "userAgent", "fileName"})
+    for (const char* k : {"referrer", "cookies", "userAgent", "fileName", "postData"})
         meta.insert(QString::fromLatin1(k), r.value(QString::fromLatin1(k)));
     meta[QStringLiteral("fileName")] = FileNamer::sanitize(QFileInfo(meta.value(QStringLiteral("fileName")).toString()).fileName());
     if (meta.value(QStringLiteral("fileName")).toString() == QLatin1String("download"))

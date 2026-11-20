@@ -174,6 +174,11 @@ void HttpTask::startSegment(Segment* s)
     const QByteArray cookies = m_p.cookies.toUtf8();
     if (!cookies.isEmpty())
         curl_easy_setopt(h, CURLOPT_COOKIE, cookies.constData());
+    // A form the browser submitted: the server only answers with the file to that POST.
+    if (!m_p.postData.isEmpty()) {
+        curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE_LARGE, curl_off_t(m_p.postData.size()));
+        curl_easy_setopt(h, CURLOPT_COPYPOSTFIELDS, m_p.postData.constData());
+    }
     // The user chose to trust this server despite its certificate (self-signed NAS, router, ...).
     if (m_p.trustCertificate) {
         curl_easy_setopt(h, CURLOPT_SSL_VERIFYPEER, 0L);

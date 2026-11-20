@@ -14,6 +14,7 @@ struct DownloadRecord {
     QString url;
     QString referrer;
     QString cookies;
+    QByteArray postData;        // postData: the form body for downloads that answer a POST
     QString userAgent;
     QString destDir;            // destinationPath
     QString preferredName;      // preferredFileTitle (user supplied)
