@@ -1,4 +1,5 @@
 #pragma once
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -32,19 +33,23 @@ struct ScheduleWindow {
 
     QString text() const
     {
-        static const char* names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        // Translatable (context "Schedule"); QT_TRANSLATE_NOOP lets lupdate find the day names.
+        static const char* names[] = {QT_TRANSLATE_NOOP("Schedule", "Mon"), QT_TRANSLATE_NOOP("Schedule", "Tue"),
+                                      QT_TRANSLATE_NOOP("Schedule", "Wed"), QT_TRANSLATE_NOOP("Schedule", "Thu"),
+                                      QT_TRANSLATE_NOOP("Schedule", "Fri"), QT_TRANSLATE_NOOP("Schedule", "Sat"),
+                                      QT_TRANSLATE_NOOP("Schedule", "Sun")};
         QString d;
         if ((days & 0x7F) == 0x7F)
-            d = QStringLiteral("Every day");
+            d = QCoreApplication::translate("Schedule", "Every day");
         else if ((days & 0x7F) == 0x1F)
-            d = QStringLiteral("Weekdays");
+            d = QCoreApplication::translate("Schedule", "Weekdays");
         else if ((days & 0x7F) == 0x60)
-            d = QStringLiteral("Weekends");
+            d = QCoreApplication::translate("Schedule", "Weekends");
         else {
             QStringList l;
             for (int i = 0; i < 7; ++i)
                 if (days & (1 << i))
-                    l << QString::fromLatin1(names[i]);
+                    l << QCoreApplication::translate("Schedule", names[i]);
             d = l.join(QLatin1Char(' '));
         }
         if (fromMin == toMin)

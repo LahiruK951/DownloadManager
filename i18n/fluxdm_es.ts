@@ -323,6 +323,47 @@
         <source>Windows language (%1)</source>
         <translation>Idioma de Windows (%1)</translation>
     </message>
+    <message>
+        <source>Metered connection: paused %1 download(s); they continue on an unmetered connection</source>
+        <translation>Conexión de uso medido: se pausaron %1 descarga(s); seguirán en una conexión sin límite</translation>
+    </message>
+    <message>
+        <source>No longer metered: resumed %1 download(s)</source>
+        <translation>Ya no es de uso medido: se reanudaron %1 descarga(s)</translation>
+    </message>
+    <message>
+        <source>The server sends this file in answer to a form: FluxDM submits the same form</source>
+        <translation>El servidor envía este archivo como respuesta a un formulario: FluxDM envía el mismo formulario</translation>
+    </message>
+    <message>
+        <source>Not a web or FTP address: %1</source>
+        <translation>No es una dirección web ni FTP: %1</translation>
+    </message>
+    <message>
+        <source>Mirrors removed</source>
+        <translation>Réplicas quitadas</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n mirror(s) set; used from the next start</source>
+        <translation>
+            <numerusform>Se configuró %n réplica; se usa desde el próximo inicio.</numerusform><numerusform>Se configuraron %n réplicas; se usan desde el próximo inicio.</numerusform></translation>
+    </message>
+    <message>
+        <source>All %1 downloads from Free Download Manager are already in the list.</source>
+        <translation>Las %1 descargas de Free Download Manager ya están en la lista.</translation>
+    </message>
+    <message>
+        <source>Free Download Manager's list is empty.</source>
+        <translation>La lista de Free Download Manager está vacía.</translation>
+    </message>
+    <message>
+        <source>Imported %1 download(s) from Free Download Manager; %2 were already here.</source>
+        <translation>Se importaron %1 descarga(s) de Free Download Manager; %2 ya estaban aquí.</translation>
+    </message>
+    <message>
+        <source>Imported %1 download(s) from Free Download Manager.</source>
+        <translation>Se importaron %1 descarga(s) de Free Download Manager.</translation>
+    </message>
 </context>
 <context>
     <name>BottomPanel</name>
@@ -490,6 +531,14 @@
         <source>No trackers: peers come from DHT and local discovery</source>
         <translation>Sin trackers: los pares llegan por DHT y descubrimiento local</translation>
     </message>
+    <message>
+        <source>Open in a new window</source>
+        <translation>Abrir en una ventana nueva</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
 </context>
 <context>
     <name>BtEngine</name>
@@ -568,6 +617,29 @@
     <message>
         <source>Share ratio %1 reached; seeding stopped</source>
         <translation>Se alcanzó la proporción %1; se dejó de compartir</translation>
+    </message>
+</context>
+<context>
+    <name>CertificateDialog</name>
+    <message>
+        <source>Untrusted certificate</source>
+        <translation>Certificado no fiable</translation>
+    </message>
+    <message>
+        <source>The security certificate of %1 isn't trusted, so FluxDM can't be sure it's talking to the real server.</source>
+        <translation>El certificado de seguridad de %1 no es de confianza, así que FluxDM no puede estar seguro de hablar con el servidor real.</translation>
+    </message>
+    <message>
+        <source>Continue only if you know this server, for example a device on your own network. Otherwise someone could be intercepting the download.</source>
+        <translation>Continúa solo si conoces este servidor, por ejemplo un dispositivo de tu propia red. Si no, alguien podría estar interceptando la descarga.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Trust this server and continue</source>
+        <translation>Confiar en este servidor y continuar</translation>
     </message>
 </context>
 <context>
@@ -971,6 +1043,26 @@
         <source>Conversion failed: %1</source>
         <translation>La conversión falló: %1</translation>
     </message>
+    <message>
+        <source>Blocked by your antivirus: %1</source>
+        <translation>Bloqueado por tu antivirus: %1</translation>
+    </message>
+    <message>
+        <source>Checked by your antivirus</source>
+        <translation>Revisado por tu antivirus</translation>
+    </message>
+    <message>
+        <source>Not checked by an antivirus (%1)</source>
+        <translation>No lo revisó ningún antivirus (%1)</translation>
+    </message>
+    <message>
+        <source>Imported from Free Download Manager</source>
+        <translation>Importado de Free Download Manager</translation>
+    </message>
+    <message>
+        <source>Trusting the certificate of %1 from now on</source>
+        <translation>A partir de ahora se confía en el certificado de %1</translation>
+    </message>
 </context>
 <context>
     <name>DownloadRow</name>
@@ -1241,6 +1333,22 @@
     <message>
         <source>Delete…</source>
         <translation>Eliminar…</translation>
+    </message>
+    <message>
+        <source>Certificate problem</source>
+        <translation>Problema de certificado</translation>
+    </message>
+    <message>
+        <source>Certificate problem…</source>
+        <translation>Problema de certificado…</translation>
+    </message>
+    <message>
+        <source>Open in a new window</source>
+        <translation>Abrir en una ventana nueva</translation>
+    </message>
+    <message>
+        <source>Mirrors…</source>
+        <translation>Réplicas…</translation>
     </message>
 </context>
 <context>
@@ -1613,6 +1721,48 @@
     </message>
 </context>
 <context>
+    <name>MeteredDialog</name>
+    <message>
+        <source>Metered connection</source>
+        <translation>Conexión de uso medido</translation>
+    </message>
+    <message>
+        <source>Windows says this connection is metered, for example a phone hotspot or a data plan with a limit. %1 download(s) would keep using it.</source>
+        <translation>Windows indica que esta conexión es de uso medido, por ejemplo un punto de acceso del teléfono o un plan de datos con límite. %1 descarga(s) seguirían usándola.</translation>
+    </message>
+    <message>
+        <source>Don't ask again</source>
+        <translation>No volver a preguntar</translation>
+    </message>
+    <message>
+        <source>Keep downloading</source>
+        <translation>Seguir descargando</translation>
+    </message>
+    <message>
+        <source>Pause downloads</source>
+        <translation>Pausar las descargas</translation>
+    </message>
+</context>
+<context>
+    <name>MirrorsDialog</name>
+    <message>
+        <source>Mirrors</source>
+        <translation>Réplicas</translation>
+    </message>
+    <message>
+        <source>Other links to exactly the same file, one per line. FluxDM downloads parts of it from each; a mirror that fails or has a different file is skipped.</source>
+        <translation>Otros enlaces exactamente al mismo archivo, uno por línea. FluxDM descarga partes desde cada uno; se omite la réplica que falle o tenga otro archivo.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Guardar</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>Video: %1x%2, %3 kbps, %4 (%5 segments)</source>
@@ -1671,6 +1821,49 @@
     <message>
         <source>Close</source>
         <translation>Cerrar</translation>
+    </message>
+</context>
+<context>
+    <name>Schedule</name>
+    <message>
+        <source>Mon</source>
+        <translation>lun</translation>
+    </message>
+    <message>
+        <source>Tue</source>
+        <translation>mar</translation>
+    </message>
+    <message>
+        <source>Wed</source>
+        <translation>mié</translation>
+    </message>
+    <message>
+        <source>Thu</source>
+        <translation>jue</translation>
+    </message>
+    <message>
+        <source>Fri</source>
+        <translation>vie</translation>
+    </message>
+    <message>
+        <source>Sat</source>
+        <translation>sáb</translation>
+    </message>
+    <message>
+        <source>Sun</source>
+        <translation>dom</translation>
+    </message>
+    <message>
+        <source>Every day</source>
+        <translation>Todos los días</translation>
+    </message>
+    <message>
+        <source>Weekdays</source>
+        <translation>Entre semana</translation>
+    </message>
+    <message>
+        <source>Weekends</source>
+        <translation>Fines de semana</translation>
     </message>
 </context>
 <context>
@@ -2440,6 +2633,42 @@
         <source>Translations other than English were made by machine and may read awkwardly. Corrections are welcome.</source>
         <translation>Las traducciones distintas del inglés se hicieron automáticamente y pueden sonar extrañas. Se agradecen las correcciones.</translation>
     </message>
+    <message>
+        <source>Check finished downloads with your antivirus</source>
+        <translation>Revisar las descargas terminadas con tu antivirus</translation>
+    </message>
+    <message>
+        <source>Like a browser: Windows scans each new file and marks it as coming from the internet, so it warns before running it.</source>
+        <translation>Como un navegador: Windows analiza cada archivo nuevo y lo marca como procedente de internet, para avisar antes de ejecutarlo.</translation>
+    </message>
+    <message>
+        <source>On metered connections</source>
+        <translation>En conexiones de uso medido</translation>
+    </message>
+    <message>
+        <source>Phone hotspots or data plans with a limit, as Windows reports them.</source>
+        <translation>Puntos de acceso del teléfono o planes de datos con límite, según los indica Windows.</translation>
+    </message>
+    <message>
+        <source>Pause downloads</source>
+        <translation>Pausar las descargas</translation>
+    </message>
+    <message>
+        <source>Download as usual</source>
+        <translation>Descargar como siempre</translation>
+    </message>
+    <message>
+        <source>Servers trusted despite their certificate</source>
+        <translation>Servidores de confianza pese a su certificado</translation>
+    </message>
+    <message>
+        <source>None.</source>
+        <translation>Ninguno.</translation>
+    </message>
+    <message>
+        <source>%1 server(s). FluxDM doesn't check their certificates.</source>
+        <translation>%1 servidor(es). FluxDM no comprueba sus certificados.</translation>
+    </message>
 </context>
 <context>
     <name>SiteEngine</name>
@@ -2722,6 +2951,10 @@
     <message>
         <source>Exit</source>
         <translation>Salir</translation>
+    </message>
+    <message>
+        <source>Import from Free Download Manager…</source>
+        <translation>Importar desde Free Download Manager…</translation>
     </message>
 </context>
 <context>
