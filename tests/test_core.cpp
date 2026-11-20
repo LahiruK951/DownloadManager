@@ -1087,6 +1087,53 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void connectionSettingsAndCleanup()
+    {
+        RangeServer srv;
+        srv.data = makeData(64 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+
+        // Own user agent (control characters dropped); a browser's one still wins for its downloads.
+        mgr.setUserAgent(QStringLiteral("MyAgent/1.0\r\nX-Bad: 1"));
+        QCOMPARE(mgr.userAgent(), QStringLiteral("MyAgent/1.0X-Bad: 1"));
+        mgr.setUserAgent(QStringLiteral("MyAgent/1.0"));
+        mgr.setIpVersion(4);
+        Download* a = mgr.add(srv.url("/ua.bin"), dir.path(), {}, true);
+        Download* b = mgr.add(srv.url("/browser.bin"), dir.path(), {}, true, {}, {}, QStringLiteral("BrowserUA/2"));
+        QTRY_VERIFY_WITH_TIMEOUT(a->completed() && b->completed(), 20000);
+        bool sawMine = false, sawBrowser = false;
+        for (const QByteArray& h : srv.heads) {
+            sawMine |= h.contains("User-Agent: MyAgent/1.0\r\n");
+            sawBrowser |= h.contains("User-Agent: BrowserUA/2\r\n");
+        }
+        QVERIFY(sawMine && sawBrowser);
+        QCOMPARE(mgr.ipVersion(), 4);
+        mgr.setIpVersion(5);
+        QCOMPARE(mgr.ipVersion(), 0); // only 4 or 6
+
+        TaskParams p;
+        p.url = QStringLiteral("https://youtu.be/abc");
+        p.ipVersion = 6;
+        QVERIFY(SiteEngine::arguments(p, 1, 0).contains(QStringLiteral("-6")));
+
+        // Finished downloads leave the list after N days; files stay.
+        a->rec.finished = QDateTime::currentDateTime().addDays(-10);
+        const QString kept = a->rec.filePath;
+        QCOMPARE(mgr.removeOldFinished(), 0); // off by default
+        mgr.setAutoRemoveDays(7);             // applies right away
+        QVERIFY(!mgr.findByUrl(srv.url("/ua.bin")));
+        QVERIFY(mgr.findByUrl(srv.url("/browser.bin"))); // finished today
+        QVERIFY(QFileInfo::exists(kept));
+        mgr.setBtListenPort(80);
+        QCOMPARE(mgr.btListenPort(), 1024);
+    }
+
     void checksumVerification()
     {
         const QString sha = QStringLiteral("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855");

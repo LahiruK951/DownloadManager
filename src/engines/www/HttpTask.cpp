@@ -178,6 +178,8 @@ void HttpTask::startSegment(Segment* s)
     curl_easy_setopt(h, CURLOPT_LOW_SPEED_TIME, 60L);
     curl_easy_setopt(h, CURLOPT_BUFFERSIZE, 131072L);
     curl_easy_setopt(h, CURLOPT_TCP_KEEPALIVE, 1L);
+    if (m_p.ipVersion == 4 || m_p.ipVersion == 6)
+        curl_easy_setopt(h, CURLOPT_IPRESOLVE, m_p.ipVersion == 4 ? long(CURL_IPRESOLVE_V4) : long(CURL_IPRESOLVE_V6));
     curl_easy_setopt(h, CURLOPT_SSL_OPTIONS, long(CURLSSLOPT_REVOKE_BEST_EFFORT));
 
     const QByteArray ua = headerSafe(m_p.userAgent).toUtf8();

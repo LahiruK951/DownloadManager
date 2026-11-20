@@ -257,6 +257,11 @@ Popup {
                         title: qsTr("Behavior")
                         Layout.fillWidth: true
                         SettingRow {
+                            title: qsTr("Start with Windows")
+                            description: qsTr("Starts in the notification area when you sign in, so scheduled and queued downloads continue.")
+                            FToggle { checked: App.startWithWindows; onToggled: App.startWithWindows = checked }
+                        }
+                        SettingRow {
                             title: qsTr("Keep running in the notification area")
                             description: qsTr("Closing the window hides FluxDM; downloads continue.")
                             FToggle { checked: App.closeButtonHidesApp; onToggled: App.closeButtonHidesApp = checked }
@@ -405,6 +410,17 @@ Popup {
                                 onEditingFinished: { App.setYtdlpSetting(text); page.ytdlp = App.ytdlpFound() }
                             }
                             FButton { text: qsTr("Browse…"); onClicked: ytdlpDlg.open() }
+                        }
+                    }
+                    SettingRow {
+                        title: qsTr("Remove finished downloads from the list")
+                        description: qsTr("Only the entry in FluxDM goes; the files stay where they are.")
+                        FComboBox {
+                            Layout.preferredWidth: 200
+                            readonly property var days: [0, 1, 7, 30, 90]
+                            model: [qsTr("Never"), qsTr("After 1 day"), qsTr("After 7 days"), qsTr("After 30 days"), qsTr("After 90 days")]
+                            currentIndex: Math.max(0, days.indexOf(App.autoRemoveDays))
+                            onActivated: (i) => App.autoRemoveDays = days[i]
                         }
                     }
                     SettingRow {
@@ -679,6 +695,16 @@ Popup {
                         }
                     }
                     SettingRow {
+                        title: qsTr("Listening port")
+                        description: qsTr("Other peers connect to this port. Takes effect the next time FluxDM starts.")
+                        FSpinBox {
+                            implicitWidth: 130
+                            from: 1024; to: 65535
+                            Component.onCompleted: value = App.btListenPort
+                            onValueModified: App.btListenPort = value
+                        }
+                    }
+                    SettingRow {
                         title: qsTr("Open magnet links and .torrent files with FluxDM")
                         description: qsTr("Registers FluxDM for your Windows account only.")
                         divider: false
@@ -877,6 +903,25 @@ Popup {
                             title: qsTr("Servers trusted despite their certificate")
                             description: count === 0 ? qsTr("None.") : qsTr("%1 server(s). FluxDM doesn't check their certificates.").arg(count)
                             FButton { text: qsTr("Forget all"); enabled: trustRow.count > 0; onClicked: App.forgetTrustedHosts() }
+                        }
+                        SettingRow {
+                            title: qsTr("Internet protocol")
+                            description: qsTr("Some networks have a broken IPv6 (or IPv4) route; pick the one that works.")
+                            FSegmented {
+                                model: [qsTr("Automatic"), qsTr("IPv4"), qsTr("IPv6")]
+                                currentIndex: App.ipVersion === 4 ? 1 : App.ipVersion === 6 ? 2 : 0
+                                onActivated: (i) => App.ipVersion = [0, 4, 6][i]
+                            }
+                        }
+                        SettingRow {
+                            title: qsTr("User agent")
+                            description: qsTr("How FluxDM introduces itself to web servers. Leave empty for the default. Downloads from the browser use the browser's.")
+                            FTextField {
+                                implicitWidth: 300
+                                placeholderText: App.defaultUserAgent
+                                Component.onCompleted: text = App.userAgent
+                                onEditingFinished: App.userAgent = text
+                            }
                         }
                         SettingRow {
                             title: qsTr("Connections per server")

@@ -143,6 +143,15 @@ public:
 
     void shutdown();
     static QString defaultUserAgent();
+    QString userAgent() const;              // the setting; "" = defaultUserAgent()
+    void setUserAgent(const QString& ua);
+    int ipVersion() const;                  // 0 any, 4, 6
+    void setIpVersion(int v);
+    int autoRemoveDays() const;             // finished downloads leave the list after N days; 0 = never
+    void setAutoRemoveDays(int days);
+    int removeOldFinished();
+    int btListenPort() const;               // BitTorrent listening port, used from the next start
+    void setBtListenPort(int port);                // returns how many were removed (files stay on disk)
 
 signals:
     void downloadAdded(Download* d);

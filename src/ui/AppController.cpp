@@ -655,6 +655,54 @@ void AppController::restartApp()
         QCoreApplication::quit();
 }
 
+// Start with Windows: the per-user Run key, starting minimised to the notification area.
+// Dev profiles (FLUXDM_DATA_DIR) never touch the real registry.
+static const char* kRunKey = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+static bool devProfile() { return qEnvironmentVariableIsSet("FLUXDM_DATA_DIR"); }
+
+bool AppController::startWithWindows() const
+{
+#ifdef Q_OS_WIN
+    if (devProfile())
+        return m_ui.value(QStringLiteral("devStartWithWindows"), false).toBool();
+    return QSettings(QString::fromLatin1(kRunKey), QSettings::NativeFormat).contains(QStringLiteral("FluxDM"));
+#else
+    return false;
+#endif
+}
+
+void AppController::setStartWithWindows(bool on)
+{
+#ifdef Q_OS_WIN
+    if (devProfile()) {
+        m_ui.setValue(QStringLiteral("devStartWithWindows"), on);
+    } else {
+        QSettings run(QString::fromLatin1(kRunKey), QSettings::NativeFormat);
+        if (on)
+            run.setValue(QStringLiteral("FluxDM"), QStringLiteral("\"%1\" --tray").arg(QDir::toNativeSeparators(QCoreApplication::applicationFilePath())));
+        else
+            run.remove(QStringLiteral("FluxDM"));
+    }
+    emit settingsChanged();
+#else
+    Q_UNUSED(on)
+#endif
+}
+
+QString AppController::userAgent() const { return m_mgr->userAgent(); }
+QString AppController::defaultUserAgent() const { return DownloadManager::defaultUserAgent(); }
+void AppController::setUserAgent(const QString& ua)
+{
+    m_mgr->setUserAgent(ua.trimmed() == DownloadManager::defaultUserAgent() ? QString() : ua.trimmed());
+    emit settingsChanged();
+}
+int AppController::ipVersion() const { return m_mgr->ipVersion(); }
+void AppController::setIpVersion(int v) { m_mgr->setIpVersion(v); emit settingsChanged(); }
+int AppController::autoRemoveDays() const { return m_mgr->autoRemoveDays(); }
+void AppController::setAutoRemoveDays(int days) { m_mgr->setAutoRemoveDays(days); emit settingsChanged(); }
+int AppController::btListenPort() const { return m_mgr->btListenPort(); }
+void AppController::setBtListenPort(int port) { m_mgr->setBtListenPort(port); emit settingsChanged(); }
+
 bool AppController::preventSleep() const { return m_ui.value(QStringLiteral("preventSleep"), true).toBool(); }
 
 void AppController::setPreventSleep(bool on)

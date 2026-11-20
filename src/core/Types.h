@@ -43,6 +43,7 @@ struct TaskParams {
     bool pickFiles = false;  // BitTorrent: wait for the user to choose files once they are known
     bool sequential = false; // BitTorrent: download pieces in order (playable while downloading)
     qint64 speedLimit = 0; // per-download cap in bytes/s, 0 = none
+    int ipVersion = 0;     // 0 any, 4 IPv4 only, 6 IPv6 only
 };
 
 // Periodic progress snapshot posted from an engine to the GUI thread.

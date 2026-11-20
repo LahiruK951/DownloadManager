@@ -49,6 +49,12 @@ class AppController : public QObject {
     Q_PROPERTY(bool closeButtonHidesApp READ closeButtonHidesApp WRITE setCloseButtonHidesApp NOTIFY settingsChanged)
     Q_PROPERTY(bool monitorClipboard READ monitorClipboard WRITE setMonitorClipboard NOTIFY settingsChanged)
     Q_PROPERTY(bool preventSleep READ preventSleep WRITE setPreventSleep NOTIFY settingsChanged)
+    Q_PROPERTY(bool startWithWindows READ startWithWindows WRITE setStartWithWindows NOTIFY settingsChanged)
+    Q_PROPERTY(QString userAgent READ userAgent WRITE setUserAgent NOTIFY settingsChanged)
+    Q_PROPERTY(QString defaultUserAgent READ defaultUserAgent CONSTANT)
+    Q_PROPERTY(int ipVersion READ ipVersion WRITE setIpVersion NOTIFY settingsChanged)
+    Q_PROPERTY(int autoRemoveDays READ autoRemoveDays WRITE setAutoRemoveDays NOTIFY settingsChanged)
+    Q_PROPERTY(int btListenPort READ btListenPort WRITE setBtListenPort NOTIFY settingsChanged)
     Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
     Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged) // "" = Windows' language
@@ -119,6 +125,12 @@ public:
     void setCloseButtonHidesApp(bool v);
     bool monitorClipboard() const;
     bool preventSleep() const;
+    bool startWithWindows() const;
+    QString userAgent() const;
+    QString defaultUserAgent() const;
+    int ipVersion() const;
+    int autoRemoveDays() const;
+    int btListenPort() const;
     int zoom() const;
     void setZoom(int percent);
     int zoomInEffect() const;
@@ -165,6 +177,11 @@ public:
     bool sortDescending() const;
     Q_INVOKABLE void setSort(const QString& key, bool descending);
     void setPreventSleep(bool on);
+    void setStartWithWindows(bool on);
+    void setUserAgent(const QString& ua);
+    void setIpVersion(int v);
+    void setAutoRemoveDays(int days);
+    void setBtListenPort(int port); // used from the next start
     void setMonitorClipboard(bool v);
     bool notifyOnComplete() const;
     void setNotifyOnComplete(bool v);

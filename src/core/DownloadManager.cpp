@@ -73,8 +73,10 @@ DownloadManager::DownloadManager(Database* db, QObject* parent)
         evaluateTrafficRules();
         runAutoRetries();
         recheckDiskSpace();
-        if (++m_tick % 4 == 0) // once a minute
+        if (++m_tick % 4 == 0) { // once a minute
             checkMissingFiles();
+            removeOldFinished();
+        }
         schedule();
     });
     m_clock.start();
@@ -113,6 +115,41 @@ QString DownloadManager::defaultUserAgent()
     return QStringLiteral("Mozilla/5.0 (Windows NT 10.0; Win64; x64) FluxDM/" FLUXDM_VERSION);
 }
 
+QString DownloadManager::userAgent() const { return m_db->setting(QStringLiteral("UserAgent")).toString(); }
+void DownloadManager::setUserAgent(const QString& ua) { m_db->setSetting(QStringLiteral("UserAgent"), headerSafe(ua)); }
+int DownloadManager::ipVersion() const
+{
+    const int v = m_db->setting(QStringLiteral("IpVersion"), 0).toInt();
+    return v == 4 || v == 6 ? v : 0;
+}
+void DownloadManager::setIpVersion(int v) { m_db->setSetting(QStringLiteral("IpVersion"), v == 4 || v == 6 ? v : 0); }
+int DownloadManager::autoRemoveDays() const { return qBound(0, m_db->setting(QStringLiteral("AutoRemoveDays"), 0).toInt(), 3650); }
+void DownloadManager::setAutoRemoveDays(int days)
+{
+    m_db->setSetting(QStringLiteral("AutoRemoveDays"), qBound(0, days, 3650));
+    removeOldFinished();
+}
+
+int DownloadManager::btListenPort() const { return m_db->setting(QStringLiteral("BtListenPort"), 0).toInt(); }
+void DownloadManager::setBtListenPort(int port) { m_db->setSetting(QStringLiteral("BtListenPort"), qBound(1024, port, 65535)); }
+
+int DownloadManager::removeOldFinished()
+{
+    const int days = autoRemoveDays();
+    if (days <= 0)
+        return 0;
+    const QDateTime cutoff = QDateTime::currentDateTime().addDays(-days);
+    QList<Download*> old;
+    for (Download* d : m_list)
+        if (d->completed() && !d->seeding() && !d->converting() && !d->moving() && d->rec.finished.isValid() && d->rec.finished < cutoff)
+            old << d;
+    for (Download* d : old) {
+        AppLog::write(QStringLiteral("Removed from the list after %1 days: %2").arg(days).arg(d->title()));
+        remove(d, false);
+    }
+    return int(old.size());
+}
+
 void DownloadManager::load()
 {
     m_nextId = m_db->maxId();
@@ -128,6 +165,7 @@ void DownloadManager::load()
         m_byId.insert(d->id(), d);
     }
     checkMissingFiles();
+    removeOldFinished();
     schedule();
     // Completed torrents keep seeding across restarts until the ratio is reached.
     for (Download* d : m_list)
@@ -339,7 +377,8 @@ bool DownloadManager::startDownload(Download* d)
     p.fileName = d->rec.preferredName;
     p.referrer = d->rec.referrer;
     p.cookies = d->rec.cookies;
-    p.userAgent = d->rec.userAgent.isEmpty() ? defaultUserAgent() : d->rec.userAgent;
+    p.userAgent = !d->rec.userAgent.isEmpty() ? d->rec.userAgent : !userAgent().isEmpty() ? userAgent() : defaultUserAgent();
+    p.ipVersion = ipVersion();
     p.proxy = proxyFor(d->rec.url);
     if (QUrl(d->rec.url).userName().isEmpty()) // credentials in the URL win
         loginFor(d->rec.url, &p.user, &p.password);

@@ -83,6 +83,8 @@ QStringList SiteEngine::arguments(const TaskParams& p, int connections, qint64 s
         a << QStringLiteral("--add-headers") << QStringLiteral("Cookie:") + cookies;
     if (!p.user.isEmpty())
         a << QStringLiteral("-u") << p.user << QStringLiteral("-p") << p.password;
+    if (p.ipVersion == 4 || p.ipVersion == 6)
+        a << (p.ipVersion == 4 ? QStringLiteral("-4") : QStringLiteral("-6"));
     a << QStringLiteral("--") << p.url;
     return a;
 }
