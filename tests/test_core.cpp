@@ -21,6 +21,7 @@
 #include "engines/www/FileWriter.h"
 #include "core/DiskSpace.h"
 #include "core/InstanceServer.h"
+#include "core/Secret.h"
 #include <QLocalSocket>
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
@@ -2284,6 +2285,56 @@ private slots:
         o = waitForEnd(fin, fail, 30000);
         QVERIFY2(o.finished, qPrintable(o.error));
         QVERIFY(readAll(o.path) == srv.data);
+    }
+
+    void browserSecretsAreProtected()
+    {
+        QCOMPARE(Secret::unprotectBytes(Secret::protectBytes(QByteArray("a=1&b=\xff\x00z", 9))), QByteArray("a=1&b=\xff\x00z", 9));
+        QVERIFY(Secret::isProtected(Secret::protectBytes("x")));
+        QVERIFY(!Secret::isProtected("sid=abc"));
+
+        QTemporaryDir dir;
+        {
+            Database db;
+            QVERIFY(db.open(dir.path()));
+            DownloadRecord r;
+            r.id = 1;
+            r.url = QStringLiteral("https://example.com/f.zip");
+            r.cookies = QStringLiteral("session=SECRET-COOKIE-123");
+            r.postData = "token=SECRET-FORM-456";
+            QVERIFY(db.save(r));
+            DownloadRecord legacy; // written by an older version: plain text
+            legacy.id = 2;
+            QVERIFY(db.save(legacy));
+        }
+        {
+            QSqlDatabase raw = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("raw2"));
+            raw.setDatabaseName(QDir(dir.path()).filePath(QStringLiteral("db.sqlite")));
+            QVERIFY(raw.open());
+            QSqlQuery q(raw);
+            QVERIFY(q.exec(QStringLiteral("SELECT cookies, postData FROM downloads WHERE id = 1")) && q.next());
+#ifdef Q_OS_WIN
+            QVERIFY(!q.value(0).toByteArray().contains("SECRET-COOKIE"));
+            QVERIFY(!q.value(1).toByteArray().contains("SECRET-FORM"));
+#endif
+            QVERIFY(q.exec(QStringLiteral("UPDATE downloads SET cookies = CAST('old=plain' AS BLOB), postData = CAST('a=b' AS BLOB) WHERE id = 2")));
+            q.finish();
+            raw.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("raw2"));
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        const auto rows = db.loadDownloads();
+        QCOMPARE(rows.size(), 2);
+        for (const DownloadRecord& r : rows) {
+            if (r.id == 1) {
+                QCOMPARE(r.cookies, QStringLiteral("session=SECRET-COOKIE-123"));
+                QCOMPARE(r.postData, QByteArray("token=SECRET-FORM-456"));
+            } else {
+                QCOMPARE(r.cookies, QStringLiteral("old=plain"));
+                QCOMPARE(r.postData, QByteArray("a=b"));
+            }
+        }
     }
 
     void savedLoginsAreProtected()

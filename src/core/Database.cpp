@@ -12,6 +12,14 @@
 
 static const char* kConn = "fluxdm";
 
+// Cookies and form data from the browser can sign in to accounts: kept protected on disk
+// (DPAPI). Rows written before this was added hold plain text and still load.
+static QByteArray hidden(const QByteArray& raw) { return raw.isEmpty() ? QByteArray() : Secret::protectBytes(raw); }
+static QByteArray revealed(const QByteArray& stored)
+{
+    return Secret::isProtected(stored) ? Secret::unprotectBytes(stored) : stored;
+}
+
 Database::~Database()
 {
     if (m_db.isOpen())
@@ -170,7 +178,7 @@ QList<DownloadRecord> Database::loadDownloads()
         r.moduleUid = q.value(1).toString();
         r.url = q.value(2).toString();
         r.referrer = q.value(3).toString();
-        r.cookies = QString::fromUtf8(q.value(4).toByteArray());
+        r.cookies = QString::fromUtf8(revealed(q.value(4).toByteArray()));
         r.userAgent = q.value(5).toString();
         r.destDir = q.value(6).toString();
         r.preferredName = q.value(7).toString();
@@ -193,7 +201,7 @@ QList<DownloadRecord> Database::loadDownloads()
         r.pickFiles = q.value(22).toBool();
         r.sequential = q.value(23).toBool();
         r.queueOrder = q.value(24).isNull() ? r.id : q.value(24).toLongLong();
-        r.postData = q.value(25).toByteArray();
+        r.postData = revealed(q.value(25).toByteArray());
         r.mirrors = QString::fromUtf8(q.value(26).toByteArray()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
         out.append(r);
     }
@@ -240,7 +248,7 @@ bool Database::save(const DownloadRecord& r)
     q.addBindValue(r.moduleUid);
     q.addBindValue(r.url);
     q.addBindValue(r.referrer);
-    q.addBindValue(r.cookies.toUtf8());
+    q.addBindValue(hidden(r.cookies.toUtf8()));
     q.addBindValue(r.userAgent);
     q.addBindValue(r.destDir);
     q.addBindValue(r.preferredName);
@@ -261,7 +269,7 @@ bool Database::save(const DownloadRecord& r)
     q.addBindValue(r.pickFiles ? 1 : 0);
     q.addBindValue(r.sequential ? 1 : 0);
     q.addBindValue(r.queueOrder ? r.queueOrder : r.id);
-    q.addBindValue(r.postData);
+    q.addBindValue(hidden(r.postData));
     q.addBindValue(r.mirrors.join(QLatin1Char('\n')).toUtf8());
     bool ok = run(q, "save download");
 

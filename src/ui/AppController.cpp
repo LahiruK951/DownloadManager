@@ -29,6 +29,7 @@
 
 #include "core/AppLog.h"
 #include "core/BatchLinks.h"
+#include "core/Secret.h"
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
 #include "core/Download.h"
@@ -108,9 +109,15 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     // Remote control: links added from a phone go through the same path as the Add dialog.
     m_remote = new RemoteServer(m_mgr, this);
     m_remote->setAddHandler([this](const QString& url) { return addSilently(url, QString(), QString()); });
-    if (m_ui.value(QStringLiteral("remoteCode")).toString().isEmpty())
-        m_ui.setValue(QStringLiteral("remoteCode"), RemoteServer::newAccessCode());
-    m_remote->setAccessCode(m_ui.value(QStringLiteral("remoteCode")).toString());
+    // The access code is kept protected (DPAPI); older versions stored it as plain text.
+    QString code = Secret::unprotect(QByteArray::fromBase64(m_ui.value(QStringLiteral("remoteCodeProtected")).toByteArray()));
+    if (code.isEmpty())
+        code = m_ui.value(QStringLiteral("remoteCode")).toString();
+    if (code.isEmpty())
+        code = RemoteServer::newAccessCode();
+    m_ui.setValue(QStringLiteral("remoteCodeProtected"), Secret::protect(code).toBase64());
+    m_ui.remove(QStringLiteral("remoteCode"));
+    m_remote->setAccessCode(code);
     applyRemote();
     connect(m_mgr, &DownloadManager::antivirusChecked, this, [this](Download* d, bool blocked, const QString& msg) {
         if (blocked)
@@ -548,7 +555,7 @@ void AppController::setRemotePort(int port)
 void AppController::newRemoteCode()
 {
     const QString code = RemoteServer::newAccessCode();
-    m_ui.setValue(QStringLiteral("remoteCode"), code);
+    m_ui.setValue(QStringLiteral("remoteCodeProtected"), Secret::protect(code).toBase64());
     m_remote->setAccessCode(code); // signed-in phones have to sign in again
     emit remoteChanged();
 }
