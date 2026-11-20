@@ -1,6 +1,7 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QSysInfo>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
@@ -1640,6 +1641,76 @@ private slots:
             call("/api/login", {{"code", "111111"}}, {}, &code);
         call("/api/login", {{"code", "654321"}}, {}, &code);
         QCOMPARE(code, 429);
+    }
+
+    void remoteControlHardening()
+    {
+        QVERIFY(RemoteServer::isAllowedHost("192.168.1.5:8080"));
+        QVERIFY(RemoteServer::isAllowedHost("[fe80::1]:8080"));
+        QVERIFY(RemoteServer::isAllowedHost("localhost:1234"));
+        QVERIFY(RemoteServer::isAllowedHost(QSysInfo::machineHostName().toLatin1() + ".fritz.box"));
+        QVERIFY(!RemoteServer::isAllowedHost("attacker.example:8080"));
+        QVERIFY(!RemoteServer::isAllowedHost(""));
+
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.load();
+        RemoteServer srv(&mgr);
+        srv.setAccessCode("123456");
+        srv.setIdleTimeoutMs(300);
+        QStringList added;
+        srv.setAddHandler([&](const QString& url) { added << url; return QString(); });
+        QVERIFY(srv.start(0, QHostAddress::LocalHost));
+
+        auto raw = [&](const QByteArray& request) {
+            QTcpSocket s;
+            s.connectToHost(QHostAddress::LocalHost, srv.port());
+            if (!s.waitForConnected(3000))
+                return QByteArray("no connection");
+            s.write(request);
+            QByteArray got;
+            QElapsedTimer t;
+            t.start();
+            while (s.state() == QAbstractSocket::ConnectedState && t.elapsed() < 3000) {
+                QCoreApplication::processEvents();
+                s.waitForReadyRead(20);
+                got += s.readAll();
+            }
+            return got + s.readAll();
+        };
+        // DNS rebinding: a page on attacker.example that now points at this computer.
+        QVERIFY(raw("GET / HTTP/1.1\r\nHost: attacker.example\r\n\r\n").startsWith("HTTP/1.1 403"));
+        QVERIFY(raw("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").startsWith("HTTP/1.1 200"));
+        // Malformed lengths.
+        QVERIFY(raw("POST /api/login HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: -5\r\n\r\n").startsWith("HTTP/1.1 400"));
+        QVERIFY(raw("POST /api/login HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 99999999\r\n\r\n").startsWith("HTTP/1.1 413"));
+        // A client that never finishes its request is dropped.
+        {
+            QTcpSocket s;
+            s.connectToHost(QHostAddress::LocalHost, srv.port());
+            QVERIFY(s.waitForConnected(3000));
+            s.write("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n"); // no blank line
+            QTRY_VERIFY_WITH_TIMEOUT(srv.openConnections() == 1, 2000);
+            QTRY_COMPARE_WITH_TIMEOUT(srv.openConnections(), 0, 3000);
+        }
+
+        // Only web and magnet links can be added remotely.
+        const QByteArray login = R"({"code":"123456"})";
+        const QByteArray resp = raw("POST /api/login HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: " + QByteArray::number(login.size()) + "\r\n\r\n" + login);
+        const QByteArray token = QJsonDocument::fromJson(resp.mid(resp.indexOf("\r\n\r\n") + 4)).object().value("token").toString().toLatin1();
+        QCOMPARE(token.size(), 64);
+        auto add = [&](const QString& url) {
+            const QByteArray body = QJsonDocument(QJsonObject{{"url", url}}).toJson(QJsonDocument::Compact);
+            return raw("POST /api/add HTTP/1.1\r\nHost: 127.0.0.1\r\nX-FluxDM-Token: " + token + "\r\nContent-Length: "
+                       + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+        };
+        QVERIFY(add("C:\\Users\\me\\Downloads\\x.torrent").startsWith("HTTP/1.1 400"));
+        QVERIFY(add("file:///C:/x.torrent").startsWith("HTTP/1.1 400"));
+        QVERIFY(added.isEmpty());
+        QVERIFY(add("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567").startsWith("HTTP/1.1 200"));
+        QCOMPARE(added.size(), 1);
     }
 
     void siteLinksAndYtdlpOutput()

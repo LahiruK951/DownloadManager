@@ -7,7 +7,10 @@
 #include <QJsonObject>
 #include <QNetworkInterface>
 #include <QRandomGenerator>
+#include <QSysInfo>
 #include <QTcpSocket>
+#include <QTimer>
+#include <QUrl>
 #include <memory>
 
 #include "core/Download.h"
@@ -16,6 +19,23 @@
 static constexpr qint64 kMaxRequest = 64 * 1024;
 static constexpr int kMaxFailures = 5;
 static constexpr qint64 kLockMs = 60 * 1000;
+static constexpr int kMaxGlobalFailures = 20;           // wrong codes from all addresses ...
+static constexpr qint64 kGlobalWindowMs = 10 * 60 * 1000; // ... within 10 minutes
+static constexpr qint64 kGlobalLockMs = 5 * 60 * 1000;    // pause all sign-ins this long
+static constexpr qint64 kTokenIdleMs = 12LL * 3600 * 1000; // unused tokens expire
+static constexpr int kMaxTokens = 64;
+static constexpr int kMaxConnections = 32;
+
+// Same time whatever the input, so the code can't be guessed digit by digit from timings.
+static bool sameCode(const QByteArray& a, const QByteArray& b)
+{
+    if (a.size() != b.size())
+        return false;
+    unsigned char diff = 0;
+    for (int i = 0; i < a.size(); ++i)
+        diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+    return diff == 0;
+}
 
 RemoteServer::RemoteServer(DownloadManager* mgr, QObject* parent)
     : QObject(parent), m_mgr(mgr), m_code(newAccessCode())
@@ -39,6 +59,55 @@ void RemoteServer::setAccessCode(const QString& code)
 {
     m_code = code.trimmed();
     m_tokens.clear(); // everyone signs in again
+}
+
+bool RemoteServer::isAllowedHost(const QByteArray& hostHeader)
+{
+    QString host = QString::fromLatin1(hostHeader).trimmed().toLower();
+    if (host.startsWith(QLatin1Char('['))) { // [::1]:8080
+        const int close = int(host.indexOf(QLatin1Char(']')));
+        return close > 1 && !QHostAddress(host.mid(1, close - 1)).isNull();
+    }
+    const int colon = int(host.lastIndexOf(QLatin1Char(':')));
+    if (colon >= 0)
+        host = host.left(colon);
+    if (host.isEmpty())
+        return false;
+    if (!QHostAddress(host).isNull() || host == QLatin1String("localhost"))
+        return true;
+    const QString me = QSysInfo::machineHostName().toLower();
+    return !me.isEmpty() && (host == me || host.startsWith(me + QLatin1Char('.')));
+}
+
+bool RemoteServer::tokenValid(const QByteArray& token)
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    for (auto it = m_tokens.begin(); it != m_tokens.end();)
+        it = now - it.value() > kTokenIdleMs ? m_tokens.erase(it) : std::next(it);
+    auto it = m_tokens.find(token);
+    if (token.isEmpty() || it == m_tokens.end())
+        return false;
+    it.value() = now;
+    return true;
+}
+
+void RemoteServer::noteFailure(const QString& ip, qint64 now)
+{
+    for (auto it = m_failures.begin(); it != m_failures.end();) // forget old, unlocked entries
+        it = (it->lockedUntil < now && now - it->last > kLockMs) ? m_failures.erase(it) : std::next(it);
+    Failures& f = m_failures[ip];
+    f.last = now;
+    if (++f.count >= kMaxFailures) {
+        f.count = 0;
+        f.lockedUntil = now + kLockMs;
+    }
+    m_recentFailures.append(now);
+    while (!m_recentFailures.isEmpty() && now - m_recentFailures.first() > kGlobalWindowMs)
+        m_recentFailures.removeFirst();
+    if (m_recentFailures.size() >= kMaxGlobalFailures) {
+        m_globalLockUntil = now + kGlobalLockMs;
+        m_recentFailures.clear();
+    }
 }
 
 QString RemoteServer::newAccessCode()
@@ -73,11 +142,18 @@ void RemoteServer::onConnection()
 {
     while (QTcpSocket* s = m_server.nextPendingConnection()) {
         connect(s, &QTcpSocket::disconnected, s, &QObject::deleteLater);
-        if (!isLocalNetwork(s->peerAddress())) { // never answer the internet
+        if (!isLocalNetwork(s->peerAddress()) || m_open >= kMaxConnections) { // never answer the internet
             s->abort();
             s->deleteLater();
             continue;
         }
+        ++m_open;
+        connect(s, &QObject::destroyed, this, [this] { --m_open; });
+        // A client that never finishes its request doesn't get to keep the connection.
+        auto* idle = new QTimer(s);
+        idle->setSingleShot(true);
+        connect(idle, &QTimer::timeout, s, [s] { s->abort(); s->deleteLater(); });
+        idle->start(m_idleMs);
         auto buf = std::make_shared<QByteArray>();
         connect(s, &QTcpSocket::readyRead, this, [this, s, buf] {
             buf->append(s->readAll());
@@ -98,11 +174,20 @@ void RemoteServer::onConnection()
                 if (c > 0)
                     r.headers.insert(lines[i].left(c).trimmed().toLower(), lines[i].mid(c + 1).trimmed());
             }
-            const qint64 len = r.headers.value("content-length").toLongLong();
+            bool lenOk = true;
+            const QByteArray lenHeader = r.headers.value("content-length", "0");
+            const qint64 len = lenHeader.toLongLong(&lenOk);
+            if (!lenOk || len < 0 || len > kMaxRequest) {
+                disconnect(s, &QTcpSocket::readyRead, this, nullptr);
+                reply(s, len > kMaxRequest ? 413 : 400, "text/plain", "Bad request");
+                return;
+            }
             if (buf->size() < end + 4 + len)
                 return; // wait for the body
             r.body = buf->mid(end + 4, len);
             disconnect(s, &QTcpSocket::readyRead, this, nullptr);
+            if (auto* t = s->findChild<QTimer*>())
+                t->stop();
             handle(s, r);
         });
     }
@@ -146,24 +231,29 @@ QByteArray RemoteServer::downloadsJson() const
 void RemoteServer::handle(QTcpSocket* s, const Request& r)
 {
     const QString ip = s->peerAddress().toString();
+    if (!isAllowedHost(r.headers.value("host"))) { // a web page that rebinds its own name to this computer
+        reply(s, 403, "text/plain", "Open FluxDM by the address shown in its settings");
+        return;
+    }
     if (r.method == "GET" && (r.path == "/" || r.path.startsWith("/?"))) {
         QFile page(QStringLiteral(":/remote/index.html"));
-        page.open(QIODevice::ReadOnly);
+        if (!page.open(QIODevice::ReadOnly)) {
+            reply(s, 404, "text/plain", "Not found");
+            return;
+        }
         reply(s, 200, "text/html; charset=utf-8", page.readAll(),
               "Content-Security-Policy: default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'\r\n");
         return;
     }
     if (r.method == "POST" && r.path == "/api/login") {
-        auto& f = m_failures[ip];
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
-        if (f.second > now) {
-            reply(s, 429, "application/json", R"({"error":"Too many wrong codes. Try again in a minute."})");
+        if (m_globalLockUntil > now || m_failures.value(ip).lockedUntil > now) {
+            reply(s, 429, "application/json", R"({"error":"Too many wrong codes. Try again in a few minutes."})");
             return;
         }
-        if (m_code.isEmpty() || parseJson(r.body).value(QStringLiteral("code")).toString().trimmed() != m_code) {
-            if (++f.first >= kMaxFailures) {
-                f = {0, now + kLockMs};
-            }
+        const QByteArray given = parseJson(r.body).value(QStringLiteral("code")).toString().trimmed().toUtf8();
+        if (m_code.isEmpty() || !sameCode(given, m_code.toUtf8())) {
+            noteFailure(ip, now);
             reply(s, 403, "application/json", R"({"error":"Wrong access code"})");
             return;
         }
@@ -171,7 +261,12 @@ void RemoteServer::handle(QTcpSocket* s, const Request& r)
         QByteArray token(32, Qt::Uninitialized);
         QRandomGenerator::system()->fillRange(reinterpret_cast<quint32*>(token.data()), token.size() / 4);
         const QByteArray hex = token.toHex();
-        m_tokens.insert(hex);
+        tokenValid({}); // drops expired tokens
+        while (m_tokens.size() >= kMaxTokens) { // the least recently used goes
+            auto oldest = std::min_element(m_tokens.begin(), m_tokens.end());
+            m_tokens.erase(oldest);
+        }
+        m_tokens.insert(hex, now);
         reply(s, 200, "application/json", QJsonDocument(QJsonObject{{QStringLiteral("token"), QString::fromLatin1(hex)}}).toJson(QJsonDocument::Compact));
         return;
     }
@@ -179,7 +274,7 @@ void RemoteServer::handle(QTcpSocket* s, const Request& r)
         reply(s, 404, "text/plain", "Not found");
         return;
     }
-    if (!m_tokens.contains(r.headers.value("x-fluxdm-token"))) {
+    if (!tokenValid(r.headers.value("x-fluxdm-token"))) {
         reply(s, 401, "application/json", R"({"error":"Sign in first"})");
         return;
     }
@@ -192,7 +287,13 @@ void RemoteServer::handle(QTcpSocket* s, const Request& r)
         reply(s, 400, "application/json", R"({"error":"Use POST"})");
     } else if (r.path == "/api/add") {
         const QString url = body.value(QStringLiteral("url")).toString().trimmed();
-        const QString err = url.isEmpty() ? QStringLiteral("Enter a link") : (m_add ? m_add(url) : QStringLiteral("Not available"));
+        // Web and magnet links only: never a path to a file on this computer.
+        static const QStringList schemes = {QStringLiteral("http"), QStringLiteral("https"), QStringLiteral("ftp"),
+                                            QStringLiteral("ftps"), QStringLiteral("magnet")};
+        const bool web = schemes.contains(QUrl(url).scheme().toLower());
+        const QString err = url.isEmpty() ? QStringLiteral("Enter a link")
+                            : !web        ? QStringLiteral("Only web and magnet links can be added remotely")
+                                          : (m_add ? m_add(url) : QStringLiteral("Not available"));
         if (err.isEmpty())
             ok();
         else
