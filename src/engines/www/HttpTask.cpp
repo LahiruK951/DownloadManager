@@ -64,6 +64,11 @@ void HttpTask::start()
             emit m_w->meta(m_p.id, m_fileName, m_finalPath, m_total, true);
             return; // tick() starts the unfinished segments
         }
+        if (!DiskSpace::volumeAvailable(m_p.destDir)) {
+            m_file.close();
+            fail(DiskSpace::unavailableText(m_p.destDir)); // keeps the resume data; continues when it is back
+            return;
+        }
         log(QStringLiteral("Partial file is missing; starting over"));
         m_file.close();
         m_segs.clear();

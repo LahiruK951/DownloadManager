@@ -307,6 +307,16 @@ bool DownloadManager::startDownload(Download* d)
         persist(d);
         return false;
     }
+    if (!DiskSpace::volumeAvailable(d->rec.destDir)) {
+        const QString why = DiskSpace::unavailableText(d->rec.destDir);
+        if (d->rec.lastError != why) {
+            d->addLog(why);
+            d->addLog(tr("The download continues when the drive is back"));
+        }
+        d->setState(Download::Error, why);
+        persist(d);
+        return false;
+    }
     if (d->rec.total > 0) {
         const qint64 need = qMax<qint64>(0, d->rec.total - d->rec.received);
         const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
@@ -768,7 +778,10 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
     d->setSegmentsFromResumeData();
     d->setPendingFiles({});
     QString why = error;
-    if (DiskSpace::looksLikeFullDisk(error) && !DiskSpace::isShortage(error)) {
+    if (!DiskSpace::isWaiting(error) && !DiskSpace::volumeAvailable(d->rec.destDir)) {
+        d->addLog(error);
+        why = DiskSpace::unavailableText(d->rec.destDir); // the drive went away mid-download
+    } else if (DiskSpace::looksLikeFullDisk(error) && !DiskSpace::isShortage(error)) {
         const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
         const qint64 need = d->rec.total > 0 ? qMax<qint64>(0, d->rec.total - d->rec.received) : 0;
         if (free >= 0 && free < need + DiskSpace::kMargin) {
@@ -777,8 +790,9 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
         }
     }
     d->setState(Download::Error, why);
-    if (DiskSpace::isShortage(why)) {
-        d->addLog(tr("Waiting for free disk space; the download continues by itself"));
+    if (DiskSpace::isWaiting(why)) {
+        d->addLog(DiskSpace::isShortage(why) ? tr("Waiting for free disk space; the download continues by itself")
+                                             : tr("The download continues when the drive is back"));
         persist(d);
         statsChanged();
         schedule();
@@ -919,8 +933,17 @@ void DownloadManager::recheckDiskSpace()
 {
     bool any = false;
     for (Download* d : m_list) {
-        if (!d->failed() || !DiskSpace::isShortage(d->rec.lastError))
+        if (!d->failed() || !DiskSpace::isWaiting(d->rec.lastError))
             continue;
+        if (DiskSpace::isUnavailable(d->rec.lastError)) {
+            if (!DiskSpace::volumeAvailable(d->rec.destDir))
+                continue;
+            d->addLog(tr("The drive is back; continuing"));
+            d->setState(Download::Queued);
+            persist(d);
+            any = true;
+            continue;
+        }
         const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
         const qint64 need = (d->rec.total > 0 ? qMax<qint64>(0, d->rec.total - d->rec.received) : 0) + DiskSpace::kMargin;
         if (free >= 0 && free < need)

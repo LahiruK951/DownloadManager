@@ -57,6 +57,36 @@ bool looksLikeFullDisk(const QString& error)
         || error.contains(QLatin1String("disk is full"), Qt::CaseInsensitive);
 }
 
+QString volumeRoot(const QString& dir)
+{
+    const QString p = QDir::fromNativeSeparators(dir.trimmed());
+    if (p.size() >= 2 && p.at(1) == QLatin1Char(':') && p.at(0).isLetter())
+        return p.left(2) + QLatin1Char('/');
+    if (p.startsWith(QLatin1String("//"))) { // //server/share/...
+        const int server = p.indexOf(QLatin1Char('/'), 2);
+        if (server < 0)
+            return {};
+        const int share = p.indexOf(QLatin1Char('/'), server + 1);
+        return share < 0 ? p : p.left(share);
+    }
+    return {};
+}
+
+bool volumeAvailable(const QString& dir)
+{
+    const QString root = volumeRoot(dir);
+    return root.isEmpty() || QFileInfo::exists(root);
+}
+
+QString unavailableText(const QString& dir)
+{
+    const QString root = volumeRoot(dir);
+    return QStringLiteral("Drive not available: %1").arg(QDir::toNativeSeparators(root.isEmpty() ? dir : root));
+}
+
+bool isUnavailable(const QString& error) { return error.startsWith(QLatin1String("Drive not available")); }
+bool isWaiting(const QString& error) { return isShortage(error) || isUnavailable(error); }
+
 void setFreeBytesOverride(std::function<qint64(const QString&)> fn) { override() = std::move(fn); }
 
 } // namespace DiskSpace

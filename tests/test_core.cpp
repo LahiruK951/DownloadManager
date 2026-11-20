@@ -1126,6 +1126,42 @@ private slots:
         QVERIFY(DiskSpace::isShortage(e->rec.lastError));
     }
 
+    void missingDriveWaits()
+    {
+        QCOMPARE(DiskSpace::volumeRoot("D:\\Downloads\\x"), QStringLiteral("D:/"));
+        QCOMPARE(DiskSpace::volumeRoot("\\\\nas\\media\\films"), QStringLiteral("//nas/media"));
+        QCOMPARE(DiskSpace::volumeRoot("relative/dir"), QString());
+        QVERIFY(DiskSpace::volumeAvailable(QDir::tempPath()));
+        QString missing;
+        for (char c = 'Z'; c >= 'G' && missing.isEmpty(); --c)
+            if (!QFileInfo::exists(QStringLiteral("%1:/").arg(QLatin1Char(c))))
+                missing = QStringLiteral("%1:/FluxDM test").arg(QLatin1Char(c));
+        if (missing.isEmpty())
+            QSKIP("every drive letter is in use");
+        QVERIFY(!DiskSpace::volumeAvailable(missing));
+
+        RangeServer srv;
+        srv.data = makeData(256 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url("/usb.bin"), missing, {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 5000);
+        QVERIFY2(DiskSpace::isUnavailable(d->rec.lastError), qPrintable(d->rec.lastError));
+        QVERIFY(!d->autoRetryAt.isValid());
+        QCOMPARE(srv.requests, 0); // nothing was fetched for a drive that isn't there
+
+        mgr.recheckDiskSpace(); // still missing
+        QVERIFY(d->failed());
+        d->rec.destDir = dir.path(); // "the drive is back"
+        mgr.recheckDiskSpace();
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+    }
+
     void duplicateLinks()
     {
         QTemporaryDir dir;
