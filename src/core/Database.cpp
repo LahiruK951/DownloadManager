@@ -30,6 +30,33 @@ bool Database::exec(const QString& sql)
     return true;
 }
 
+bool Database::run(QSqlQuery& q, const char* what)
+{
+    if (q.exec())
+        return true;
+    ++m_writeErrors;
+    m_lastError = q.lastError().text();
+    qWarning() << "SQL error (" << what << "):" << m_lastError;
+    if (m_onError)
+        m_onError(m_lastError);
+    return false;
+}
+
+bool Database::commitOrRollback(bool ok, const char* what)
+{
+    if (ok && m_db.commit())
+        return true;
+    if (ok) { // the commit itself failed
+        ++m_writeErrors;
+        m_lastError = m_db.lastError().text();
+        qWarning() << "SQL commit failed (" << what << "):" << m_lastError;
+        if (m_onError)
+            m_onError(m_lastError);
+    }
+    m_db.rollback();
+    return false;
+}
+
 bool Database::open(const QString& dir, QString* error)
 {
     m_dir = dir;
@@ -108,10 +135,21 @@ void Database::backup()
     exec(QStringLiteral("PRAGMA wal_checkpoint(FULL)"));
     const QString older = QDir(bdir).filePath(QStringLiteral("db.sqlite.older"));
     const QString newer = QDir(bdir).filePath(QStringLiteral("db.sqlite.newer"));
-    QFile::remove(older);
-    QFile::rename(newer, older);
-    QFile::rename(daily, newer);
-    QFile::copy(m_db.databaseName(), daily);
+    const QString fresh = daily + QStringLiteral(".tmp");
+    QFile::remove(fresh);
+    if (!QFile::copy(m_db.databaseName(), fresh)) {
+        qWarning() << "DB backup: cannot copy" << m_db.databaseName() << "to" << fresh;
+        QFile::remove(fresh);
+        return; // keep the existing backups as they are
+    }
+    if (QFile::exists(newer) && (!QFile::remove(older) && QFile::exists(older)))
+        qWarning() << "DB backup: cannot remove" << older;
+    if (QFile::exists(newer) && !QFile::rename(newer, older))
+        qWarning() << "DB backup: cannot rotate" << newer;
+    if (QFile::exists(daily) && !QFile::rename(daily, newer))
+        qWarning() << "DB backup: cannot rotate" << daily;
+    if (!QFile::rename(fresh, daily))
+        qWarning() << "DB backup: cannot rename" << fresh << "to" << daily;
 }
 
 QList<DownloadRecord> Database::loadDownloads()
@@ -189,8 +227,9 @@ QList<DownloadRecord> Database::loadDownloads()
     return out;
 }
 
-void Database::save(const DownloadRecord& r)
+bool Database::save(const DownloadRecord& r)
 {
+    const bool tx = m_db.transaction();
     QSqlQuery q(m_db);
     q.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO downloads (id, moduleUid, url, referrer, cookies, userAgent, destinationPath,"
@@ -224,8 +263,7 @@ void Database::save(const DownloadRecord& r)
     q.addBindValue(r.queueOrder ? r.queueOrder : r.id);
     q.addBindValue(r.postData);
     q.addBindValue(r.mirrors.join(QLatin1Char('\n')).toUtf8());
-    if (!q.exec())
-        qWarning() << "save download:" << q.lastError().text();
+    bool ok = run(q, "save download");
 
     QSqlQuery s(m_db);
     if (r.scheduled) {
@@ -238,7 +276,7 @@ void Database::save(const DownloadRecord& r)
         s.prepare(QStringLiteral("DELETE FROM downloadsScheduleRecords WHERE downloadId = ?"));
         s.addBindValue(r.id);
     }
-    s.exec();
+    ok = ok && run(s, "save schedule");
     QSqlQuery tg(m_db);
     if (r.tags.isEmpty()) {
         tg.prepare(QStringLiteral("DELETE FROM downloadsTags WHERE downloadId = ?"));
@@ -251,33 +289,32 @@ void Database::save(const DownloadRecord& r)
         tg.addBindValue(r.id);
         tg.addBindValue(ids.join(QLatin1Char(',')));
     }
-    tg.exec();
+    ok = ok && run(tg, "save tags");
+    return tx ? commitOrRollback(ok, "save download") : ok;
 }
 
-void Database::saveProgress(qint64 id, qint64 received, const QByteArray& resumeData)
+bool Database::saveProgress(qint64 id, qint64 received, const QByteArray& resumeData)
 {
     QSqlQuery q(m_db);
     q.prepare(QStringLiteral("UPDATE downloads SET receivedBytes = ?, resumeData = ? WHERE id = ?"));
     q.addBindValue(received);
     q.addBindValue(resumeData);
     q.addBindValue(id);
-    q.exec();
+    return run(q, "save progress");
 }
 
-void Database::remove(qint64 id)
+bool Database::remove(qint64 id)
 {
-    QSqlQuery q(m_db);
-    q.prepare(QStringLiteral("DELETE FROM downloads WHERE id = ?"));
-    q.addBindValue(id);
-    q.exec();
-    QSqlQuery s(m_db);
-    s.prepare(QStringLiteral("DELETE FROM downloadsScheduleRecords WHERE downloadId = ?"));
-    s.addBindValue(id);
-    s.exec();
-    QSqlQuery t(m_db);
-    t.prepare(QStringLiteral("DELETE FROM downloadsTags WHERE downloadId = ?"));
-    t.addBindValue(id);
-    t.exec();
+    const bool tx = m_db.transaction();
+    bool ok = true;
+    for (const char* sql : {"DELETE FROM downloads WHERE id = ?", "DELETE FROM downloadsScheduleRecords WHERE downloadId = ?",
+                            "DELETE FROM downloadsTags WHERE downloadId = ?"}) {
+        QSqlQuery q(m_db);
+        q.prepare(QString::fromLatin1(sql));
+        q.addBindValue(id);
+        ok = ok && run(q, "remove download");
+    }
+    return tx ? commitOrRollback(ok, "remove download") : ok;
 }
 
 qint64 Database::maxId()
@@ -300,7 +337,7 @@ void Database::setSetting(const QString& name, const QVariant& value)
     q.prepare(QStringLiteral("INSERT OR REPLACE INTO Settings (Name, Value) VALUES (?, ?)"));
     q.addBindValue(name);
     q.addBindValue(value.toString());
-    q.exec();
+    run(q, "save setting");
 }
 
 // ------------------------------------------------------------------ server logins
@@ -324,8 +361,7 @@ void Database::saveLogin(const QString& server, const QString& user, const QStri
     q.addBindValue(server);
     q.addBindValue(user);
     q.addBindValue(Secret::protect(password));
-    if (!q.exec())
-        qWarning() << "save login:" << q.lastError().text();
+    run(q, "save login");
 }
 
 void Database::removeLogin(const QString& server)
@@ -333,7 +369,7 @@ void Database::removeLogin(const QString& server)
     QSqlQuery q(m_db);
     q.prepare(QStringLiteral("DELETE FROM networkPasswords WHERE server = ?"));
     q.addBindValue(server);
-    q.exec();
+    run(q, "remove login");
 }
 
 int Database::loginCount()
@@ -373,7 +409,7 @@ int Database::saveTag(const Tag& tag)
         q.prepare(QStringLiteral("INSERT INTO tags (name, color) VALUES (?, ?)"));
         q.addBindValue(tag.name);
         q.addBindValue(tag.color);
-        if (!q.exec())
+        if (!run(q, "add tag"))
             return 0;
         id = q.lastInsertId().toInt();
     } else {
@@ -381,14 +417,14 @@ int Database::saveTag(const Tag& tag)
         q.addBindValue(tag.name);
         q.addBindValue(tag.color);
         q.addBindValue(id);
-        q.exec();
+        run(q, "save tag");
     }
     QSqlQuery d(m_db);
     d.prepare(QStringLiteral("INSERT OR REPLACE INTO downloadsTagsDetails (tagId, defaultExtensions, defaultDownloadFolder) VALUES (?,?,?)"));
     d.addBindValue(id);
     d.addBindValue(tag.extensions.join(QLatin1Char(',')));
     d.addBindValue(tag.folder);
-    d.exec();
+    run(d, "save tag details");
     return id;
 }
 
@@ -398,7 +434,7 @@ void Database::removeTag(int id)
         QSqlQuery q(m_db);
         q.prepare(QString::fromLatin1(sql));
         q.addBindValue(id);
-        q.exec();
+        run(q, "remove tag");
     }
 }
 
@@ -420,7 +456,7 @@ void Database::addTrustedHost(const QString& host)
     q.prepare(QStringLiteral("INSERT OR REPLACE INTO sslKnownHosts (host, since) VALUES (?, ?)"));
     q.addBindValue(host.toLower());
     q.addBindValue(QDateTime::currentSecsSinceEpoch());
-    q.exec();
+    run(q, "trust host");
 }
 
 void Database::clearTrustedHosts() { exec(QStringLiteral("DELETE FROM sslKnownHosts")); }

@@ -1079,6 +1079,52 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void databaseWriteFailures()
+    {
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        QStringList reported;
+        db.setErrorHandler([&](const QString& e) { reported << e; });
+
+        DownloadRecord r;
+        r.id = 1;
+        r.url = QStringLiteral("https://example.com/a.zip");
+        r.tags = {1};
+        QVERIFY(db.save(r));
+        QVERIFY(db.saveProgress(1, 10, "rd"));
+        QCOMPARE(db.writeErrors(), 0);
+
+        // Another connection damages the schema: a save touching tags fails as a whole.
+        {
+            QSqlDatabase other = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("other"));
+            other.setDatabaseName(QDir(dir.path()).filePath("db.sqlite"));
+            QVERIFY(other.open());
+            QSqlQuery q(other);
+            QVERIFY(q.exec(QStringLiteral("DROP TABLE downloadsTags")));
+            other.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("other"));
+        DownloadRecord r2 = r;
+        r2.id = 2;
+        QVERIFY(!db.save(r2));
+        QVERIFY(db.writeErrors() > 0);
+        QVERIFY(!reported.isEmpty());
+        QVERIFY(!db.lastError().isEmpty());
+        const auto rows = db.loadDownloads();
+        QCOMPARE(rows.size(), 1); // rolled back: no half-saved download 2
+        QCOMPARE(rows.first().received, 10);
+
+        // The manager turns write failures into one (rate-limited) storageError.
+        DownloadManager mgr(&db);
+        QSignalSpy err(&mgr, &DownloadManager::storageError);
+        DownloadRecord r3 = r;
+        r3.id = 3;
+        QVERIFY(!db.save(r3));
+        QVERIFY(!db.save(r3));
+        QCOMPARE(err.count(), 1);
+    }
+
     void headerInjectionIsStripped()
     {
         // Referrer, cookies and user agent come from the browser extension or the remote page.

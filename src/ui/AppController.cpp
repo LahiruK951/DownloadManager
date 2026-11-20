@@ -116,6 +116,9 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         if (blocked)
             emit notice(QStringLiteral("%1: %2").arg(d->title(), msg));
     });
+    connect(m_mgr, &DownloadManager::storageError, this, [this](const QString& err) {
+        emit notice(tr("Can't save download progress: %1. Check free space on the drive with FluxDM's data.").arg(err));
+    });
     connect(m_mgr, &DownloadManager::conversionFinished, this, [this](Download*, const QString& out, const QString& err) {
         emit notice(err.isEmpty() ? tr("Converted: %1").arg(QFileInfo(out).fileName()) : tr("Conversion failed: %1").arg(err));
     });

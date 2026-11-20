@@ -149,6 +149,7 @@ signals:
     void queueReordered();
     void conversionFinished(Download* d, const QString& output, const QString& error);
     void antivirusChecked(Download* d, bool blocked, const QString& message);
+    void storageError(const QString& message); // the database could not be written (rate-limited)
 
 private:
     void schedule();
@@ -175,6 +176,7 @@ private:
     void onLog(qint64 id, const QString& line);
 
     Database* m_db;
+    qint64 m_lastStorageError = 0; // ms since epoch of the last storageError signal
     QHash<QString, QPair<QString, QString>> m_sessionLogins; // server -> user, password
     QList<Tag> m_tags;
     QList<DownloadEngine*> m_engines;

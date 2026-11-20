@@ -4,6 +4,7 @@
 #include <QSqlDatabase>
 #include <QString>
 #include <QVariant>
+#include <functional>
 
 #include "core/DownloadRecord.h"
 #include "core/Tag.h"
@@ -18,9 +19,15 @@ public:
     void backup(); // rotating copies in <dir>/backup/db (daily/newer/older), like FDM
 
     QList<DownloadRecord> loadDownloads();
-    void save(const DownloadRecord& r);
-    void saveProgress(qint64 id, qint64 received, const QByteArray& resumeData);
-    void remove(qint64 id);
+    bool save(const DownloadRecord& r);          // one transaction: download, schedule, tags
+    bool saveProgress(qint64 id, qint64 received, const QByteArray& resumeData);
+    bool remove(qint64 id);                      // one transaction
+
+    // Failed writes (disk full, locked or damaged file, ...). Every failure is logged; the handler
+    // lets the app tell the user, since resume data that isn't saved is lost on the next start.
+    void setErrorHandler(std::function<void(const QString&)> h) { m_onError = std::move(h); }
+    int writeErrors() const { return m_writeErrors; }
+    QString lastError() const { return m_lastError; }
     qint64 maxId();
 
     QVariant setting(const QString& name, const QVariant& def = {});
@@ -45,6 +52,11 @@ public:
 
 private:
     bool exec(const QString& sql);
+    bool run(class QSqlQuery& q, const char* what); // exec() a prepared query; reports failures
+    bool commitOrRollback(bool ok, const char* what);
+    std::function<void(const QString&)> m_onError;
+    int m_writeErrors = 0;
+    QString m_lastError;
     QSqlDatabase m_db;
     QString m_dir;
     QHash<QString, QVariant> m_settings;

@@ -12,6 +12,8 @@ CurlWorker::CurlWorker(QObject* parent)
     qRegisterMetaType<TaskStats>();
     qRegisterMetaType<TaskParams>();
     m_multi = curl_multi_init();
+    if (!m_multi)
+        qFatal("curl_multi_init failed"); // nothing can be downloaded without it; the crash handler records it
     // One TCP connection per segment: never multiplex ranges onto one HTTP/2 connection.
     curl_multi_setopt(m_multi, CURLMOPT_PIPELINING, long(CURLPIPE_NOTHING));
     m_clock.start();

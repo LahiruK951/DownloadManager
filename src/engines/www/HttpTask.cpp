@@ -131,6 +131,12 @@ void HttpTask::fail(const QString& error)
 void HttpTask::startSegment(Segment* s)
 {
     CURL* h = curl_easy_init();
+    if (!h) { // out of memory or handles: try this connection again shortly
+        s->h = nullptr;
+        s->retryAt = m_w->nowMs() + 1000;
+        log(QStringLiteral("Cannot open a connection now; trying again"));
+        return;
+    }
     s->h = h;
     s->validated = false;
     s->reachedEnd = false;
@@ -208,7 +214,12 @@ void HttpTask::startSegment(Segment* s)
         range += QByteArray::number(s->end);
     curl_easy_setopt(h, CURLOPT_RANGE, range.constData());
 
-    curl_multi_add_handle(m_w->multi(), h);
+    if (const CURLMcode mc = curl_multi_add_handle(m_w->multi(), h); mc != CURLM_OK) {
+        curl_easy_cleanup(h);
+        s->h = nullptr;
+        s->retryAt = m_w->nowMs() + 1000;
+        log(QStringLiteral("Cannot start a connection (%1); trying again").arg(QString::fromUtf8(curl_multi_strerror(mc))));
+    }
 }
 
 void HttpTask::releaseHandle(Segment* s)
@@ -386,7 +397,11 @@ bool HttpTask::initMeta(Segment* s, long code)
         name = FileNamer::fromUrl(QUrl(m_p.url));
     name = FileNamer::sanitize(name);
 
-    QDir().mkpath(m_p.destDir);
+    if (!QDir().mkpath(m_p.destDir)) {
+        s->fatal = QStringLiteral("Cannot create folder %1").arg(QDir::toNativeSeparators(m_p.destDir));
+        m_fatalTask = true;
+        return false;
+    }
     bool exists = false;
     m_finalPath = FileNamer::resolveTarget(m_p.destDir, name, m_p.existingFile, &exists);
     if (exists) { // "ask": stop before touching anything; the user decides

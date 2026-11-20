@@ -36,6 +36,7 @@ public:
     CURLM* multi() const { return m_multi; }
     bool throttled() const { return m_limit > 0 && m_bucket <= 0; }
     void consume(qint64 n) { if (m_limit > 0) m_bucket -= double(n); }
+    qint64 nowMs() const { return m_clock.elapsed(); }
 
 signals:
     void meta(qint64 id, const QString& fileName, const QString& filePath, qint64 total, bool resumable);
@@ -52,7 +53,6 @@ protected:
 private:
     void post(std::function<void()> fn);
     void unpauseSome();
-    qint64 nowMs() const { return m_clock.elapsed(); }
 
     CURLM* m_multi = nullptr;
     QMutex m_mx;

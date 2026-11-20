@@ -46,6 +46,14 @@ QString systemProxyFor(const QString& url)
 DownloadManager::DownloadManager(Database* db, QObject* parent)
     : QObject(parent), m_db(db)
 {
+    m_db->setErrorHandler([this](const QString& err) {
+        static const qint64 kQuietMs = 60 * 1000;
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (m_lastStorageError && now - m_lastStorageError < kQuietMs)
+            return;
+        m_lastStorageError = now;
+        emit storageError(err);
+    });
     m_manualMode = qBound(0, m_db->setting(QStringLiteral("TumMode"), int(TrafficMode::High)).toInt(), 2);
     m_effectiveMode = m_manualMode;
     const QJsonArray rules = QJsonDocument::fromJson(m_db->setting(QStringLiteral("TumSchedule")).toString().toUtf8()).array();
@@ -72,6 +80,7 @@ DownloadManager::~DownloadManager()
 {
     if (!m_shuttingDown)
         shutdown();
+    m_db->setErrorHandler({}); // the database may outlive this manager
 }
 
 void DownloadManager::addEngine(DownloadEngine* e)
