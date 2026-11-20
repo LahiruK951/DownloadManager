@@ -168,13 +168,13 @@ void HttpTask::startSegment(Segment* s)
     curl_easy_setopt(h, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(h, CURLOPT_SSL_OPTIONS, long(CURLSSLOPT_REVOKE_BEST_EFFORT));
 
-    const QByteArray ua = m_p.userAgent.toUtf8();
+    const QByteArray ua = headerSafe(m_p.userAgent).toUtf8();
     if (!ua.isEmpty())
         curl_easy_setopt(h, CURLOPT_USERAGENT, ua.constData());
-    const QByteArray ref = m_p.referrer.toUtf8();
+    const QByteArray ref = headerSafe(m_p.referrer).toUtf8();
     if (!ref.isEmpty())
         curl_easy_setopt(h, CURLOPT_REFERER, ref.constData());
-    const QByteArray cookies = m_p.cookies.toUtf8();
+    const QByteArray cookies = headerSafe(m_p.cookies).toUtf8();
     if (!cookies.isEmpty())
         curl_easy_setopt(h, CURLOPT_COOKIE, cookies.constData());
     // A form the browser submitted: the server only answers with the file to that POST.

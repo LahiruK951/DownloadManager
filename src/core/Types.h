@@ -6,6 +6,19 @@
 #include <QStringList>
 #include <QVariantList>
 
+// A value that goes into one request header (referrer, cookies, user agent) or a yt-dlp header
+// argument. These come from the browser extension and the remote page; a CR or LF in them would
+// start a new header, so control characters are dropped.
+inline QString headerSafe(const QString& v)
+{
+    QString out;
+    out.reserve(v.size());
+    for (const QChar c : v)
+        if (c.unicode() >= 0x20 && c.unicode() != 0x7f)
+            out += c;
+    return out.trimmed();
+}
+
 // Parameters handed from the download manager (GUI thread) to an engine.
 struct TaskParams {
     qint64 id = 0;

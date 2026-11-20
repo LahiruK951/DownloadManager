@@ -1079,6 +1079,36 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void headerInjectionIsStripped()
+    {
+        // Referrer, cookies and user agent come from the browser extension or the remote page.
+        QCOMPARE(headerSafe(QStringLiteral(" https://a.example/\r\nX-Injected: 1 ")), QStringLiteral("https://a.example/X-Injected: 1"));
+        QCOMPARE(headerSafe(QStringLiteral("a=1; b=2")), QStringLiteral("a=1; b=2"));
+
+        RangeServer srv;
+        srv.data = makeData(64 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(62, srv.url("/h.bin"), dir.path(), 1);
+        p.referrer = QStringLiteral("https://a.example/\r\nX-Injected: ref");
+        p.cookies = QStringLiteral("sid=1\r\nX-Injected: cookie");
+        p.userAgent = QStringLiteral("Agent\nX-Injected: ua");
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(!srv.heads.isEmpty());
+        for (const QByteArray& h : srv.heads) {
+            QVERIFY2(!h.contains("\nX-Injected:"), h.constData());
+            QVERIFY2(h.contains("Referer: https://a.example/X-Injected: ref"), h.constData());
+        }
+
+        p.url = QStringLiteral("https://youtu.be/abc");
+        for (const QString& a : SiteEngine::arguments(p, 1, 0))
+            QVERIFY2(!a.contains(QLatin1Char('\r')) && !a.contains(QLatin1Char('\n')), qPrintable(a));
+    }
+
     void meteredConnection()
     {
         RangeServer srv;

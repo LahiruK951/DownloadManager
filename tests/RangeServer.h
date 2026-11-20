@@ -23,6 +23,7 @@ public:
     int active = 0, peakActive = 0;   // responses being sent now / at most (closing sockets don't count)
     QList<QByteArray> requestLines;   // "GET http://host/path HTTP/1.1" when used as a proxy
     QList<QByteArray> bodies;         // what followed the headers (POST bodies)
+    QList<QByteArray> heads;          // request line + headers, up to the blank line
 
     int requests = 0;
     int rangedRequests = 0;
@@ -57,6 +58,7 @@ private:
             ++requests;
             requestLines.append(buf->left(buf->indexOf("\r\n")));
             bodies.append(buf->mid(buf->indexOf("\r\n\r\n") + 4));
+            heads.append(buf->left(buf->indexOf("\r\n\r\n")));
 
             if (!basicAuth.isEmpty() && !buf->contains("Authorization: Basic " + basicAuth.toBase64() + "\r\n")) {
                 ++unauthorized;

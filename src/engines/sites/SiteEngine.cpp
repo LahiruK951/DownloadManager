@@ -74,12 +74,13 @@ QStringList SiteEngine::arguments(const TaskParams& p, int connections, qint64 s
         a << QStringLiteral("--limit-rate") << QString::number(speedLimit);
     if (!p.proxy.isEmpty())
         a << QStringLiteral("--proxy") << (p.proxy == QLatin1String("none") ? QString() : p.proxy);
-    if (!p.userAgent.isEmpty())
-        a << QStringLiteral("--user-agent") << p.userAgent;
-    if (!p.referrer.isEmpty())
-        a << QStringLiteral("--referer") << p.referrer;
-    if (!p.cookies.isEmpty())
-        a << QStringLiteral("--add-headers") << QStringLiteral("Cookie:") + p.cookies;
+    const QString ua = headerSafe(p.userAgent), ref = headerSafe(p.referrer), cookies = headerSafe(p.cookies);
+    if (!ua.isEmpty())
+        a << QStringLiteral("--user-agent") << ua;
+    if (!ref.isEmpty())
+        a << QStringLiteral("--referer") << ref;
+    if (!cookies.isEmpty())
+        a << QStringLiteral("--add-headers") << QStringLiteral("Cookie:") + cookies;
     if (!p.user.isEmpty())
         a << QStringLiteral("-u") << p.user << QStringLiteral("-p") << p.password;
     a << QStringLiteral("--") << p.url;

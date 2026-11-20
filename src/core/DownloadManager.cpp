@@ -182,8 +182,8 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
         r.title = FileNamer::fromUrl(QUrl(r.url));
     if (r.title.isEmpty())
         r.title = r.url.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive) ? tr("Magnet link") : QUrl(r.url).host();
-    r.referrer = referrer;
-    r.cookies = cookies;
+    r.referrer = headerSafe(referrer);
+    r.cookies = headerSafe(cookies);
     r.existingFileReaction = existingFileDefault();
     r.pickFiles = r.moduleUid == QLatin1String("downloadsbt") && chooseTorrentFiles();
     r.tags = tagsFor(r.title);
@@ -191,7 +191,7 @@ Download* DownloadManager::add(const QString& url, const QString& destDir, const
     for (Download* x : m_list)
         last = qMax(last, x->queueOrder());
     r.queueOrder = qMax(last + 1, r.id); // the end of the queue
-    r.userAgent = userAgent;
+    r.userAgent = headerSafe(userAgent);
     r.created = QDateTime::currentDateTime();
     r.state = start ? Download::Queued : Download::Paused;
     if (sched) {
