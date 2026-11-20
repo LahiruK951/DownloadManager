@@ -117,6 +117,7 @@ set(FLUXDM_QML_FILES
     qml/CertificateDialog.qml
     qml/MeteredDialog.qml
     qml/MirrorsDialog.qml
+    qml/DownloadWindow.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

@@ -19,6 +19,7 @@ Rectangle {
     signal requestConvert(var download, string format)
     signal requestCertificate(var download)
     signal requestMirrors(var download)
+    signal requestWindow(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -383,6 +384,7 @@ Rectangle {
             onTriggered: App.playWhileDownloading(row.d.id)
         }
         FMenuItem { glyph: Theme.icons.folder; text: qsTr("Show in folder"); onTriggered: App.openFolder(row.d.id) }
+        FMenuItem { glyph: String.fromCharCode(0xE8A7); text: qsTr("Open in a new window"); onTriggered: row.requestWindow(row.d) }
         FMenuItem {
             glyph: String.fromCharCode(0xE8D6) // Audio
             text: qsTr("Convert to MP3…")

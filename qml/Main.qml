@@ -141,6 +141,7 @@ ApplicationWindow {
                 onRequestConvert: (d, f) => convertDialog.openFor(d, f)
                 onRequestCertificate: (d) => certificateDialog.openFor(d)
                 onRequestMirrors: (d) => mirrorsDialog.openFor(d)
+                onRequestWindow: (d) => win.openDownloadWindow(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -153,6 +154,7 @@ ApplicationWindow {
                 SplitView.preferredHeight: App.bottomPanelHeight
                 SplitView.minimumHeight: 140
                 onCloseRequested: App.bottomPanelOpen = false
+                onPopOutRequested: win.openDownloadWindow(App.selected)
                 onHeightChanged: if (visible && height > 0) App.bottomPanelHeight = height
             }
         }
@@ -166,6 +168,18 @@ ApplicationWindow {
             addDialog.openWith(text)
             drop.accept()
         }
+    }
+
+    // Separate windows per download; an already open one is brought to the front.
+    property var downloadWindows: ({})
+    Component { id: downloadWindowComponent; DownloadWindow {} }
+    function openDownloadWindow(d) {
+        if (!d) return
+        const w = downloadWindows[d.id]
+        if (w) { w.raise(); w.requestActivate(); return }
+        const nw = downloadWindowComponent.createObject(null, { download: d })
+        downloadWindows[d.id] = nw
+        nw.closing.connect(() => delete downloadWindows[d.id])
     }
 
     Component.onCompleted: {
@@ -199,6 +213,7 @@ ApplicationWindow {
         }
         else if (v === "report") reportDialog.openReport(false)
         else if (v === "metered") meteredDialog.ask(2)
+        else if (v === "window") { App.select(App.downloads.idAt(0)); openDownloadWindow(App.selected) }
         else if (v === "exists") devExistsTimer.start()
         else if (v === "convert") devConvertTimer.start()
         else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list

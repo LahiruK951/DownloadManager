@@ -188,9 +188,14 @@ int main(int argc, char* argv[])
         if (!grabPath.isEmpty())
             QTimer::singleShot(qEnvironmentVariableIntValue("FLUXDM_DEV_GRAB_DELAY") > 0 ? qEnvironmentVariableIntValue("FLUXDM_DEV_GRAB_DELAY") : 3000,
                                &app, [&engine, grabPath] {
-                if (!engine.rootObjects().isEmpty())
-                    if (auto* w = qobject_cast<QQuickWindow*>(engine.rootObjects().first()))
-                        w->grabWindow().save(grabPath);
+                // The main window, or the most recently opened one (separate download windows).
+                QQuickWindow* w = engine.rootObjects().isEmpty() ? nullptr : qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+                if (qEnvironmentVariable("FLUXDM_DEV_OPEN") == QLatin1String("window"))
+                    for (QWindow* tw : QGuiApplication::topLevelWindows())
+                        if (auto* q = qobject_cast<QQuickWindow*>(tw); q && q != w && q->isVisible())
+                            w = q;
+                if (w)
+                    w->grabWindow().save(grabPath);
                 QCoreApplication::quit();
             });
 

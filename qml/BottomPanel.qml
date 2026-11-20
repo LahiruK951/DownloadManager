@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     id: panel
     property var download: null
+    property bool standalone: false // in its own window: own tab, no pop-out button
+    signal popOutRequested()
     signal closeRequested()
 
     readonly property var d: download
@@ -33,7 +35,7 @@ Rectangle {
     readonly property bool hasDetails: details.peers !== undefined
     function refreshDetails() { details = panel.d ? App.torrentDetails(panel.d.id) : ({}) }
     onDChanged: refreshDetails()
-    onHasDetailsChanged: if (!hasDetails && App.bottomPanelTab >= 3) App.bottomPanelTab = 0
+    onHasDetailsChanged: if (!hasDetails && tabs.currentIndex >= 3) tabs.currentIndex = 0
     Timer {
         interval: 1000
         repeat: true
@@ -112,8 +114,8 @@ Rectangle {
 
             TabBar {
                 id: tabs
-                currentIndex: App.bottomPanelTab
-                onCurrentIndexChanged: App.bottomPanelTab = currentIndex
+                currentIndex: panel.standalone ? 0 : App.bottomPanelTab
+                onCurrentIndexChanged: if (!panel.standalone) App.bottomPanelTab = currentIndex
                 background: Item {}
                 Layout.alignment: Qt.AlignBottom
                 Repeater {
@@ -174,7 +176,15 @@ Rectangle {
                 onClicked: App.copyLink(panel.d.id)
             }
             Rectangle { width: 1; height: 20; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-            IconButton { glyph: Theme.icons.close; glyphSize: 11; size: 30; tip: qsTr("Close panel"); onClicked: panel.closeRequested() }
+            IconButton {
+                visible: !panel.standalone
+                glyph: String.fromCharCode(0xE8A7) // OpenInNewWindow
+                glyphSize: 12
+                size: 30
+                tip: qsTr("Open in a new window")
+                onClicked: panel.popOutRequested()
+            }
+            IconButton { glyph: Theme.icons.close; glyphSize: 11; size: 30; tip: panel.standalone ? qsTr("Close") : qsTr("Close panel"); onClicked: panel.closeRequested() }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; opacity: 0.6 }

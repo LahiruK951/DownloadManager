@@ -18,6 +18,7 @@ Item {
     signal requestConvert(var download, string format)
     signal requestCertificate(var download)
     signal requestMirrors(var download)
+    signal requestWindow(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -51,6 +52,7 @@ Item {
             onRequestConvert: (d, f) => root.requestConvert(d, f)
             onRequestCertificate: (d) => root.requestCertificate(d)
             onRequestMirrors: (d) => root.requestMirrors(d)
+            onRequestWindow: (d) => root.requestWindow(d)
         }
 
         focus: true
