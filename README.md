@@ -12,7 +12,7 @@ scripts\build.ps1 -Test              # ... and run the test suite
 scripts\build.ps1 -Run               # ... and launch the app
 scripts\package.ps1                  # portable release zip -> dist\FluxDM-<version>-win64.zip
 scripts\package.ps1 -Installer       # ... plus FluxDM-<version>-setup.exe + latest.json (needs Inno Setup 6)
-scriptsuild.ps1 -UpdateTranslations # refresh i18n\*.ts from the sources (see i18n\README.md)
+scripts\build.ps1 -UpdateTranslations # refresh i18n\*.ts from the sources (see i18n\README.md)
 scripts\shot.ps1                     # headless screenshots of every view -> build\shots
 ```
 
