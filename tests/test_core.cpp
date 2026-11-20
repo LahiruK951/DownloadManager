@@ -18,6 +18,7 @@
 #include "engines/dash/Mpd.h"
 #include "engines/sites/SiteEngine.h"
 #include "engines/www/FileWriter.h"
+#include "core/DiskSpace.h"
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
 #include "core/DownloadManager.h"
@@ -47,6 +48,7 @@
 #include "ui/DownloadsModel.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QScopeGuard>
 #include "core/Schedule.h"
 #include "engines/www/WwwEngine.h"
 
@@ -1078,6 +1080,50 @@ private slots:
         r.postData = p.postData;
         db.save(r);
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
+    }
+
+    void diskFullWaitsForSpace()
+    {
+        QVERIFY(DiskSpace::isShortage(DiskSpace::shortageText(2LL << 30, 1LL << 30, QDir::tempPath())));
+        QVERIFY(DiskSpace::shortageText(2LL << 30, 1LL << 30, QDir::tempPath()).contains("2.0 GB"));
+        QVERIFY(DiskSpace::looksLikeFullDisk("Disk write error: There is not enough space on the disk."));
+        QVERIFY(!DiskSpace::looksLikeFullDisk("HTTP error 404"));
+        QVERIFY(DiskSpace::freeBytes(QDir::temp().filePath("no/such/folder/yet")) > 0); // nearest existing folder
+
+        RangeServer srv;
+        srv.data = makeData(2 * 1024 * 1024);
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+
+        qint64 fakeFree = 100 * 1024; // less than the file needs
+        DiskSpace::setFreeBytesOverride([&](const QString&) { return fakeFree; });
+        auto restore = qScopeGuard([] { DiskSpace::setFreeBytesOverride(nullptr); });
+
+        Download* d = mgr.add(srv.url("/big.bin"), dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 10000);
+        QVERIFY2(DiskSpace::isShortage(d->rec.lastError), qPrintable(d->rec.lastError));
+        QVERIFY(!d->autoRetryAt.isValid()); // waits for space, doesn't burn automatic retries
+
+        mgr.recheckDiskSpace(); // still not enough: keeps waiting
+        QVERIFY(d->failed());
+
+        fakeFree = 1LL << 40; // space was freed
+        mgr.recheckDiskSpace();
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+        QCOMPARE(readAll(d->rec.filePath), srv.data);
+
+        // Size known (e.g. resumed later): checked before the engine even starts.
+        fakeFree = 1024;
+        Download* e = mgr.add(srv.url("/again.bin"), dir.path(), {}, false);
+        e->rec.total = srv.data.size();
+        mgr.resume(e);
+        QTRY_VERIFY_WITH_TIMEOUT(e->failed(), 5000);
+        QVERIFY(DiskSpace::isShortage(e->rec.lastError));
     }
 
     void duplicateLinks()

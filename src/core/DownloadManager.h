@@ -153,10 +153,14 @@ signals:
     void antivirusChecked(Download* d, bool blocked, const QString& message);
     void storageError(const QString& message); // the database could not be written (rate-limited)
 
+public slots:
+    // Downloads waiting for disk space continue once there is enough (also run every 15 s).
+    void recheckDiskSpace();
+
 private:
     void schedule();
     void evaluateTrafficRules();
-    void startDownload(Download* d);
+    bool startDownload(Download* d); // false: not started (no engine, not enough disk space)
     void stopDownload(Download* d);
     void persist(Download* d);
     void applyLimits();

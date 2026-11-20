@@ -20,6 +20,7 @@
 
 #include "core/AppLog.h"
 #include "core/AttachmentCheck.h"
+#include "core/DiskSpace.h"
 #include <QThread>
 #include "core/Database.h"
 #include "core/Secret.h"
@@ -70,6 +71,7 @@ DownloadManager::DownloadManager(Database* db, QObject* parent)
     connect(&m_clock, &QTimer::timeout, this, [this] {
         evaluateTrafficRules();
         runAutoRetries();
+        recheckDiskSpace();
         if (++m_tick % 4 == 0) // once a minute
             checkMissingFiles();
         schedule();
@@ -276,8 +278,8 @@ void DownloadManager::schedule()
     for (Download* d : queue) {
         if (running >= maxDownloads)
             break;
-        startDownload(d);
-        ++running;
+        if (startDownload(d))
+            ++running;
     }
     for (Download* d : m_list)
         if (d->queued() && d->scheduled())
@@ -297,13 +299,25 @@ void DownloadManager::checkAllDone()
     m_hadActive = active;
 }
 
-void DownloadManager::startDownload(Download* d)
+bool DownloadManager::startDownload(Download* d)
 {
     DownloadEngine* e = engineByUid(d->rec.moduleUid);
     if (!e) {
         d->setState(Download::Error, tr("No engine for module %1").arg(d->rec.moduleUid));
         persist(d);
-        return;
+        return false;
+    }
+    if (d->rec.total > 0) {
+        const qint64 need = qMax<qint64>(0, d->rec.total - d->rec.received);
+        const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
+        if (need > 0 && free >= 0 && free < need + DiskSpace::kMargin) {
+            const QString why = DiskSpace::shortageText(need, free, d->rec.destDir);
+            d->addLog(why);
+            d->addLog(tr("Waiting for free disk space; the download continues by itself"));
+            d->setState(Download::Error, why);
+            persist(d);
+            return false;
+        }
     }
     TaskParams p;
     p.id = d->id();
@@ -332,6 +346,7 @@ void DownloadManager::startDownload(Download* d)
     d->addLog(tr("Starting"));
     persist(d);
     e->start(p);
+    return true;
 }
 
 void DownloadManager::stopDownload(Download* d)
@@ -752,7 +767,23 @@ void DownloadManager::onFailed(qint64 id, const QString& error, const QByteArray
         d->rec.resumeData = resumeData;
     d->setSegmentsFromResumeData();
     d->setPendingFiles({});
-    d->setState(Download::Error, error);
+    QString why = error;
+    if (DiskSpace::looksLikeFullDisk(error) && !DiskSpace::isShortage(error)) {
+        const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
+        const qint64 need = d->rec.total > 0 ? qMax<qint64>(0, d->rec.total - d->rec.received) : 0;
+        if (free >= 0 && free < need + DiskSpace::kMargin) {
+            d->addLog(error);
+            why = DiskSpace::shortageText(need, free, d->rec.destDir);
+        }
+    }
+    d->setState(Download::Error, why);
+    if (DiskSpace::isShortage(why)) {
+        d->addLog(tr("Waiting for free disk space; the download continues by itself"));
+        persist(d);
+        statsChanged();
+        schedule();
+        return;
+    }
     // FDM-style automatic retries for transient failures: 30 s, 1, 2, 5, 10 min...
     if (isRetriable(error) && d->autoRetryCount < autoRetryLimit()) {
         static const int delays[] = {30, 60, 120, 300, 600};
@@ -884,6 +915,25 @@ void DownloadManager::runAutoRetries()
         }
     }
 }
+void DownloadManager::recheckDiskSpace()
+{
+    bool any = false;
+    for (Download* d : m_list) {
+        if (!d->failed() || !DiskSpace::isShortage(d->rec.lastError))
+            continue;
+        const qint64 free = DiskSpace::freeBytes(d->rec.destDir);
+        const qint64 need = (d->rec.total > 0 ? qMax<qint64>(0, d->rec.total - d->rec.received) : 0) + DiskSpace::kMargin;
+        if (free >= 0 && free < need)
+            continue;
+        d->addLog(tr("Enough free disk space again; continuing"));
+        d->setState(Download::Queued);
+        persist(d);
+        any = true;
+    }
+    if (any)
+        schedule();
+}
+
 void DownloadManager::checkMissingFiles()
 {
     // FDM marks completed downloads whose file was moved or deleted.

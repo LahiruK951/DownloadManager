@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <algorithm>
 
+#include "core/DiskSpace.h"
 #include "core/FileNamer.h"
 #include "core/LinkCheck.h"
 #include "engines/www/CurlWorker.h"
@@ -412,6 +413,14 @@ bool HttpTask::initMeta(Segment* s, long code)
     m_fileName = QFileInfo(m_finalPath).fileName();
     m_partPath = m_finalPath + FileNamer::kPartSuffix;
 
+    if (m_total > 0) { // the part file is sparse, so nothing reserves the space: check first
+        const qint64 free = DiskSpace::freeBytes(m_p.destDir);
+        if (free >= 0 && free < m_total + DiskSpace::kMargin) {
+            s->fatal = DiskSpace::shortageText(m_total, free, m_p.destDir);
+            m_fatalTask = true;
+            return false;
+        }
+    }
     QString err;
     if (!m_file.open(m_partPath, true, &err)) {
         s->fatal = QStringLiteral("Cannot create file: %1").arg(err);

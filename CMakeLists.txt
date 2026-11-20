@@ -33,6 +33,7 @@ add_library(fluxcore STATIC
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
+    src/core/DiskSpace.h              src/core/DiskSpace.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h
