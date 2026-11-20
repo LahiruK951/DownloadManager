@@ -309,6 +309,8 @@ public:
     Q_INVOKABLE bool canPlayWhileDownloading(qint64 id) const;
     Q_INVOKABLE void forgetLogins();
     Q_INVOKABLE void trustCertificate(qint64 id);
+    Q_INVOKABLE QString mirrors(qint64 id) const;                      // one per line
+    Q_INVOKABLE QString setMirrors(qint64 id, const QString& text);    // error text or ""
     Q_INVOKABLE int trustedHostCount() const;
     Q_INVOKABLE void forgetTrustedHosts();
     Q_INVOKABLE void quit();

@@ -18,6 +18,7 @@ Rectangle {
     signal requestNewTag(var downloadIds)
     signal requestConvert(var download, string format)
     signal requestCertificate(var download)
+    signal requestMirrors(var download)
 
     readonly property var d: download
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
@@ -472,6 +473,12 @@ Rectangle {
             onTriggered: row.requestMove()
         }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
+        FMenuItem {
+            glyph: Theme.icons.link
+            text: qsTr("Mirrors…")
+            visible: !row.d.completed && row.d.url.match(/^(https?|ftp):/i) !== null && !row.d.isTorrent
+            onTriggered: row.requestMirrors(row.d)
+        }
         FMenuItem {
             glyph: String.fromCharCode(0xE8C8) // Copy
             text: qsTr("Copy file path")

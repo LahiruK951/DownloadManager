@@ -299,6 +299,7 @@ void DownloadManager::startDownload(Download* d)
     p.existingFile = d->rec.existingFileReaction;
     p.ffmpeg = ffmpegPath();
     p.postData = d->rec.postData;
+    p.mirrors = d->rec.mirrors;
     p.trustCertificate = m_db->trustedHosts().contains(QUrl(d->rec.url).host().toLower());
     if (const QString y = ytdlpPath(); !y.isEmpty())
         p.siteTool = {y};

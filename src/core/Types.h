@@ -19,6 +19,7 @@ struct TaskParams {
     QString user;          // server login (HTTP auth / FTP); empty = none or in the URL
     QString password;
     QString ffmpeg;        // for engines that combine tracks (DASH); empty = not available
+    QStringList mirrors;   // other addresses of the same file (spread connections, fall back)
     QByteArray postData;   // send as a POST (a form the browser submitted), empty = GET
     bool trustCertificate = false; // the user accepted this server's untrusted certificate
     QStringList siteTool;  // yt-dlp command (program + prefix args) for site downloads; empty = missing

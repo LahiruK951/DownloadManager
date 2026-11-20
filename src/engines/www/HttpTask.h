@@ -2,6 +2,8 @@
 #include <curl/curl.h>
 
 #include <QByteArray>
+#include <QSet>
+#include <QStringList>
 #include <QString>
 #include <memory>
 #include <vector>
@@ -23,6 +25,7 @@ struct Segment {
     qint64 retryAt = 0; // worker clock ms; 0 = start as soon as a slot is free
     bool probe = false;
     bool validated = false;
+    int source = 0;    // 0 = the original address, n = mirror n
     bool reachedEnd = false;
     bool paused = false;
     QString fatal;
@@ -99,6 +102,10 @@ private:
     bool m_resumable = false;
     bool m_writeError = false;
     bool m_fatalTask = false;
+    QStringList m_sources;      // original + mirrors
+    QSet<int> m_badSources;     // mirrors that failed or serve something else
+    int m_nextSource = 0;
+    int pickSource();
     bool m_changedOnServer = false;
     bool m_dead = false;
     bool m_dirty = false;

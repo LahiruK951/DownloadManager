@@ -1006,6 +1006,51 @@ private slots:
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
     }
 
+    void mirrors()
+    {
+        const QByteArray file = makeData(3 * 1024 * 1024);
+        RangeServer main, mirror, other, broken;
+        main.data = mirror.data = file;
+        other.data = makeData(1024 * 1024); // a different file
+        broken.data = file;
+        broken.failStatus = 404;
+        for (RangeServer* s : {&main, &mirror, &other, &broken}) {
+            s->chunk = 32 * 1024; // slow enough for the download to split into several parts
+            QVERIFY(s->start());
+        }
+        QTemporaryDir dir;
+        WwwEngine eng;
+        eng.setMaxConnections(6);
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed), log(&eng, &DownloadEngine::log);
+
+        TaskParams p = params(71, main.url("/pack.iso"), dir.path());
+        p.maxConnections = 6;
+        p.mirrors = {mirror.url("/pack.iso")};
+        eng.start(p);
+        Outcome o = waitForEnd(fin, fail, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == file);
+        QVERIFY2(mirror.requests >= 1, "the mirror was never used");
+        QVERIFY(main.requests >= 1);
+
+        // A mirror with another file and one that answers 404: both dropped, the file is still right.
+        fin.clear();
+        p.id = 72;
+        p.mirrors = {other.url("/pack.iso"), broken.url("/pack.iso")};
+        eng.start(p);
+        o = waitForEnd(fin, fail, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == file);
+        QStringList lines;
+        for (const auto& l : log)
+            if (l.at(0).toLongLong() == 72)
+                lines << l.at(1).toString();
+        // Each bad mirror is dropped with a reason (a different file is caught by its size or length).
+        const QString all = lines.join('\n');
+        QVERIFY2(all.contains("Mirror " + other.url("/pack.iso") + " failed"), qPrintable(all));
+        QVERIFY2(all.contains("Mirror " + broken.url("/pack.iso") + " failed (HTTP 404)"), qPrintable(all));
+    }
+
     void postDownload()
     {
         RangeServer srv;

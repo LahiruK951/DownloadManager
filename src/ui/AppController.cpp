@@ -1050,6 +1050,31 @@ void AppController::resolveExisting(qint64 id, int reaction)
     m_mgr->resume(d);
 }
 
+QString AppController::mirrors(qint64 id) const
+{
+    const Download* d = byId(id);
+    return d ? d->rec.mirrors.join(QLatin1Char('\n')) : QString();
+}
+
+QString AppController::setMirrors(qint64 id, const QString& text)
+{
+    Download* d = byId(id);
+    if (!d)
+        return {};
+    QStringList list;
+    for (const QString& l : text.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts)) {
+        const QUrl u(l);
+        if (!u.isValid() || (u.scheme() != QLatin1String("http") && u.scheme() != QLatin1String("https") && u.scheme() != QLatin1String("ftp")))
+            return tr("Not a web or FTP address: %1").arg(l);
+        if (l != d->rec.url && !list.contains(l))
+            list << l;
+    }
+    d->rec.mirrors = list;
+    d->addLog(list.isEmpty() ? tr("Mirrors removed") : tr("%n mirror(s) set; used from the next start", "", int(list.size())));
+    m_mgr->persistRecord(d);
+    return {};
+}
+
 void AppController::trustCertificate(qint64 id) { m_mgr->trustCertificate(byId(id)); }
 int AppController::trustedHostCount() const { return int(m_mgr->trustedHosts().size()); }
 

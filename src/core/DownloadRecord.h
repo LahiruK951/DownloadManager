@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 #include "core/Schedule.h"
 
@@ -14,6 +15,7 @@ struct DownloadRecord {
     QString url;
     QString referrer;
     QString cookies;
+    QStringList mirrors;        // mirrors: other URLs of the same file
     QByteArray postData;        // postData: the form body for downloads that answer a POST
     QString userAgent;
     QString destDir;            // destinationPath

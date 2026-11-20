@@ -17,6 +17,7 @@ Item {
     signal requestNewTag(var downloadIds)
     signal requestConvert(var download, string format)
     signal requestCertificate(var download)
+    signal requestMirrors(var download)
 
     // Developer aid (screenshots): pop up the context menu of row `i`.
     function showContextMenu(i) {
@@ -49,6 +50,7 @@ Item {
             onRequestNewTag: (ids) => root.requestNewTag(ids)
             onRequestConvert: (d, f) => root.requestConvert(d, f)
             onRequestCertificate: (d) => root.requestCertificate(d)
+            onRequestMirrors: (d) => root.requestMirrors(d)
         }
 
         focus: true

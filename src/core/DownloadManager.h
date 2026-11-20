@@ -39,6 +39,7 @@ public:
     void restart(Download* d);
     void remove(Download* d, bool deleteFiles);
     void setPriority(Download* d, int priority);
+    void persistRecord(Download* d) { persist(d); }
     // Manual queue order among unfinished downloads (FDM: user-defined order). where:
     // "top", "up", "down", "bottom". Several at once keep their relative order.
     void moveInQueue(const QList<Download*>& ds, const QString& where);

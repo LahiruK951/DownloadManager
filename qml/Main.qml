@@ -80,7 +80,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible || meteredDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible || meteredDialog.visible || mirrorsDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -140,6 +140,7 @@ ApplicationWindow {
                 onRequestNewTag: (ids) => tagDialog.openNew(ids)
                 onRequestConvert: (d, f) => convertDialog.openFor(d, f)
                 onRequestCertificate: (d) => certificateDialog.openFor(d)
+                onRequestMirrors: (d) => mirrorsDialog.openFor(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
                 onRequestOpenTorrent: torrentFileDialog.open()
@@ -246,6 +247,7 @@ ApplicationWindow {
     ReportDialog { id: reportDialog }
     CertificateDialog { id: certificateDialog }
     MeteredDialog { id: meteredDialog }
+    MirrorsDialog { id: mirrorsDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog

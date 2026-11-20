@@ -146,7 +146,10 @@ void HttpTask::startSegment(Segment* s)
     if (!m_resumable && m_metaKnown)
         s->done = 0; // cannot resume: restart this (only) segment from the beginning
 
-    const QByteArray url = (m_effUrl.isEmpty() ? m_p.url : m_effUrl).toUtf8();
+    if (m_sources.isEmpty())
+        m_sources = QStringList{m_p.url} + m_p.mirrors;
+    const QByteArray url = (s->source > 0 && s->source < m_sources.size() ? m_sources[s->source]
+                            : (m_effUrl.isEmpty() ? m_p.url : m_effUrl)).toUtf8();
     curl_easy_setopt(h, CURLOPT_URL, url.constData());
     curl_easy_setopt(h, CURLOPT_PRIVATE, s);
     curl_easy_setopt(h, CURLOPT_WRITEFUNCTION, &HttpTask::writeCb);
@@ -328,6 +331,10 @@ bool HttpTask::onFirstData(Segment* s)
         return false;
     }
     const qint64 tot = parseContentRangeTotal(s->contentRange);
+    if (tot > 0 && tot != m_total && s->source > 0) { // a mirror with a different file: drop the mirror only
+        s->fatal = QStringLiteral("serves a file of a different size");
+        return false;
+    }
     if (tot > 0 && tot != m_total) {
         s->fatal = QStringLiteral("File size changed on the server");
         m_changedOnServer = true;
@@ -459,6 +466,17 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
         return;
     }
 
+    // A mirror let us down: forget it for this download and fetch this part from the original.
+    if (s->source > 0) {
+        m_badSources.insert(s->source);
+        log(QStringLiteral("Mirror %1 failed (%2); using the original address for this part")
+                .arg(m_sources.value(s->source), !s->fatal.isEmpty() ? s->fatal : (code >= 400 ? QStringLiteral("HTTP %1").arg(code) : curlErr)));
+        s->source = 0;
+        s->fatal.clear();
+        s->validated = false;
+        s->retryAt = nowMs;
+        return;
+    }
     if (m_changedOnServer) {
         if (++m_restarts > 2) {
             fail(QStringLiteral("The file keeps changing on the server"));
@@ -541,6 +559,7 @@ void HttpTask::tick(qint64 nowMs)
         ns->begin = best->cur() + (best->remaining() - upper);
         ns->end = best->end;
         best->end = ns->begin - 1;
+        ns->source = pickSource(); // spread the connections over the mirrors
         Segment* raw = ns.get();
         m_segs.push_back(std::move(ns));
         startSegment(raw);
@@ -631,4 +650,17 @@ bool HttpTask::restore(const QByteArray& data)
         }
     }
     return true;
+}
+
+// Round-robin over the original address and the mirrors that still work.
+int HttpTask::pickSource()
+{
+    if (m_sources.size() <= 1)
+        return 0;
+    for (int i = 0; i < m_sources.size(); ++i) {
+        m_nextSource = (m_nextSource + 1) % int(m_sources.size());
+        if (m_nextSource == 0 || !m_badSources.contains(m_nextSource))
+            return m_nextSource;
+    }
+    return 0;
 }
