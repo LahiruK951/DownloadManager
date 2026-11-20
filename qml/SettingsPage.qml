@@ -862,6 +862,16 @@ Popup {
                         title: qsTr("Connections")
                         Layout.fillWidth: true
                         SettingRow {
+                            title: qsTr("On metered connections")
+                            description: qsTr("Phone hotspots or data plans with a limit, as Windows reports them.")
+                            FComboBox {
+                                Layout.preferredWidth: 200
+                                model: [qsTr("Ask me"), qsTr("Pause downloads"), qsTr("Download as usual")]
+                                currentIndex: App.meteredPolicy
+                                onActivated: (i) => App.meteredPolicy = i
+                            }
+                        }
+                        SettingRow {
                             id: trustRow
                             readonly property int count: (App.defaultFolder, App.trustedHostCount())
                             title: qsTr("Servers trusted despite their certificate")

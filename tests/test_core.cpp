@@ -39,6 +39,7 @@
 #include "core/Updater.h"
 #include "core/AttachmentCheck.h"
 #include "core/FdmImport.h"
+#include "core/MeteredGuard.h"
 #include <QStandardPaths>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -1003,6 +1004,57 @@ private slots:
         QVERIFY(probe.waitForFinished(20000));
         const QString info3 = QString::fromLocal8Bit(probe.readAllStandardError());
         QVERIFY2(info3.contains("Video:") && info3.contains("Audio:") && info3.contains("Duration: 00:00:06"), qPrintable(info3));
+    }
+
+    void meteredConnection()
+    {
+        RangeServer srv;
+        srv.data = makeData(4 * 1024 * 1024);
+        srv.chunk = 4 * 1024; // slow: still running while we flip the connection
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* a = mgr.add(srv.url("/a.bin"), dir.path(), {}, true);
+        Download* b = mgr.add(srv.url("/b.bin"), dir.path(), {}, true);
+        Download* mine = mgr.add(srv.url("/c.bin"), dir.path(), {}, false); // paused by the user
+        QTRY_VERIFY_WITH_TIMEOUT(a->running() && b->running(), 5000);
+
+        MeteredGuard g(&mgr);
+        QSignalSpy ask(&g, &MeteredGuard::askUser), paused(&g, &MeteredGuard::paused), resumed(&g, &MeteredGuard::resumed);
+        g.setMetered(true); // policy Ask (default)
+        QCOMPARE(ask.count(), 1);
+        QCOMPARE(ask.first().at(0).toInt(), 2);
+        QVERIFY(a->running()); // nothing happens until the user answers
+        g.pauseNow();
+        QVERIFY(a->paused() && b->paused());
+        g.setMetered(false); // back on Wi-Fi: only what we paused continues
+        QCOMPARE(resumed.first().at(0).toInt(), 2);
+        QVERIFY(!a->paused() && !b->paused());
+        QVERIFY(mine->paused());
+
+        g.setPolicy(MeteredGuard::Pause);
+        g.setMetered(true);
+        QCOMPARE(paused.count(), 2); // once by hand, once automatically
+        QVERIFY(a->paused());
+        g.setMetered(false);
+        QTRY_VERIFY_WITH_TIMEOUT(a->running() || a->queued(), 5000);
+
+        g.setPolicy(MeteredGuard::Ask);
+        g.setMetered(true);
+        g.keepDownloading(); // "Keep downloading": no more questions while metered
+        g.setMetered(true);
+        QCOMPARE(ask.count(), 2);
+        g.setMetered(false);
+
+        g.setPolicy(MeteredGuard::Ignore);
+        g.setMetered(true);
+        QCOMPARE(ask.count(), 2);
+        QVERIFY(!a->paused());
+        mgr.pauseAll();
     }
 
     void untrustedCertificate()

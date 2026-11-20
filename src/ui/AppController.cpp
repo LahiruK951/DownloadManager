@@ -75,6 +75,17 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
     });
     m_torrentWatcher->setFolder(torrentWatchFolder());
     m_languageAtStart = language();
+    m_metered = new MeteredGuard(m_mgr, this);
+    m_metered->setPolicy(meteredPolicy());
+    connect(m_metered, &MeteredGuard::askUser, this, &AppController::meteredQuestion);
+    connect(m_metered, &MeteredGuard::paused, this, [this](int n) {
+        emit notice(tr("Metered connection: paused %1 download(s); they continue on an unmetered connection").arg(n));
+    });
+    connect(m_metered, &MeteredGuard::resumed, this, [this](int n) {
+        emit notice(tr("No longer metered: resumed %1 download(s)").arg(n));
+    });
+    if (!qEnvironmentVariableIsSet("FLUXDM_DEV_DEMO")) // screenshots stay independent of this PC's network
+        QTimer::singleShot(0, this, [this] { MeteredGuard::watchSystem(m_metered); });
     m_updater = new Updater(QStringLiteral(FLUXDM_VERSION), this);
     connect(m_updater, &Updater::checked, this, [this](bool available, const QString& version, const QString&) {
         m_ui.setValue(QStringLiteral("updateLastCheck"), QDateTime::currentDateTime());
@@ -395,6 +406,36 @@ void AppController::setTorrentWatchFolder(const QString& folder)
     m_ui.setValue(QStringLiteral("torrentWatchFolder"), f);
     m_torrentWatcher->setFolder(f);
     emit settingsChanged();
+}
+
+int AppController::meteredPolicy() const
+{
+    // FDM's "dontAskMobileDataUsage" means: download as usual.
+    if (m_ui.value(QStringLiteral("dontAskMobileDataUsage")).toBool() && !m_ui.contains(QStringLiteral("meteredPolicy")))
+        return MeteredGuard::Ignore;
+    return qBound(0, m_ui.value(QStringLiteral("meteredPolicy"), int(MeteredGuard::Ask)).toInt(), 2);
+}
+
+void AppController::setMeteredPolicy(int p)
+{
+    m_ui.setValue(QStringLiteral("meteredPolicy"), qBound(0, p, 2));
+    if (m_metered)
+        m_metered->setPolicy(meteredPolicy());
+    emit settingsChanged();
+}
+
+void AppController::pauseOnMetered(bool remember)
+{
+    if (remember)
+        setMeteredPolicy(MeteredGuard::Pause);
+    m_metered->pauseNow();
+}
+
+void AppController::keepDownloadingOnMetered(bool remember)
+{
+    if (remember)
+        setMeteredPolicy(MeteredGuard::Ignore);
+    m_metered->keepDownloading();
 }
 
 bool AppController::antivirusCheck() const { return m_mgr->antivirusCheck(); }

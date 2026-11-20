@@ -3,6 +3,7 @@
 #include "core/TorrentFolderWatcher.h"
 #include "core/RemoteServer.h"
 #include "core/Updater.h"
+#include "core/MeteredGuard.h"
 #include <QAbstractItemModel>
 #include <QDateTime>
 #include <QObject>
@@ -67,6 +68,7 @@ class AppController : public QObject {
     Q_PROPERTY(QString updateStatus READ updateStatus NOTIFY updateChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(bool antivirusCheck READ antivirusCheck WRITE setAntivirusCheck NOTIFY settingsChanged)
+    Q_PROPERTY(int meteredPolicy READ meteredPolicy WRITE setMeteredPolicy NOTIFY settingsChanged) // 0 ask, 1 pause, 2 ignore
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged) // [{id, name, color, extensions, folder}]
     Q_PROPERTY(QString torrentWatchFolder READ torrentWatchFolder WRITE setTorrentWatchFolder NOTIFY settingsChanged) // "" = off
     Q_PROPERTY(QString sortKey READ sortKey NOTIFY sortChanged)             // added | name | size | status
@@ -150,6 +152,10 @@ public:
     Q_INVOKABLE void openLogsFolder() const;
     bool chooseTorrentFiles() const;
     bool antivirusCheck() const;
+    int meteredPolicy() const;
+    void setMeteredPolicy(int p);
+    Q_INVOKABLE void pauseOnMetered(bool remember);
+    Q_INVOKABLE void keepDownloadingOnMetered(bool remember);
     void setAntivirusCheck(bool on);
     QVariantList tags() const;
     QString torrentWatchFolder() const;
@@ -347,6 +353,7 @@ signals:
     void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void certificateRequired(QObject* download); // untrusted TLS certificate
+    void meteredQuestion(int activeDownloads);
     void filesRequired(QObject* download); // torrent waits for the user to pick files
     void loginRequired(QObject* download); // a Download; QObject* keeps this header free of core includes
 
@@ -370,6 +377,7 @@ private:
     TorrentFolderWatcher* m_torrentWatcher = nullptr;
     RemoteServer* m_remote = nullptr;
     Updater* m_updater = nullptr;
+    MeteredGuard* m_metered = nullptr;
     int m_updateState = 0;
     QString m_updateStatus, m_updateFile;
     void setUpdate(int state, const QString& status);

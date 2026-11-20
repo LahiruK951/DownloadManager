@@ -29,6 +29,7 @@ add_library(fluxcore STATIC
     src/core/Updater.h                src/core/Updater.cpp
     src/core/AttachmentCheck.h        src/core/AttachmentCheck.cpp
     src/core/FdmImport.h              src/core/FdmImport.cpp
+    src/core/MeteredGuard.h           src/core/MeteredGuard.cpp
     src/core/TorrentFolderWatcher.h   src/core/TorrentFolderWatcher.cpp
     src/core/MediaConvert.h           src/core/MediaConvert.cpp
     src/core/SleepGuard.h             src/core/SleepGuard.cpp
@@ -114,6 +115,7 @@ set(FLUXDM_QML_FILES
     qml/ConvertDialog.qml
     qml/ReportDialog.qml
     qml/CertificateDialog.qml
+    qml/MeteredDialog.qml
     qml/DeleteDialog.qml
     qml/AboutDialog.qml
     qml/ScheduleEditor.qml

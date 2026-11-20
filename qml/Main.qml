@@ -71,6 +71,7 @@ ApplicationWindow {
         // Ask right away, like a browser does, unless the user is busy with another dialog.
         function onFilesRequired(d) { if (!win.dialogOpen) torrentFilesDialog.openFor(d) }
         function onCertificateRequired(d) { if (!win.dialogOpen) certificateDialog.openFor(d) }
+        function onMeteredQuestion(n) { if (!win.dialogOpen) meteredDialog.ask(n) }
         function onFileConflict(d) { if (!win.dialogOpen) fileExistsDialog.openFor(d) }
         function onLoginRequired(d) { if (!win.dialogOpen && App.devOpen !== "login-row") loginDialog.openFor(d) }
         function onWhenDoneCountdown(action) {
@@ -79,7 +80,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible || meteredDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -196,6 +197,7 @@ ApplicationWindow {
             settingsDialog.openSection(6)
         }
         else if (v === "report") reportDialog.openReport(false)
+        else if (v === "metered") meteredDialog.ask(2)
         else if (v === "exists") devExistsTimer.start()
         else if (v === "convert") devConvertTimer.start()
         else if (v === "tags" || v === "tag-dialog" || v === "tags-menu") { // sample tags on the demo list
@@ -243,6 +245,7 @@ ApplicationWindow {
     ConvertDialog { id: convertDialog }
     ReportDialog { id: reportDialog }
     CertificateDialog { id: certificateDialog }
+    MeteredDialog { id: meteredDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog
