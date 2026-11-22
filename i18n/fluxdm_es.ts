@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
 <TS version="2.1" language="es" sourcelanguage="en">
 <context>
     <name>AboutDialog</name>
@@ -17,6 +18,58 @@
     <message>
         <source>Close</source>
         <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Keyboard shortcuts</source>
+        <translation>Atajos de teclado</translation>
+    </message>
+    <message>
+        <source>New download (from the clipboard)</source>
+        <translation>Nueva descarga (desde el portapapeles)</translation>
+    </message>
+    <message>
+        <source>Pause or resume the selected download</source>
+        <translation>Pausar o reanudar la descarga seleccionada</translation>
+    </message>
+    <message>
+        <source>Open the file</source>
+        <translation>Abrir el archivo</translation>
+    </message>
+    <message>
+        <source>Show in folder</source>
+        <translation>Mostrar en la carpeta</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Renombrar</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Eliminar</translation>
+    </message>
+    <message>
+        <source>Pause all / resume all</source>
+        <translation>Pausar todo / reanudar todo</translation>
+    </message>
+    <message>
+        <source>Traffic mode Snail / Medium / High</source>
+        <translation>Modo de tráfico Caracol / Medio / Alto</translation>
+    </message>
+    <message>
+        <source>Show or hide details</source>
+        <translation>Mostrar u ocultar detalles</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Buscar</translation>
+    </message>
+    <message>
+        <source>Select all, clear selection</source>
+        <translation>Seleccionar todo, quitar la selección</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Ajustes</translation>
     </message>
 </context>
 <context>
@@ -113,6 +166,22 @@
         <source>Download</source>
         <translation>Descargar</translation>
     </message>
+    <message>
+        <source>Checksum to verify (optional): MD5, SHA-1 or SHA-256</source>
+        <translation>Suma de comprobación para verificar (opcional): MD5, SHA-1 o SHA-256</translation>
+    </message>
+    <message>
+        <source>%1 of these links are already in your list.</source>
+        <translation>%1 de estos enlaces ya están en tu lista.</translation>
+    </message>
+    <message>
+        <source>Already in your list: %1 (%2)</source>
+        <translation>Ya está en tu lista: %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>Mostrar</translation>
+    </message>
 </context>
 <context>
     <name>AppController</name>
@@ -153,7 +222,7 @@
         <translation>Primero se descarga el principio del archivo; se abrirá en tu reproductor en un momento</translation>
     </message>
     <message>
-        <source>Enter the proxy's address.</source>
+        <source>Enter the proxy&apos;s address.</source>
         <translation>Escribe la dirección del proxy.</translation>
     </message>
     <message>
@@ -173,7 +242,7 @@
         <translation>Descargando la actualización…</translation>
     </message>
     <message>
-        <source>Couldn't start the installer.</source>
+        <source>Couldn&apos;t start the installer.</source>
         <translation>No se pudo iniciar el instalador.</translation>
     </message>
     <message>
@@ -205,7 +274,7 @@
         <translation>Enlace no compatible: %1</translation>
     </message>
     <message>
-        <source>The download hasn't finished yet</source>
+        <source>The download hasn&apos;t finished yet</source>
         <translation>La descarga aún no ha terminado</translation>
     </message>
     <message>
@@ -346,14 +415,16 @@
     <message numerus="yes">
         <source>%n mirror(s) set; used from the next start</source>
         <translation>
-            <numerusform>Se configuró %n réplica; se usa desde el próximo inicio.</numerusform><numerusform>Se configuraron %n réplicas; se usan desde el próximo inicio.</numerusform></translation>
+            <numerusform>Se configuró %n réplica; se usa desde el próximo inicio.</numerusform>
+            <numerusform>Se configuraron %n réplicas; se usan desde el próximo inicio.</numerusform>
+        </translation>
     </message>
     <message>
         <source>All %1 downloads from Free Download Manager are already in the list.</source>
         <translation>Las %1 descargas de Free Download Manager ya están en la lista.</translation>
     </message>
     <message>
-        <source>Free Download Manager's list is empty.</source>
+        <source>Free Download Manager&apos;s list is empty.</source>
         <translation>La lista de Free Download Manager está vacía.</translation>
     </message>
     <message>
@@ -363,6 +434,50 @@
     <message>
         <source>Imported %1 download(s) from Free Download Manager.</source>
         <translation>Se importaron %1 descarga(s) de Free Download Manager.</translation>
+    </message>
+    <message>
+        <source>Extracted %1</source>
+        <translation>Extraído: %1</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t extract %1: %2</source>
+        <translation>No se pudo extraer %1: %2</translation>
+    </message>
+    <message>
+        <source>Created %1 and started sharing it</source>
+        <translation>Se creó %1 y se empezó a compartir</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t create the torrent: %1</source>
+        <translation>No se pudo crear el torrent: %1</translation>
+    </message>
+    <message>
+        <source>Checksum mismatch: %1 may be damaged or not the file that was published</source>
+        <translation>La suma de comprobación no coincide: %1 puede estar dañado o no ser el archivo publicado</translation>
+    </message>
+    <message>
+        <source>Can&apos;t save download progress: %1. Check free space on the drive with FluxDM&apos;s data.</source>
+        <translation>No se puede guardar el progreso de las descargas: %1. Comprueba el espacio libre en la unidad con los datos de FluxDM.</translation>
+    </message>
+    <message>
+        <source>Windows (zip and tar only)</source>
+        <translation>Windows (solo zip y tar)</translation>
+    </message>
+    <message>
+        <source>The Metalink file %1 lists nothing FluxDM can download</source>
+        <translation>El archivo Metalink %1 no contiene nada que FluxDM pueda descargar</translation>
+    </message>
+    <message>
+        <source>The checksum isn&apos;t an MD5, SHA-1, SHA-256 or SHA-512 value.</source>
+        <translation>La suma de comprobación no es un valor MD5, SHA-1, SHA-256 ni SHA-512.</translation>
+    </message>
+    <message>
+        <source>Already in the list: %1</source>
+        <translation>Ya está en la lista: %1</translation>
+    </message>
+    <message>
+        <source>No links to download</source>
+        <translation>No hay enlaces para descargar</translation>
     </message>
 </context>
 <context>
@@ -539,6 +654,22 @@
         <source>Close</source>
         <translation>Cerrar</translation>
     </message>
+    <message>
+        <source>Checksum</source>
+        <translation>Suma de comprobación</translation>
+    </message>
+    <message>
+        <source>Checked when the download finishes</source>
+        <translation>Se comprueba cuando termina la descarga</translation>
+    </message>
+    <message>
+        <source>Paste MD5, SHA-1 or SHA-256 to verify</source>
+        <translation>Pega un MD5, SHA-1 o SHA-256 para verificar</translation>
+    </message>
+    <message>
+        <source>Verify</source>
+        <translation>Verificar</translation>
+    </message>
 </context>
 <context>
     <name>BtEngine</name>
@@ -618,6 +749,10 @@
         <source>Share ratio %1 reached; seeding stopped</source>
         <translation>Se alcanzó la proporción %1; se dejó de compartir</translation>
     </message>
+    <message>
+        <source>Nothing to put in a torrent</source>
+        <translation>No hay nada que poner en un torrent</translation>
+    </message>
 </context>
 <context>
     <name>CertificateDialog</name>
@@ -626,7 +761,7 @@
         <translation>Certificado no fiable</translation>
     </message>
     <message>
-        <source>The security certificate of %1 isn't trusted, so FluxDM can't be sure it's talking to the real server.</source>
+        <source>The security certificate of %1 isn&apos;t trusted, so FluxDM can&apos;t be sure it&apos;s talking to the real server.</source>
         <translation>El certificado de seguridad de %1 no es de confianza, así que FluxDM no puede estar seguro de hablar con el servidor real.</translation>
     </message>
     <message>
@@ -657,7 +792,7 @@
         <translation>Vídeo MP4</translation>
     </message>
     <message>
-        <source>MP4 needs a video that isn't MP4 already.</source>
+        <source>MP4 needs a video that isn&apos;t MP4 already.</source>
         <translation>MP4 necesita un vídeo que no sea ya MP4.</translation>
     </message>
     <message>
@@ -772,7 +907,7 @@
         <translation>%1 El vídeo y el audio se guardaron por separado: %2</translation>
     </message>
     <message>
-        <source>ffmpeg was not found, so the tracks couldn't be combined.</source>
+        <source>ffmpeg was not found, so the tracks couldn&apos;t be combined.</source>
         <translation>No se encontró ffmpeg, así que no se pudieron combinar las pistas.</translation>
     </message>
     <message>
@@ -811,7 +946,7 @@
         <translation>Quítala solo de la lista o elimina también el archivo descargado del disco.</translation>
     </message>
     <message>
-        <source>The download isn't finished. Its partial data will be removed.</source>
+        <source>The download isn&apos;t finished. Its partial data will be removed.</source>
         <translation>La descarga no ha terminado. Se eliminarán sus datos parciales.</translation>
     </message>
     <message>
@@ -871,6 +1006,14 @@
     <message>
         <source>Completed</source>
         <translation>Completado</translation>
+    </message>
+    <message>
+        <source>Checksum matches</source>
+        <translation>La suma de comprobación coincide</translation>
+    </message>
+    <message>
+        <source>Checksum does not match</source>
+        <translation>La suma de comprobación no coincide</translation>
     </message>
 </context>
 <context>
@@ -956,8 +1099,8 @@
         <translation>Escribe un nombre de archivo</translation>
     </message>
     <message>
-        <source>A file name can't contain any of these characters: \ / : * ? " &lt; &gt; |</source>
-        <translation>Un nombre de archivo no puede contener ninguno de estos caracteres: \ / : * ? " &lt; &gt; |</translation>
+        <source>A file name can&apos;t contain any of these characters: \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>Un nombre de archivo no puede contener ninguno de estos caracteres: \ / : * ? &quot; &lt; &gt; |</translation>
     </message>
     <message>
         <source>The file was moved or deleted</source>
@@ -1062,6 +1205,121 @@
     <message>
         <source>Trusting the certificate of %1 from now on</source>
         <translation>A partir de ahora se confía en el certificado de %1</translation>
+    </message>
+    <message>
+        <source>The download continues when the drive is back</source>
+        <translation>La descarga continuará cuando vuelva la unidad</translation>
+    </message>
+    <message>
+        <source>Waiting for free disk space; the download continues by itself</source>
+        <translation>Esperando espacio libre en el disco; la descarga continuará sola</translation>
+    </message>
+    <message>
+        <source>Only finished downloads can be checked</source>
+        <translation>Solo se pueden comprobar las descargas terminadas</translation>
+    </message>
+    <message>
+        <source>Already checking</source>
+        <translation>Ya se está comprobando</translation>
+    </message>
+    <message>
+        <source>Paste an MD5, SHA-1, SHA-256 or SHA-512 checksum</source>
+        <translation>Pega una suma de comprobación MD5, SHA-1, SHA-256 o SHA-512</translation>
+    </message>
+    <message>
+        <source>The file is missing</source>
+        <translation>Falta el archivo</translation>
+    </message>
+    <message>
+        <source>Computing %1…</source>
+        <translation>Calculando %1…</translation>
+    </message>
+    <message>
+        <source>Could not read the file: %1</source>
+        <translation>No se pudo leer el archivo: %1</translation>
+    </message>
+    <message>
+        <source>%1 matches</source>
+        <translation>%1 coincide</translation>
+    </message>
+    <message>
+        <source>%1 checksum matches</source>
+        <translation>La suma %1 coincide</translation>
+    </message>
+    <message>
+        <source>%1 does not match: the file is %2</source>
+        <translation>%1 no coincide: el archivo es %2</translation>
+    </message>
+    <message>
+        <source>%1 checksum does NOT match (expected %2, file is %3)</source>
+        <translation>La suma %1 NO coincide (se esperaba %2, el archivo es %3)</translation>
+    </message>
+    <message>
+        <source>This looks like a Metalink file, but it lists nothing FluxDM can download</source>
+        <translation>Parece un archivo Metalink, pero no contiene nada que FluxDM pueda descargar</translation>
+    </message>
+    <message>
+        <source>The drive is back; continuing</source>
+        <translation>La unidad ha vuelto; continuando</translation>
+    </message>
+    <message>
+        <source>Enough free disk space again; continuing</source>
+        <translation>Vuelve a haber espacio libre suficiente; continuando</translation>
+    </message>
+    <message>
+        <source>Install 7-Zip to extract archives</source>
+        <translation>Instala 7-Zip para extraer archivos comprimidos</translation>
+    </message>
+    <message>
+        <source>This file can&apos;t be extracted here</source>
+        <translation>Este archivo no se puede extraer aquí</translation>
+    </message>
+    <message>
+        <source>Extracting to %1…</source>
+        <translation>Extrayendo en %1…</translation>
+    </message>
+    <message>
+        <source>Extracted to %1</source>
+        <translation>Extraído en %1</translation>
+    </message>
+    <message>
+        <source>Extraction failed: %1</source>
+        <translation>Error al extraer: %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>From the Metalink file %1: %n mirror(s)</source>
+        <translation>
+            <numerusform>Del archivo Metalink %1: %n réplica</numerusform>
+            <numerusform>Del archivo Metalink %1: %n réplicas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Only finished files can be shared as a torrent</source>
+        <translation>Solo los archivos terminados se pueden compartir como torrent</translation>
+    </message>
+    <message>
+        <source>Creating a torrent…</source>
+        <translation>Creando un torrent…</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t create the torrent: %1</source>
+        <translation>No se pudo crear el torrent: %1</translation>
+    </message>
+    <message>
+        <source>unknown error</source>
+        <translation>error desconocido</translation>
+    </message>
+    <message>
+        <source>Created %1</source>
+        <translation>Creado: %1</translation>
+    </message>
+    <message>
+        <source>Sharing your file %1</source>
+        <translation>Compartiendo tu archivo %1</translation>
+    </message>
+    <message>
+        <source>BitTorrent support is not available</source>
+        <translation>BitTorrent no está disponible</translation>
     </message>
 </context>
 <context>
@@ -1349,6 +1607,14 @@
     <message>
         <source>Mirrors…</source>
         <translation>Réplicas…</translation>
+    </message>
+    <message>
+        <source>Extract here</source>
+        <translation>Extraer aquí</translation>
+    </message>
+    <message>
+        <source>Create torrent and share</source>
+        <translation>Crear torrent y compartir</translation>
     </message>
 </context>
 <context>
@@ -1638,7 +1904,7 @@
         <translation>Iniciar sesión</translation>
     </message>
     <message>
-        <source>The server didn't accept that user name or password. Try again.</source>
+        <source>The server didn&apos;t accept that user name or password. Try again.</source>
         <translation>El servidor no aceptó ese nombre de usuario o contraseña. Inténtalo de nuevo.</translation>
     </message>
     <message>
@@ -1731,7 +1997,7 @@
         <translation>Windows indica que esta conexión es de uso medido, por ejemplo un punto de acceso del teléfono o un plan de datos con límite. %1 descarga(s) seguirían usándola.</translation>
     </message>
     <message>
-        <source>Don't ask again</source>
+        <source>Don&apos;t ask again</source>
         <translation>No volver a preguntar</translation>
     </message>
     <message>
@@ -1968,6 +2234,363 @@
     </message>
 </context>
 <context>
+    <name>SettingsBrowser</name>
+    <message>
+        <source>Integration</source>
+        <translation>Integración</translation>
+    </message>
+    <message>
+        <source>Connect FluxDM to your browsers</source>
+        <translation>Conectar FluxDM con tus navegadores</translation>
+    </message>
+    <message>
+        <source>Registers the FluxDM helper for Chrome, Edge, Brave and Firefox (your Windows account only).</source>
+        <translation>Registra el asistente de FluxDM para Chrome, Edge, Brave y Firefox (solo tu cuenta de Windows).</translation>
+    </message>
+    <message>
+        <source>Add browser downloads without asking</source>
+        <translation>Añadir las descargas del navegador sin preguntar</translation>
+    </message>
+    <message>
+        <source>Otherwise FluxDM shows the New download dialog first.</source>
+        <translation>Si no, FluxDM muestra primero el diálogo Nueva descarga.</translation>
+    </message>
+    <message>
+        <source>Install the extension: Chrome, Edge, Brave</source>
+        <translation>Instalar la extensión: Chrome, Edge, Brave</translation>
+    </message>
+    <message>
+        <source>One-time setup in each browser:</source>
+        <translation>Configuración única en cada navegador:</translation>
+    </message>
+    <message>
+        <source>Open chrome://extensions (Edge: edge://extensions, Brave: brave://extensions).</source>
+        <translation>Abre chrome://extensions (Edge: edge://extensions, Brave: brave://extensions).</translation>
+    </message>
+    <message>
+        <source>Turn on Developer mode.</source>
+        <translation>Activa el modo de desarrollador.</translation>
+    </message>
+    <message>
+        <source>Click Load unpacked and choose the FluxDM extension folder below.</source>
+        <translation>Haz clic en Cargar descomprimida y elige la carpeta de la extensión de FluxDM de abajo.</translation>
+    </message>
+    <message>
+        <source>Turn on “Connect FluxDM to your browsers” above.</source>
+        <translation>Activa «Conectar FluxDM con tus navegadores» arriba.</translation>
+    </message>
+    <message>
+        <source>Extension folder</source>
+        <translation>Carpeta de la extensión</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Abrir carpeta</translation>
+    </message>
+    <message>
+        <source>Install the extension: Firefox</source>
+        <translation>Instalar la extensión: Firefox</translation>
+    </message>
+    <message>
+        <source>Firefox 128 or newer:</source>
+        <translation>Firefox 128 o posterior:</translation>
+    </message>
+    <message>
+        <source>Open about:debugging#/runtime/this-firefox.</source>
+        <translation>Abre about:debugging#/runtime/this-firefox.</translation>
+    </message>
+    <message>
+        <source>Click Load Temporary Add-on… and choose manifest.json in the Firefox extension folder below.</source>
+        <translation>Haz clic en Cargar complemento temporal… y elige manifest.json en la carpeta de la extensión para Firefox de abajo.</translation>
+    </message>
+    <message>
+        <source>Firefox removes temporary add-ons when it restarts. To keep it installed, the extension has to be signed by Mozilla (free, on addons.mozilla.org).</source>
+        <translation>Firefox quita los complementos temporales al reiniciarse. Para dejarla instalada, Mozilla tiene que firmar la extensión (gratis, en addons.mozilla.org).</translation>
+    </message>
+    <message>
+        <source>Firefox extension folder</source>
+        <translation>Carpeta de la extensión para Firefox</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsGeneral</name>
+    <message>
+        <source>Appearance</source>
+        <translation>Apariencia</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <translation>Tema</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Sistema</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Claro</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Oscuro</translation>
+    </message>
+    <message>
+        <source>Compact list</source>
+        <translation>Lista compacta</translation>
+    </message>
+    <message>
+        <source>Show more downloads by hiding progress bars and details.</source>
+        <translation>Muestra más descargas ocultando barras de progreso y detalles.</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>Idioma</translation>
+    </message>
+    <message>
+        <source>Takes effect when FluxDM restarts.</source>
+        <translation>Se aplica cuando FluxDM se reinicia.</translation>
+    </message>
+    <message>
+        <source>Translations other than English were made by machine and may read awkwardly. Corrections are welcome.</source>
+        <translation>Las traducciones distintas del inglés se hicieron automáticamente y pueden sonar extrañas. Se agradecen las correcciones.</translation>
+    </message>
+    <message>
+        <source>Restart now</source>
+        <translation>Reiniciar ahora</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>Zoom</translation>
+    </message>
+    <message>
+        <source>Size of text and controls.</source>
+        <translation>Tamaño del texto y los controles.</translation>
+    </message>
+    <message>
+        <source>Behavior</source>
+        <translation>Comportamiento</translation>
+    </message>
+    <message>
+        <source>Start with Windows</source>
+        <translation>Iniciar con Windows</translation>
+    </message>
+    <message>
+        <source>Starts in the notification area when you sign in, so scheduled and queued downloads continue.</source>
+        <translation>Se inicia en el área de notificación al iniciar sesión, para que continúen las descargas programadas y en cola.</translation>
+    </message>
+    <message>
+        <source>Keep running in the notification area</source>
+        <translation>Seguir en el área de notificación</translation>
+    </message>
+    <message>
+        <source>Closing the window hides FluxDM; downloads continue.</source>
+        <translation>Al cerrar la ventana, FluxDM se oculta y las descargas continúan.</translation>
+    </message>
+    <message>
+        <source>Watch the clipboard</source>
+        <translation>Vigilar el portapapeles</translation>
+    </message>
+    <message>
+        <source>Offer to download when you copy a link to a file.</source>
+        <translation>Ofrecer la descarga al copiar un enlace a un archivo.</translation>
+    </message>
+    <message>
+        <source>Keep the computer awake while downloading</source>
+        <translation>Mantener el equipo activo mientras descarga</translation>
+    </message>
+    <message>
+        <source>Windows won&apos;t go to sleep until downloads finish. The screen can still turn off.</source>
+        <translation>Windows no entrará en suspensión hasta que terminen las descargas. La pantalla sí puede apagarse.</translation>
+    </message>
+    <message>
+        <source>Notify when a download completes</source>
+        <translation>Avisar cuando termine una descarga</translation>
+    </message>
+    <message>
+        <source>Play a sound when a download completes</source>
+        <translation>Reproducir un sonido cuando termine una descarga</translation>
+    </message>
+    <message>
+        <source>Updates</source>
+        <translation>Actualizaciones</translation>
+    </message>
+    <message>
+        <source>FluxDM %1</source>
+        <translation>FluxDM %1</translation>
+    </message>
+    <message>
+        <source>No update address is set, so FluxDM doesn&apos;t look for updates.</source>
+        <translation>No hay dirección de actualizaciones, así que FluxDM no las busca.</translation>
+    </message>
+    <message>
+        <source>Looks for a new version once a day.</source>
+        <translation>Busca una versión nueva una vez al día.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Descargar</translation>
+    </message>
+    <message>
+        <source>Install and restart</source>
+        <translation>Instalar y reiniciar</translation>
+    </message>
+    <message>
+        <source>Check now</source>
+        <translation>Comprobar ahora</translation>
+    </message>
+    <message>
+        <source>Check automatically</source>
+        <translation>Comprobar automáticamente</translation>
+    </message>
+    <message>
+        <source>Update address</source>
+        <translation>Dirección de actualizaciones</translation>
+    </message>
+    <message>
+        <source>Where the release information (latest.json) is published. HTTPS only.</source>
+        <translation>Dónde se publica la información de versiones (latest.json). Solo HTTPS.</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsNetwork</name>
+    <message>
+        <source>Saved. New connections use it; running downloads switch when they reconnect.</source>
+        <translation>Guardado. Las conexiones nuevas lo usan; las descargas en curso cambian al reconectar.</translation>
+    </message>
+    <message>
+        <source>Proxy</source>
+        <translation>Proxy</translation>
+    </message>
+    <message>
+        <source>For web downloads, video streams and .torrent files.</source>
+        <translation>Para descargas web, transmisiones de vídeo y archivos .torrent.</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>Conectar</translation>
+    </message>
+    <message>
+        <source>System proxy</source>
+        <translation>Proxy del sistema</translation>
+    </message>
+    <message>
+        <source>No proxy</source>
+        <translation>Sin proxy</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>Manual</translation>
+    </message>
+    <message>
+        <source>Address</source>
+        <translation>Dirección</translation>
+    </message>
+    <message>
+        <source>proxy.example.com</source>
+        <translation>proxy.ejemplo.com</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation>Puerto</translation>
+    </message>
+    <message>
+        <source>User name (optional)</source>
+        <translation>Nombre de usuario (opcional)</translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation>Contraseña</translation>
+    </message>
+    <message>
+        <source>Saved (unchanged)</source>
+        <translation>Guardada (sin cambios)</translation>
+    </message>
+    <message>
+        <source>Save proxy</source>
+        <translation>Guardar proxy</translation>
+    </message>
+    <message>
+        <source>Connections</source>
+        <translation>Conexiones</translation>
+    </message>
+    <message>
+        <source>On metered connections</source>
+        <translation>En conexiones de uso medido</translation>
+    </message>
+    <message>
+        <source>Phone hotspots or data plans with a limit, as Windows reports them.</source>
+        <translation>Puntos de acceso del teléfono o planes de datos con límite, según los indica Windows.</translation>
+    </message>
+    <message>
+        <source>Ask me</source>
+        <translation>Preguntarme</translation>
+    </message>
+    <message>
+        <source>Pause downloads</source>
+        <translation>Pausar las descargas</translation>
+    </message>
+    <message>
+        <source>Download as usual</source>
+        <translation>Descargar como siempre</translation>
+    </message>
+    <message>
+        <source>Servers trusted despite their certificate</source>
+        <translation>Servidores de confianza pese a su certificado</translation>
+    </message>
+    <message>
+        <source>None.</source>
+        <translation>Ninguno.</translation>
+    </message>
+    <message>
+        <source>%1 server(s). FluxDM doesn&apos;t check their certificates.</source>
+        <translation>%1 servidor(es). FluxDM no comprueba sus certificados.</translation>
+    </message>
+    <message>
+        <source>Forget all</source>
+        <translation>Olvidar todos</translation>
+    </message>
+    <message>
+        <source>Internet protocol</source>
+        <translation>Protocolo de Internet</translation>
+    </message>
+    <message>
+        <source>Some networks have a broken IPv6 (or IPv4) route; pick the one that works.</source>
+        <translation>Algunas redes tienen una ruta IPv6 (o IPv4) rota; elige la que funcione.</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automática</translation>
+    </message>
+    <message>
+        <source>IPv4</source>
+        <translation>IPv4</translation>
+    </message>
+    <message>
+        <source>IPv6</source>
+        <translation>IPv6</translation>
+    </message>
+    <message>
+        <source>User agent</source>
+        <translation>Agente de usuario</translation>
+    </message>
+    <message>
+        <source>How FluxDM introduces itself to web servers. Leave empty for the default. Downloads from the browser use the browser&apos;s.</source>
+        <translation>Cómo se presenta FluxDM ante los servidores web. Déjalo vacío para usar el predeterminado. Las descargas del navegador usan el del navegador.</translation>
+    </message>
+    <message>
+        <source>Connections per server</source>
+        <translation>Conexiones por servidor</translation>
+    </message>
+    <message>
+        <source>Across all downloads from the same site. Some servers block clients that open too many.</source>
+        <translation>Entre todas las descargas del mismo sitio. Algunos servidores bloquean a los clientes que abren demasiadas.</translation>
+    </message>
+    <message>
+        <source>No limit</source>
+        <translation>Sin límite</translation>
+    </message>
+</context>
+<context>
     <name>SettingsPage</name>
     <message>
         <source>Snail</source>
@@ -2052,126 +2675,6 @@
     <message>
         <source>Settings</source>
         <translation>Ajustes</translation>
-    </message>
-    <message>
-        <source>Appearance</source>
-        <translation>Apariencia</translation>
-    </message>
-    <message>
-        <source>Theme</source>
-        <translation>Tema</translation>
-    </message>
-    <message>
-        <source>System</source>
-        <translation>Sistema</translation>
-    </message>
-    <message>
-        <source>Light</source>
-        <translation>Claro</translation>
-    </message>
-    <message>
-        <source>Dark</source>
-        <translation>Oscuro</translation>
-    </message>
-    <message>
-        <source>Compact list</source>
-        <translation>Lista compacta</translation>
-    </message>
-    <message>
-        <source>Show more downloads by hiding progress bars and details.</source>
-        <translation>Muestra más descargas ocultando barras de progreso y detalles.</translation>
-    </message>
-    <message>
-        <source>Zoom</source>
-        <translation>Zoom</translation>
-    </message>
-    <message>
-        <source>Takes effect when FluxDM restarts.</source>
-        <translation>Se aplica cuando FluxDM se reinicia.</translation>
-    </message>
-    <message>
-        <source>Size of text and controls.</source>
-        <translation>Tamaño del texto y los controles.</translation>
-    </message>
-    <message>
-        <source>Restart now</source>
-        <translation>Reiniciar ahora</translation>
-    </message>
-    <message>
-        <source>Behavior</source>
-        <translation>Comportamiento</translation>
-    </message>
-    <message>
-        <source>Keep running in the notification area</source>
-        <translation>Seguir en el área de notificación</translation>
-    </message>
-    <message>
-        <source>Closing the window hides FluxDM; downloads continue.</source>
-        <translation>Al cerrar la ventana, FluxDM se oculta y las descargas continúan.</translation>
-    </message>
-    <message>
-        <source>Watch the clipboard</source>
-        <translation>Vigilar el portapapeles</translation>
-    </message>
-    <message>
-        <source>Offer to download when you copy a link to a file.</source>
-        <translation>Ofrecer la descarga al copiar un enlace a un archivo.</translation>
-    </message>
-    <message>
-        <source>Keep the computer awake while downloading</source>
-        <translation>Mantener el equipo activo mientras descarga</translation>
-    </message>
-    <message>
-        <source>Windows won't go to sleep until downloads finish. The screen can still turn off.</source>
-        <translation>Windows no entrará en suspensión hasta que terminen las descargas. La pantalla sí puede apagarse.</translation>
-    </message>
-    <message>
-        <source>Notify when a download completes</source>
-        <translation>Avisar cuando termine una descarga</translation>
-    </message>
-    <message>
-        <source>Play a sound when a download completes</source>
-        <translation>Reproducir un sonido cuando termine una descarga</translation>
-    </message>
-    <message>
-        <source>Updates</source>
-        <translation>Actualizaciones</translation>
-    </message>
-    <message>
-        <source>FluxDM %1</source>
-        <translation>FluxDM %1</translation>
-    </message>
-    <message>
-        <source>No update address is set, so FluxDM doesn't look for updates.</source>
-        <translation>No hay dirección de actualizaciones, así que FluxDM no las busca.</translation>
-    </message>
-    <message>
-        <source>Looks for a new version once a day.</source>
-        <translation>Busca una versión nueva una vez al día.</translation>
-    </message>
-    <message>
-        <source>Download</source>
-        <translation>Descargar</translation>
-    </message>
-    <message>
-        <source>Install and restart</source>
-        <translation>Instalar y reiniciar</translation>
-    </message>
-    <message>
-        <source>Check now</source>
-        <translation>Comprobar ahora</translation>
-    </message>
-    <message>
-        <source>Check automatically</source>
-        <translation>Comprobar automáticamente</translation>
-    </message>
-    <message>
-        <source>Update address</source>
-        <translation>Dirección de actualizaciones</translation>
-    </message>
-    <message>
-        <source>Where the release information (latest.json) is published. HTTPS only.</source>
-        <translation>Dónde se publica la información de versiones (latest.json). Solo HTTPS.</translation>
     </message>
     <message>
         <source>Saving</source>
@@ -2414,6 +2917,89 @@
         <translation>Registra FluxDM solo para tu cuenta de Windows.</translation>
     </message>
     <message>
+        <source>Locate ffmpeg.exe</source>
+        <translation>Buscar ffmpeg.exe</translation>
+    </message>
+    <message>
+        <source>ffmpeg (ffmpeg.exe)</source>
+        <translation>ffmpeg (ffmpeg.exe)</translation>
+    </message>
+    <message>
+        <source>Programs (*.exe)</source>
+        <translation>Programas (*.exe)</translation>
+    </message>
+    <message>
+        <source>Folder to watch for .torrent files</source>
+        <translation>Carpeta que vigilar para archivos .torrent</translation>
+    </message>
+    <message>
+        <source>Locate yt-dlp.exe</source>
+        <translation>Buscar yt-dlp.exe</translation>
+    </message>
+    <message>
+        <source>yt-dlp (yt-dlp.exe)</source>
+        <translation>yt-dlp (yt-dlp.exe)</translation>
+    </message>
+    <message>
+        <source>Check finished downloads with your antivirus</source>
+        <translation>Revisar las descargas terminadas con tu antivirus</translation>
+    </message>
+    <message>
+        <source>Like a browser: Windows scans each new file and marks it as coming from the internet, so it warns before running it.</source>
+        <translation>Como un navegador: Windows analiza cada archivo nuevo y lo marca como procedente de internet, para avisar antes de ejecutarlo.</translation>
+    </message>
+    <message>
+        <source>Extract archives when they finish</source>
+        <translation>Extraer archivos comprimidos al terminar</translation>
+    </message>
+    <message>
+        <source>Into a folder named after the archive, next to it. Uses %1.</source>
+        <translation>En una carpeta con el nombre del archivo, junto a él. Usa %1.</translation>
+    </message>
+    <message>
+        <source>Needs 7-Zip (7-zip.org).</source>
+        <translation>Necesita 7-Zip (7-zip.org).</translation>
+    </message>
+    <message>
+        <source>Remove finished downloads from the list</source>
+        <translation>Quitar de la lista las descargas terminadas</translation>
+    </message>
+    <message>
+        <source>Only the entry in FluxDM goes; the files stay where they are.</source>
+        <translation>Solo se quita la entrada en FluxDM; los archivos se quedan donde están.</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nunca</translation>
+    </message>
+    <message>
+        <source>After 1 day</source>
+        <translation>Después de 1 día</translation>
+    </message>
+    <message>
+        <source>After 7 days</source>
+        <translation>Después de 7 días</translation>
+    </message>
+    <message>
+        <source>After 30 days</source>
+        <translation>Después de 30 días</translation>
+    </message>
+    <message>
+        <source>After 90 days</source>
+        <translation>Después de 90 días</translation>
+    </message>
+    <message>
+        <source>Listening port</source>
+        <translation>Puerto de escucha</translation>
+    </message>
+    <message>
+        <source>Other peers connect to this port. Takes effect the next time FluxDM starts.</source>
+        <translation>Los demás pares se conectan a este puerto. Se aplica la próxima vez que se inicie FluxDM.</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsRemote</name>
+    <message>
         <source>Remote control</source>
         <translation>Control remoto</translation>
     </message>
@@ -2454,220 +3040,8 @@
         <translation>No se encontró ninguna conexión de red.</translation>
     </message>
     <message>
-        <source>If Windows asks whether FluxDM may use the network, allow private networks. The connection isn't encrypted, so use it only on networks you trust.</source>
+        <source>If Windows asks whether FluxDM may use the network, allow private networks. The connection isn&apos;t encrypted, so use it only on networks you trust.</source>
         <translation>Si Windows pregunta si FluxDM puede usar la red, permite las redes privadas. La conexión no está cifrada, así que úsala solo en redes de confianza.</translation>
-    </message>
-    <message>
-        <source>Saved. New connections use it; running downloads switch when they reconnect.</source>
-        <translation>Guardado. Las conexiones nuevas lo usan; las descargas en curso cambian al reconectar.</translation>
-    </message>
-    <message>
-        <source>Proxy</source>
-        <translation>Proxy</translation>
-    </message>
-    <message>
-        <source>For web downloads, video streams and .torrent files.</source>
-        <translation>Para descargas web, transmisiones de vídeo y archivos .torrent.</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>Conectar</translation>
-    </message>
-    <message>
-        <source>System proxy</source>
-        <translation>Proxy del sistema</translation>
-    </message>
-    <message>
-        <source>No proxy</source>
-        <translation>Sin proxy</translation>
-    </message>
-    <message>
-        <source>Manual</source>
-        <translation>Manual</translation>
-    </message>
-    <message>
-        <source>Address</source>
-        <translation>Dirección</translation>
-    </message>
-    <message>
-        <source>proxy.example.com</source>
-        <translation>proxy.ejemplo.com</translation>
-    </message>
-    <message>
-        <source>User name (optional)</source>
-        <translation>Nombre de usuario (opcional)</translation>
-    </message>
-    <message>
-        <source>Password</source>
-        <translation>Contraseña</translation>
-    </message>
-    <message>
-        <source>Saved (unchanged)</source>
-        <translation>Guardada (sin cambios)</translation>
-    </message>
-    <message>
-        <source>Save proxy</source>
-        <translation>Guardar proxy</translation>
-    </message>
-    <message>
-        <source>Connections</source>
-        <translation>Conexiones</translation>
-    </message>
-    <message>
-        <source>Connections per server</source>
-        <translation>Conexiones por servidor</translation>
-    </message>
-    <message>
-        <source>Across all downloads from the same site. Some servers block clients that open too many.</source>
-        <translation>Entre todas las descargas del mismo sitio. Algunos servidores bloquean a los clientes que abren demasiadas.</translation>
-    </message>
-    <message>
-        <source>No limit</source>
-        <translation>Sin límite</translation>
-    </message>
-    <message>
-        <source>Integration</source>
-        <translation>Integración</translation>
-    </message>
-    <message>
-        <source>Connect FluxDM to your browsers</source>
-        <translation>Conectar FluxDM con tus navegadores</translation>
-    </message>
-    <message>
-        <source>Registers the FluxDM helper for Chrome, Edge, Brave and Firefox (your Windows account only).</source>
-        <translation>Registra el asistente de FluxDM para Chrome, Edge, Brave y Firefox (solo tu cuenta de Windows).</translation>
-    </message>
-    <message>
-        <source>Add browser downloads without asking</source>
-        <translation>Añadir las descargas del navegador sin preguntar</translation>
-    </message>
-    <message>
-        <source>Otherwise FluxDM shows the New download dialog first.</source>
-        <translation>Si no, FluxDM muestra primero el diálogo Nueva descarga.</translation>
-    </message>
-    <message>
-        <source>Install the extension: Chrome, Edge, Brave</source>
-        <translation>Instalar la extensión: Chrome, Edge, Brave</translation>
-    </message>
-    <message>
-        <source>One-time setup in each browser:</source>
-        <translation>Configuración única en cada navegador:</translation>
-    </message>
-    <message>
-        <source>Open chrome://extensions (Edge: edge://extensions, Brave: brave://extensions).</source>
-        <translation>Abre chrome://extensions (Edge: edge://extensions, Brave: brave://extensions).</translation>
-    </message>
-    <message>
-        <source>Turn on Developer mode.</source>
-        <translation>Activa el modo de desarrollador.</translation>
-    </message>
-    <message>
-        <source>Click Load unpacked and choose the FluxDM extension folder below.</source>
-        <translation>Haz clic en Cargar descomprimida y elige la carpeta de la extensión de FluxDM de abajo.</translation>
-    </message>
-    <message>
-        <source>Turn on “Connect FluxDM to your browsers” above.</source>
-        <translation>Activa «Conectar FluxDM con tus navegadores» arriba.</translation>
-    </message>
-    <message>
-        <source>Extension folder</source>
-        <translation>Carpeta de la extensión</translation>
-    </message>
-    <message>
-        <source>Open folder</source>
-        <translation>Abrir carpeta</translation>
-    </message>
-    <message>
-        <source>Install the extension: Firefox</source>
-        <translation>Instalar la extensión: Firefox</translation>
-    </message>
-    <message>
-        <source>Firefox 128 or newer:</source>
-        <translation>Firefox 128 o posterior:</translation>
-    </message>
-    <message>
-        <source>Open about:debugging#/runtime/this-firefox.</source>
-        <translation>Abre about:debugging#/runtime/this-firefox.</translation>
-    </message>
-    <message>
-        <source>Click Load Temporary Add-on… and choose manifest.json in the Firefox extension folder below.</source>
-        <translation>Haz clic en Cargar complemento temporal… y elige manifest.json en la carpeta de la extensión para Firefox de abajo.</translation>
-    </message>
-    <message>
-        <source>Firefox removes temporary add-ons when it restarts. To keep it installed, the extension has to be signed by Mozilla (free, on addons.mozilla.org).</source>
-        <translation>Firefox quita los complementos temporales al reiniciarse. Para dejarla instalada, Mozilla tiene que firmar la extensión (gratis, en addons.mozilla.org).</translation>
-    </message>
-    <message>
-        <source>Firefox extension folder</source>
-        <translation>Carpeta de la extensión para Firefox</translation>
-    </message>
-    <message>
-        <source>Locate ffmpeg.exe</source>
-        <translation>Buscar ffmpeg.exe</translation>
-    </message>
-    <message>
-        <source>ffmpeg (ffmpeg.exe)</source>
-        <translation>ffmpeg (ffmpeg.exe)</translation>
-    </message>
-    <message>
-        <source>Programs (*.exe)</source>
-        <translation>Programas (*.exe)</translation>
-    </message>
-    <message>
-        <source>Folder to watch for .torrent files</source>
-        <translation>Carpeta que vigilar para archivos .torrent</translation>
-    </message>
-    <message>
-        <source>Locate yt-dlp.exe</source>
-        <translation>Buscar yt-dlp.exe</translation>
-    </message>
-    <message>
-        <source>yt-dlp (yt-dlp.exe)</source>
-        <translation>yt-dlp (yt-dlp.exe)</translation>
-    </message>
-    <message>
-        <source>Language</source>
-        <translation>Idioma</translation>
-    </message>
-    <message>
-        <source>Translations other than English were made by machine and may read awkwardly. Corrections are welcome.</source>
-        <translation>Las traducciones distintas del inglés se hicieron automáticamente y pueden sonar extrañas. Se agradecen las correcciones.</translation>
-    </message>
-    <message>
-        <source>Check finished downloads with your antivirus</source>
-        <translation>Revisar las descargas terminadas con tu antivirus</translation>
-    </message>
-    <message>
-        <source>Like a browser: Windows scans each new file and marks it as coming from the internet, so it warns before running it.</source>
-        <translation>Como un navegador: Windows analiza cada archivo nuevo y lo marca como procedente de internet, para avisar antes de ejecutarlo.</translation>
-    </message>
-    <message>
-        <source>On metered connections</source>
-        <translation>En conexiones de uso medido</translation>
-    </message>
-    <message>
-        <source>Phone hotspots or data plans with a limit, as Windows reports them.</source>
-        <translation>Puntos de acceso del teléfono o planes de datos con límite, según los indica Windows.</translation>
-    </message>
-    <message>
-        <source>Pause downloads</source>
-        <translation>Pausar las descargas</translation>
-    </message>
-    <message>
-        <source>Download as usual</source>
-        <translation>Descargar como siempre</translation>
-    </message>
-    <message>
-        <source>Servers trusted despite their certificate</source>
-        <translation>Servidores de confianza pese a su certificado</translation>
-    </message>
-    <message>
-        <source>None.</source>
-        <translation>Ninguno.</translation>
-    </message>
-    <message>
-        <source>%1 server(s). FluxDM doesn't check their certificates.</source>
-        <translation>%1 servidor(es). FluxDM no comprueba sus certificados.</translation>
     </message>
 </context>
 <context>
@@ -2700,11 +3074,11 @@
         <translation>Límite de velocidad</translation>
     </message>
     <message>
-        <source>Limit this download's speed</source>
+        <source>Limit this download&apos;s speed</source>
         <translation>Limitar la velocidad de esta descarga</translation>
     </message>
     <message>
-        <source>Applies on top of the traffic mode's overall limit.</source>
+        <source>Applies on top of the traffic mode&apos;s overall limit.</source>
         <translation>Se aplica además del límite general del modo de tráfico.</translation>
     </message>
     <message>
@@ -2769,6 +3143,10 @@
     <message>
         <source>High</source>
         <translation>Alta</translation>
+    </message>
+    <message>
+        <source>Speed graph and traffic totals</source>
+        <translation>Gráfico de velocidad y totales de tráfico</translation>
     </message>
 </context>
 <context>
@@ -2843,22 +3221,6 @@
     <message>
         <source>Add download (Ctrl+N)</source>
         <translation>Añadir descarga (Ctrl+N)</translation>
-    </message>
-    <message>
-        <source>Resume selected</source>
-        <translation>Reanudar la selección</translation>
-    </message>
-    <message>
-        <source>Resume all</source>
-        <translation>Reanudar todas</translation>
-    </message>
-    <message>
-        <source>Pause selected</source>
-        <translation>Pausar la selección</translation>
-    </message>
-    <message>
-        <source>Pause all</source>
-        <translation>Pausar todas</translation>
     </message>
     <message>
         <source>Delete %1 selected (Del)</source>
@@ -2956,6 +3318,22 @@
         <source>Import from Free Download Manager…</source>
         <translation>Importar desde Free Download Manager…</translation>
     </message>
+    <message>
+        <source>Resume selected (Space)</source>
+        <translation>Reanudar la selección (Espacio)</translation>
+    </message>
+    <message>
+        <source>Resume all (Ctrl+Shift+R)</source>
+        <translation>Reanudar todo (Ctrl+Mayús+R)</translation>
+    </message>
+    <message>
+        <source>Pause selected (Space)</source>
+        <translation>Pausar la selección (Espacio)</translation>
+    </message>
+    <message>
+        <source>Pause all (Ctrl+Shift+P)</source>
+        <translation>Pausar todo (Ctrl+Mayús+P)</translation>
+    </message>
 </context>
 <context>
     <name>TorrentFilesDialog</name>
@@ -2986,6 +3364,33 @@
     <message>
         <source>Download</source>
         <translation>Descargar</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficPopup</name>
+    <message>
+        <source>Download speed</source>
+        <translation>Velocidad de descarga</translation>
+    </message>
+    <message>
+        <source>last 2 minutes</source>
+        <translation>últimos 2 minutos</translation>
+    </message>
+    <message>
+        <source>%1 s ago</source>
+        <translation>hace %1 s</translation>
+    </message>
+    <message>
+        <source>Today</source>
+        <translation>Hoy</translation>
+    </message>
+    <message>
+        <source>This month</source>
+        <translation>Este mes</translation>
+    </message>
+    <message>
+        <source>All time</source>
+        <translation>Desde siempre</translation>
     </message>
 </context>
 <context>
@@ -3030,7 +3435,7 @@
         <translation>Las actualizaciones solo se comprueban por HTTPS</translation>
     </message>
     <message>
-        <source>Couldn't check for updates: %1</source>
+        <source>Couldn&apos;t check for updates: %1</source>
         <translation>No se pudo comprobar si hay actualizaciones: %1</translation>
     </message>
     <message>
@@ -3042,7 +3447,7 @@
         <translation>No hay ninguna actualización que descargar</translation>
     </message>
     <message>
-        <source>Couldn't download the update: %1</source>
+        <source>Couldn&apos;t download the update: %1</source>
         <translation>No se pudo descargar la actualización: %1</translation>
     </message>
     <message>
@@ -3052,6 +3457,14 @@
     <message>
         <source>Cannot save the update to %1</source>
         <translation>No se puede guardar la actualización en %1</translation>
+    </message>
+    <message>
+        <source>The update information isn&apos;t signed by the FluxDM release key; it was ignored</source>
+        <translation>La información de actualización no está firmada con la clave de publicación de FluxDM; se ignoró</translation>
+    </message>
+    <message>
+        <source>Cannot create a folder for the update</source>
+        <translation>No se puede crear una carpeta para la actualización</translation>
     </message>
 </context>
 <context>
