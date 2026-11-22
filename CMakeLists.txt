@@ -17,6 +17,8 @@ add_library(fluxcore STATIC
     src/core/DownloadEngine.h
     src/core/Download.h               src/core/Download.cpp
     src/core/DownloadManager.h        src/core/DownloadManager.cpp
+    src/core/DownloadManagerQueue.cpp src/core/DownloadManagerEvents.cpp
+    src/core/DownloadManagerFiles.cpp src/core/DownloadManagerSettings.cpp
     src/core/Database.h               src/core/Database.cpp
     src/core/FileNamer.h              src/core/FileNamer.cpp
     src/core/LinkCheck.h              src/core/LinkCheck.cpp
@@ -153,6 +155,7 @@ qt_add_qml_module(fluxdm
     QML_FILES ${FLUXDM_QML_FILES}
     SOURCES
         src/ui/AppController.h src/ui/AppController.cpp
+        src/ui/AppControllerSettings.cpp src/ui/AppControllerActions.cpp src/ui/AppControllerIntegration.cpp
 )
 
 # ---------------------------------------------------------------- translations
