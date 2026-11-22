@@ -16,6 +16,10 @@
     <ul id="mediaList"></ul>
   </section>
 
+  <section id="links" hidden>
+    <button id="allLinks" class="secondary">Download all links on this page</button>
+  </section>
+
   <label class="row">
     <span>
       <strong>Catch browser downloads</strong>
@@ -39,6 +43,16 @@
     </span>
     <input type="text" id="skipExtensions" placeholder="pdf, jpg">
   </label>
+
+  <label class="row column">
+    <span>
+      <strong>Never catch on these sites</strong>
+      <small>For example: example.com, intranet.local</small>
+    </span>
+    <input type="text" id="skipSites" placeholder="example.com">
+  </label>
+
+  <p class="hint">Hold <kbd>Alt</kbd> while clicking a link to let the browser download it.</p>
 
   <button id="open">Open FluxDM</button>
   <p id="help" class="help" hidden>

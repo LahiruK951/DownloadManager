@@ -134,3 +134,21 @@ button {
   padding: 4px 10px;
   font-size: 12px;
 }
+#links { margin-bottom: 10px; }
+button.secondary {
+  width: 100%;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+.hint {
+  color: var(--dim);
+  font-size: 11px;
+  margin: 8px 0 10px;
+}
+kbd {
+  font: 11px "Segoe UI", system-ui, sans-serif;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}

@@ -1661,6 +1661,23 @@ QString AppController::handleBrowserRequest(const QVariantMap& r)
         emit showWindowRequested();
         return {};
     }
+    if (cmd == QLatin1String("downloadMany")) { // "Download all links on this page"
+        QStringList urls;
+        for (const QVariant& v : r.value(QStringLiteral("urls")).toList()) {
+            const QString u = v.toString().trimmed();
+            if (m_mgr->canHandle(u) && !QFileInfo(u).isAbsolute() && urls.size() < 500)
+                urls << u;
+        }
+        if (urls.isEmpty())
+            return tr("No links to download");
+        const QVariantMap meta{{QStringLiteral("referrer"), r.value(QStringLiteral("referrer"))},
+                               {QStringLiteral("userAgent"), r.value(QStringLiteral("userAgent"))}};
+        for (const QString& u : urls)
+            m_browserMeta.insert(u, meta);
+        emit addDialogRequested(urls.join(QLatin1Char('\n')));
+        emit showWindowRequested();
+        return {};
+    }
     if (cmd != QLatin1String("download"))
         return tr("Unknown command");
     const QString url = r.value(QStringLiteral("url")).toString().trimmed();

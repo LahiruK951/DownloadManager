@@ -4,10 +4,13 @@
 // together with the cookies, referrer and user agent the server may require.
 
 const HOST = "com.fluxdm.nativehost";
-const DEFAULTS = { enabled: true, minSizeKB: 0, skipExtensions: "" };
+const DEFAULTS = { enabled: true, minSizeKB: 0, skipExtensions: "", skipSites: "" };
 
 // URLs we re-download in the browser after FluxDM was unavailable (don't catch them twice).
 const bypass = new Set();
+
+// Alt+click on a link (reported by content.js): the browser keeps the next download.
+let skipUntil = 0;
 
 async function getSettings() {
   return Object.assign({}, DEFAULTS, await chrome.storage.sync.get(DEFAULTS));
@@ -77,6 +80,37 @@ function postBodyFor(url) {
   return p && Date.now() - p.time < 60000 ? p.body : "";
 }
 
+// "example.com" matches example.com and its subdomains; checked against the file's address and
+// the page it came from.
+function skippedBySite(urls, list) {
+  const sites = list.split(/[\s,;]+/).map((s) => s.replace(/^\*?\.?/, "").toLowerCase()).filter(Boolean);
+  if (sites.length === 0) return false;
+  return urls.some((u) => {
+    let host;
+    try {
+      host = new URL(u).hostname.toLowerCase();
+    } catch (e) {
+      return false;
+    }
+    return sites.some((s) => host === s || host.endsWith("." + s));
+  });
+}
+
+// Size before deciding, when the browser doesn't know it yet (asks the server; 3 s at most).
+async function remoteSize(url) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 3000);
+  try {
+    const r = await fetch(url, { method: "HEAD", credentials: "include", signal: ctl.signal });
+    const n = parseInt(r.headers.get("content-length") || "", 10);
+    return Number.isFinite(n) ? n : -1;
+  } catch (e) {
+    return -1;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function skippedByExtension(url, list) {
   const exts = list.split(/[\s,;]+/).map((e) => e.replace(/^\./, "").toLowerCase()).filter(Boolean);
   if (exts.length === 0) return false;
@@ -98,8 +132,16 @@ chrome.downloads.onCreated.addListener(async (item) => {
   if (!s.enabled) return;
   if (!/^(https?|ftp):/i.test(url)) return; // blob:, data:, file: stay in the browser
   if (item.byExtensionId === chrome.runtime.id) return;
-  if (s.minSizeKB > 0 && item.totalBytes > 0 && item.totalBytes < s.minSizeKB * 1024) return;
+  if (Date.now() < skipUntil) { // Alt+click: the user wants the browser to download this one
+    skipUntil = 0;
+    return;
+  }
   if (skippedByExtension(url, s.skipExtensions)) return;
+  if (skippedBySite([url, item.referrer || ""], s.skipSites)) return;
+  if (s.minSizeKB > 0) {
+    const size = item.totalBytes > 0 ? item.totalBytes : await remoteSize(url);
+    if (size >= 0 && size < s.minSizeKB * 1024) return;
+  }
 
   // Stop the browser's own copy first so the file isn't downloaded twice.
   try {
@@ -193,6 +235,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg && msg.type === "download") {
     handOff(msg.url, msg.referrer, "").then(sendResponse);
+    return true;
+  }
+  if (msg && msg.type === "skipNext") {
+    skipUntil = Date.now() + 3000;
+    return false;
+  }
+  if (msg && msg.type === "downloadMany") {
+    // One Add dialog in FluxDM for all of them.
+    sendToHost({ cmd: "downloadMany", urls: msg.urls, referrer: msg.referrer || "", userAgent: navigator.userAgent }).then(sendResponse);
     return true;
   }
   if (msg && msg.type === "ping") {

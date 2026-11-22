@@ -1,4 +1,4 @@
-const DEFAULTS = { enabled: true, minSizeKB: 0, skipExtensions: "" };
+const DEFAULTS = { enabled: true, minSizeKB: 0, skipExtensions: "", skipSites: "" };
 const $ = (id) => document.getElementById(id);
 
 async function load() {
@@ -6,6 +6,7 @@ async function load() {
   $("enabled").checked = s.enabled;
   $("minSizeKB").value = s.minSizeKB;
   $("skipExtensions").value = s.skipExtensions;
+  $("skipSites").value = s.skipSites;
 
   const reply = await chrome.runtime.sendMessage({ type: "ping" });
   const status = $("status");
@@ -24,12 +25,14 @@ function save() {
     enabled: $("enabled").checked,
     minSizeKB: Math.max(0, parseInt($("minSizeKB").value, 10) || 0),
     skipExtensions: $("skipExtensions").value.trim(),
+    skipSites: $("skipSites").value.trim(),
   });
 }
 
 $("enabled").addEventListener("change", save);
 $("minSizeKB").addEventListener("change", save);
 $("skipExtensions").addEventListener("change", save);
+$("skipSites").addEventListener("change", save);
 $("open").addEventListener("click", async () => {
   await chrome.runtime.sendMessage({ type: "show" });
   window.close();
@@ -68,5 +71,26 @@ async function loadMedia() {
   $("media").hidden = false;
 }
 
+async function loadLinks() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !/^https?:/.test(tab.url || "")) return;
+  let links = [];
+  try {
+    links = (await chrome.tabs.sendMessage(tab.id, { type: "links" })) || [];
+  } catch (e) {
+    return; // page opened before the extension was installed, or a browser page
+  }
+  if (links.length === 0) return;
+  const btn = $("allLinks");
+  btn.textContent = links.length === 1 ? "Download the 1 file link on this page" : `Download all ${links.length} file links on this page`;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const r = await chrome.runtime.sendMessage({ type: "downloadMany", urls: links, referrer: tab.url });
+    btn.textContent = r && r.ok ? "Sent to FluxDM — choose them there" : "FluxDM was not found";
+  });
+  $("links").hidden = false;
+}
+
 load();
 loadMedia();
+loadLinks();
