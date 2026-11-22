@@ -1386,6 +1386,16 @@ private slots:
         w.close(); // flushes what is left
         QCOMPARE(w.flushes(), 2);
         QCOMPARE(readAll(path), QByteArray("abcdef"));
+
+        // In the background: the callback runs after the data is on the disk; close() waits for it.
+        FileWriter a;
+        QVERIFY(a.open(dir.filePath("g.part"), true));
+        QVERIFY(a.write(0, "xyz", 3));
+        std::atomic_bool flushed{false};
+        QVERIFY(a.flushAsync([&](bool ok) { flushed = ok; }));
+        a.close();
+        QVERIFY(flushed.load());
+        QCOMPARE(a.flushes(), 1);
     }
 
     void databaseWriteFailures()

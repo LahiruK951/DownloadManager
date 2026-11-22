@@ -91,8 +91,27 @@ bool FileWriter::flush()
     return true;
 }
 
+bool FileWriter::flushAsync(std::function<void(bool)> done)
+{
+    if (m_pending.valid() && m_pending.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+        return false; // the disk is still busy with the previous one
+    if (!m_h || !m_unflushed) {
+        done(true);
+        return true;
+    }
+    m_unflushed = false;
+    HANDLE h = static_cast<HANDLE>(m_h); // stays open: close() waits for this
+    m_pending = std::async(std::launch::async, [this, h, done = std::move(done)] {
+        ++m_flushes;
+        done(FlushFileBuffers(h) != 0);
+    });
+    return true;
+}
+
 void FileWriter::close()
 {
+    if (m_pending.valid())
+        m_pending.wait();
     if (m_h) {
         flush();
         CloseHandle(static_cast<HANDLE>(m_h));
@@ -144,6 +163,12 @@ bool FileWriter::flush()
     m_unflushed = false;
     ++m_flushes;
     return m_f.flush();
+}
+
+bool FileWriter::flushAsync(std::function<void(bool)> done)
+{
+    done(flush()); // portable fallback: in place
+    return true;
 }
 
 void FileWriter::close()

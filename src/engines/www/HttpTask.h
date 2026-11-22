@@ -55,9 +55,10 @@ public:
     QByteArray resumeData() const;
     bool isDead() const { return m_dead; }
     bool takeDirty() { const bool d = m_dirty; m_dirty = false; return d; }
-    // Resume data for a periodic save: taken first, then the file is flushed, so the saved
-    // progress only covers bytes that are on the disk.
-    QByteArray durableResumeData();
+    // Periodic save: resume data is taken first, the file is flushed on a helper thread, and only
+    // then is the resume data reported, so saved progress never covers bytes that aren't on the
+    // disk yet, and a slow disk doesn't stall the other downloads.
+    void saveResumeDataDurably();
     void setMaxConnections(int n) { m_p.maxConnections = n < 1 ? 1 : n; }
     // Per-download speed cap (token bucket refilled by the worker loop).
     void setSpeedLimit(qint64 bps) { m_limit = bps < 0 ? 0 : bps; m_bucket = 0; }

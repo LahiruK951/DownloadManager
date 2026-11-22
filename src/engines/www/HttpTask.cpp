@@ -619,12 +619,16 @@ TaskStats HttpTask::stats(double dtSec)
     return st;
 }
 
-QByteArray HttpTask::durableResumeData()
+void HttpTask::saveResumeDataDurably()
 {
     const QByteArray rd = resumeData();
-    if (!m_file.flush())
-        log(QStringLiteral("Cannot flush the file to disk: %1").arg(m_file.lastError()));
-    return rd;
+    CurlWorker* w = m_w;
+    const qint64 id = m_p.id;
+    if (!m_file.flushAsync([w, id, rd](bool ok) {
+            if (ok)
+                emit w->resumeData(id, rd); // from the helper thread: queued to the manager
+        }))
+        m_dirty = true; // the disk is still busy with the last flush: try again next round
 }
 
 QByteArray HttpTask::resumeData() const
