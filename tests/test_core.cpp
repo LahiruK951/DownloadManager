@@ -3042,6 +3042,81 @@ private slots:
         QVERIFY(!QFile::exists(QDir(ff).filePath("extension-id.txt")));
     }
 
+    void nativeHostRejectsBadFrames()
+    {
+        QTemporaryDir profile;
+        qputenv("FLUXDM_DATA_DIR", profile.path().toUtf8());
+        auto unset = qScopeGuard([] { qunsetenv("FLUXDM_DATA_DIR"); });
+        const QString host = QDir(QCoreApplication::applicationDirPath()).filePath("fluxdm-nativehost.exe");
+        auto run = [&](const QByteArray& input) {
+            QProcess p;
+            p.start(host);
+            if (!p.waitForStarted())
+                return QByteArray("not started");
+            p.write(input);
+            p.closeWriteChannel();
+            if (!p.waitForFinished(10000)) {
+                p.kill();
+                return QByteArray("hung");
+            }
+            return p.readAllStandardOutput();
+        };
+        const quint32 zero = 0, huge = 64u * 1024 * 1024, short_ = 100;
+        // Zero length, over the 1 MB limit, and a frame that promises more than it sends: no reply, no hang.
+        QCOMPARE(run(QByteArray(reinterpret_cast<const char*>(&zero), 4)), QByteArray());
+        QCOMPARE(run(QByteArray(reinterpret_cast<const char*>(&huge), 4) + QByteArray(1000, 'x')), QByteArray());
+        QCOMPARE(run(QByteArray(reinterpret_cast<const char*>(&short_), 4) + "{\"cmd\":"), QByteArray());
+        QCOMPARE(run(QByteArray("\x01\x02")), QByteArray()); // not even a length
+    }
+
+#ifdef FLUXDM_HAS_TORRENT
+    void corruptTorrentSessionFile()
+    {
+        QTemporaryDir state;
+        QFile f(state.filePath("session.dat"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(makeData(4096)); // garbage, e.g. after a crash on an older version
+        f.close();
+        {
+            BtEngine eng(state.path(), 0, true); // starts anyway
+            QVERIFY(eng.canHandle(QUrl("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567")));
+            eng.shutdown(); // and writes a good one
+        }
+        BtEngine again(state.path(), 0, true);
+        QVERIFY(QFileInfo(state.filePath("session.dat")).size() > 0);
+    }
+#endif
+
+    void manyDownloadsAtOnce()
+    {
+        RangeServer srv;
+        srv.data = makeData(96 * 1024);
+        srv.chunk = 16 * 1024;
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.filePath("p")));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        TrafficMode::Limits lim = mgr.limits(TrafficMode::High);
+        lim.maxDownloads = 20; // 20 at a time
+        lim.maxConnections = 4;
+        mgr.setLimits(TrafficMode::High, lim);
+        mgr.setTrafficMode(TrafficMode::High);
+        QList<Download*> list;
+        for (int i = 0; i < 40; ++i)
+            list << mgr.add(srv.url(QStringLiteral("/many/%1.bin").arg(i)), dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(std::all_of(list.begin(), list.end(), [](Download* d) { return d->completed(); }), 60000);
+        QSet<QString> paths;
+        for (Download* d : list) {
+            QVERIFY2(readAll(d->rec.filePath) == srv.data, qPrintable(d->rec.filePath));
+            paths.insert(d->rec.filePath);
+        }
+        QCOMPARE(paths.size(), 40); // no two downloads wrote the same file
+        QCOMPARE(db.loadDownloads().size(), 40);
+    }
+
     void nativeHostForwardsToApp()
     {
         // Isolated channel: the host computes the same name from FLUXDM_DATA_DIR.
