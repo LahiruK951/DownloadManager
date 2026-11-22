@@ -40,6 +40,7 @@ add_library(fluxcore STATIC
     src/core/InstanceServer.h         src/core/InstanceServer.cpp
     src/core/Checksum.h               src/core/Checksum.cpp
     src/core/ReleaseSignature.h       src/core/ReleaseSignature.cpp
+    src/core/Metalink.h               src/core/Metalink.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h

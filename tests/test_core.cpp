@@ -24,6 +24,7 @@
 #include "core/Secret.h"
 #include "core/Checksum.h"
 #include "core/ReleaseSignature.h"
+#include "core/Metalink.h"
 #include <QLocalSocket>
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
@@ -1087,6 +1088,106 @@ private slots:
         db.save(r);
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
+
+    void metalinkFiles()
+    {
+        const QByteArray v4 = R"(<?xml version="1.0" encoding="UTF-8"?>
+<metalink xmlns="urn:ietf:params:xml:ns:metalink">
+  <file name="../evil/dir/ubuntu.iso">
+    <size>1000</size>
+    <hash type="md5">d41d8cd98f00b204e9800998ecf8427e</hash>
+    <hash type="sha-256">E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855</hash>
+    <url priority="2">https://mirror2.example.org/ubuntu.iso</url>
+    <url priority="1">https://mirror1.example.org/ubuntu.iso</url>
+    <url priority="3">rsync://nope.example.org/ubuntu.iso</url>
+  </file>
+  <file name="empty.bin"><url>rsync://only.example.org/x</url></file>
+</metalink>)";
+        const auto files = Metalink::parse(v4);
+        QCOMPARE(files.size(), 1); // nothing usable in the second one
+        QCOMPARE(files[0].name, QStringLiteral("ubuntu.iso")); // folders dropped
+        QCOMPARE(files[0].size, 1000);
+        QCOMPARE(files[0].urls, (QStringList{"https://mirror1.example.org/ubuntu.iso", "https://mirror2.example.org/ubuntu.iso"}));
+        QVERIFY(files[0].hash.startsWith("sha-256:e3b0")); // the strongest one
+        const QByteArray v3 = R"(<metalink version="3.0" xmlns="http://www.metalinker.org/"><files><file name="a.zip">
+            <verification><hash type="sha1">da39a3ee5e6b4b0d3255bfef95601890afd80709</hash></verification>
+            <resources><url type="http" preference="10">http://slow.example.org/a.zip</url>
+                       <url type="http" preference="100">http://fast.example.org/a.zip</url></resources></file></files></metalink>)";
+        const auto old = Metalink::parse(v3);
+        QCOMPARE(old.size(), 1);
+        QCOMPARE(old[0].urls.first(), QStringLiteral("http://fast.example.org/a.zip"));
+        QVERIFY(Checksum::parse(old[0].hash).valid());
+
+        // A .meta4 downloaded from the web turns into the real download, mirrors and checksum included.
+        RangeServer srv;
+        srv.data = makeData(128 * 1024);
+        QVERIFY(srv.start());
+        const QString sha = QString::fromLatin1(QCryptographicHash::hash(srv.data, QCryptographicHash::Sha256).toHex());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.filePath("p")));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        const QString meta = dir.filePath("set.meta4");
+        QFile f(meta);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QStringLiteral(R"(<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="data.bin">
+            <hash type="sha-256">%1</hash><url priority="1">%2</url><url priority="2">%3</url></file></metalink>)")
+                    .arg(sha, srv.url("/data.bin"), srv.url("/mirror/data.bin")).toUtf8());
+        f.close();
+        QVERIFY(Metalink::looksLike(meta));
+        const auto added = mgr.addFromMetalink(meta, dir.path(), true);
+        QCOMPARE(added.size(), 1);
+        Download* d = added.first();
+        QCOMPARE(d->rec.mirrors, QStringList{srv.url("/mirror/data.bin")});
+        QTRY_COMPARE_WITH_TIMEOUT(d->hashStatus(), int(Download::HashMatch), 20000);
+        QCOMPARE(QFileInfo(d->rec.filePath).fileName(), QStringLiteral("data.bin"));
+    }
+
+#ifdef FLUXDM_HAS_TORRENT
+    void createTorrentFromFile()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath("share me.bin");
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(makeData(300 * 1024));
+        f.close();
+        QString err;
+        QVERIFY2(BtEngine::createTorrent(file, dir.filePath("direct.torrent"), "https://example.com/share%20me.bin", &err), qPrintable(err));
+        QVERIFY(FileNamer::looksLikeTorrentFile(dir.filePath("direct.torrent")));
+
+        Database db;
+        QVERIFY(db.open(dir.filePath("p")));
+        DownloadRecord r;
+        r.id = 1;
+        r.url = QStringLiteral("https://example.com/share%20me.bin");
+        r.state = Download::Completed;
+        r.filePath = file;
+        r.destDir = dir.path();
+        QVERIFY(db.save(r));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new BtEngine(dir.filePath("bt"), 0, true));
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.find(1);
+        QTRY_VERIFY(!d->fileMissing());
+        QVERIFY(mgr.canCreateTorrent(d));
+        QSignalSpy made(&mgr, &DownloadManager::torrentCreated);
+        QVERIFY(mgr.createTorrent(d).isEmpty());
+        QVERIFY(made.wait(15000));
+        QVERIFY2(made.first().at(1).toString().isEmpty(), qPrintable(made.first().at(1).toString()));
+        QCOMPARE(QFileInfo(made.first().at(0).toString()).fileName(), QStringLiteral("share me.bin.torrent"));
+        // Added as a torrent over the existing data: it checks the file and seeds.
+        Download* t = nullptr;
+        for (Download* x : mgr.downloads())
+            if (x->isTorrent())
+                t = x;
+        QVERIFY(t);
+        QTRY_VERIFY_WITH_TIMEOUT(t->completed(), 15000);
+    }
+#endif
 
     void extractArchives()
     {

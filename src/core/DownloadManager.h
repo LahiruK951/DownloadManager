@@ -79,6 +79,11 @@ public:
     static bool isArchive(const QString& path);
     bool canExtract(const Download* d) const;     // finished archive the extractor can open
     QString extract(Download* d);                 // starts it; returns an error text
+    // A Metalink file: one download per entry, with its mirrors and checksum. Returns them.
+    QList<Download*> addFromMetalink(const QString& metalinkPath, const QString& destDir, bool start, const QString& referrer = {});
+    // "Create torrent": a .torrent next to a finished file, then seeding it. Returns an error text.
+    bool canCreateTorrent(const Download* d) const;
+    QString createTorrent(Download* d);
     void setConvertStreams(bool on);
     QString ffmpegSetting() const;
     QString ytdlpSetting() const;
@@ -176,6 +181,7 @@ signals:
     void conversionFinished(Download* d, const QString& output, const QString& error);
     void antivirusChecked(Download* d, bool blocked, const QString& message);
     void extracted(Download* d, const QString& folder, const QString& error);
+    void torrentCreated(const QString& torrentPath, const QString& error);
     void storageError(const QString& message); // the database could not be written (rate-limited)
     void checksumChecked(Download* d, bool match, const QString& text);
 
@@ -195,6 +201,7 @@ private:
     void checkMissingFiles();
     void convertToMp4(Download* d);
     void openDownloadedTorrent(Download* d);
+    void openDownloadedMetalink(Download* d);
     void checkWithAntivirus(Download* d);
     DownloadEngine* engineFor(const QString& url) const;
     DownloadEngine* engineByUid(const QString& uid) const;

@@ -22,6 +22,7 @@
 #include "core/AppLog.h"
 #include "core/AttachmentCheck.h"
 #include "core/Checksum.h"
+#include "core/Metalink.h"
 #include "core/DiskSpace.h"
 #include <QThread>
 #include "core/Database.h"
@@ -123,6 +124,8 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         convertToMp4(d);
     if (d->rec.moduleUid == QLatin1String("downloadswww") && FileNamer::looksLikeTorrentFile(filePath))
         openDownloadedTorrent(d);
+    else if (d->rec.moduleUid == QLatin1String("downloadswww") && Metalink::looksLike(filePath))
+        openDownloadedMetalink(d);
     else if (!d->isTorrent() && antivirusCheck() && QFileInfo(filePath).isFile())
         checkWithAntivirus(d);
     if (!d->isTorrent() && !d->rec.expectedHash.isEmpty() && QFileInfo(filePath).isFile())
@@ -230,6 +233,18 @@ void DownloadManager::openDownloadedTorrent(Download* d)
     if (!t)
         return;
     t->addLog(tr("Started from the torrent file downloaded from %1").arg(d->rec.url));
+    const qint64 oldId = d->id();
+    QTimer::singleShot(0, this, [this, oldId] { remove(find(oldId), false); });
+}
+
+void DownloadManager::openDownloadedMetalink(Download* d)
+{
+    // Like a .torrent: the small Metalink file turns into the downloads it describes.
+    const QList<Download*> added = addFromMetalink(d->rec.filePath, d->rec.destDir, true, d->rec.url);
+    if (added.isEmpty()) {
+        d->addLog(tr("This looks like a Metalink file, but it lists nothing FluxDM can download"));
+        return;
+    }
     const qint64 oldId = d->id();
     QTimer::singleShot(0, this, [this, oldId] { remove(find(oldId), false); });
 }

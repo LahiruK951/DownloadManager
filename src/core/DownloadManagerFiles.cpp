@@ -1,5 +1,10 @@
 // DownloadManager: moving files, stream conversion and the MP3/MP4 converter.
 #include "core/DownloadManager.h"
+#include "core/Metalink.h"
+#include "core/AppLog.h"
+#ifdef FLUXDM_HAS_TORRENT
+#include "engines/bt/BtEngine.h"
+#endif
 
 #include <QFile>
 #include <QFileInfo>
@@ -332,6 +337,84 @@ QString DownloadManager::extract(Download* d)
     });
     proc->start(tool, args);
     return {};
+}
+
+// ------------------------------------------------------------------ Metalink, create torrent
+
+QList<Download*> DownloadManager::addFromMetalink(const QString& metalinkPath, const QString& destDir, bool start, const QString& referrer)
+{
+    QFile f(metalinkPath);
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+    QString err;
+    const QList<Metalink::File> files = Metalink::parse(f.read(4 * 1024 * 1024), &err);
+    QList<Download*> out;
+    for (const Metalink::File& m : files) {
+        Download* d = add(m.urls.first(), destDir, m.name, false, referrer);
+        if (!d)
+            continue;
+        d->rec.mirrors = m.urls.mid(1, 10);
+        if (!m.hash.isEmpty())
+            setExpectedChecksum(d, m.hash); // persists
+        d->addLog(tr("From the Metalink file %1: %n mirror(s)", "", int(d->rec.mirrors.size())).arg(QFileInfo(metalinkPath).fileName()));
+        if (start)
+            resume(d);
+        persist(d);
+        out << d;
+    }
+    if (files.isEmpty() && !err.isEmpty())
+        AppLog::write(QStringLiteral("Metalink %1: %2").arg(metalinkPath, err));
+    return out;
+}
+
+bool DownloadManager::canCreateTorrent(const Download* d) const
+{
+#ifdef FLUXDM_HAS_TORRENT
+    return d && d->completed() && !d->isTorrent() && !d->fileMissing() && !d->moving() && !d->converting()
+        && QFileInfo(d->rec.filePath).isFile() && engineByUid(QStringLiteral("downloadsbt"));
+#else
+    Q_UNUSED(d)
+    return false;
+#endif
+}
+
+QString DownloadManager::createTorrent(Download* d)
+{
+#ifdef FLUXDM_HAS_TORRENT
+    if (!canCreateTorrent(d))
+        return tr("Only finished files can be shared as a torrent");
+    const QString path = d->rec.filePath;
+    const QString torrent = FileNamer::uniquePath(QFileInfo(path).absolutePath(), QFileInfo(path).fileName() + QStringLiteral(".torrent"));
+    // The original address serves as a web seed when it's a plain web link.
+    const QString webSeed = d->rec.postData.isEmpty() && d->rec.url.startsWith(QLatin1String("http")) && d->rec.cookies.isEmpty() ? d->rec.url : QString();
+    const QString dir = QFileInfo(path).absolutePath();
+    d->setConverting(true);
+    d->addLog(tr("Creating a torrent…"));
+    auto err = std::make_shared<QString>();
+    QThread* th = QThread::create([path, torrent, webSeed, err] { BtEngine::createTorrent(path, torrent, webSeed, err.get()); });
+    QPointer<Download> guard(d);
+    connect(th, &QThread::finished, this, [this, th, guard, torrent, dir, err] {
+        th->deleteLater();
+        if (guard)
+            guard->setConverting(false);
+        if (!err->isEmpty() || !QFileInfo::exists(torrent)) {
+            if (guard)
+                guard->addLog(tr("Couldn't create the torrent: %1").arg(*err));
+            emit torrentCreated({}, err->isEmpty() ? tr("unknown error") : *err);
+            return;
+        }
+        if (guard)
+            guard->addLog(tr("Created %1").arg(QDir::toNativeSeparators(torrent)));
+        if (Download* t = add(torrent, dir, {}, true)) // the data is already there: it checks and seeds
+            t->addLog(tr("Sharing your file %1").arg(QFileInfo(torrent).completeBaseName()));
+        emit torrentCreated(torrent, {});
+    });
+    th->start();
+    return {};
+#else
+    Q_UNUSED(d)
+    return tr("BitTorrent support is not available");
+#endif
 }
 
 // ------------------------------------------------------------------ MP3/MP4 converter

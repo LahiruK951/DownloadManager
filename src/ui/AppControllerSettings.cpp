@@ -576,6 +576,8 @@ QString AppController::extractorName() const
 }
 bool AppController::canExtract(qint64 id) const { return m_mgr->canExtract(byId(id)); }
 QString AppController::extract(qint64 id) { return m_mgr->extract(byId(id)); }
+bool AppController::canCreateTorrent(qint64 id) const { return m_mgr->canCreateTorrent(byId(id)); }
+QString AppController::createTorrent(qint64 id) { return m_mgr->createTorrent(byId(id)); }
 
 int AppController::btListenPort() const { return m_mgr->btListenPort(); }
 void AppController::setBtListenPort(int port) { m_mgr->setBtListenPort(port); emit settingsChanged(); }

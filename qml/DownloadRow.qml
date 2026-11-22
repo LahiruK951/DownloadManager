@@ -408,6 +408,12 @@ Rectangle {
             onTriggered: { const err = App.extract(row.d.id); if (err !== "") App.notice(err) }
         }
         FMenuItem {
+            glyph: Theme.icons.link
+            text: qsTr("Create torrent and share")
+            visible: (row.d.completed, row.d.converting, row.d.fileMissing, App.canCreateTorrent(row.d.id))
+            onTriggered: { const err = App.createTorrent(row.d.id); if (err !== "") App.notice(err) }
+        }
+        FMenuItem {
             glyph: Theme.icons.globe
             text: qsTr("Open download page")
             visible: App.hasPage(row.d.id)

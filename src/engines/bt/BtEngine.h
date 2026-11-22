@@ -24,6 +24,9 @@ public:
     // offline: listen on loopback only, no DHT/LSD/UPnP (tests, dev profiles)
     explicit BtEngine(const QString& stateDir, int listenPort = 0, bool offline = false, QObject* parent = nullptr);
     ~BtEngine() override;
+    // Makes a .torrent for a file or folder (no trackers: peers find it through DHT; a web seed
+    // URL can be added). Slow for big files (it hashes everything): call it on a worker thread.
+    static bool createTorrent(const QString& path, const QString& torrentPath, const QString& webSeed, QString* error);
 
     QString moduleUid() const override { return QStringLiteral("downloadsbt"); }
     bool canHandle(const QUrl& url) const override;

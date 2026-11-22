@@ -141,6 +141,10 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         emit notice(err.isEmpty() ? tr("Extracted %1").arg(d->title()) : tr("Couldn't extract %1: %2").arg(d->title(), err));
         Q_UNUSED(folder)
     });
+    connect(m_mgr, &DownloadManager::torrentCreated, this, [this](const QString& path, const QString& err) {
+        emit notice(err.isEmpty() ? tr("Created %1 and started sharing it").arg(QFileInfo(path).fileName())
+                                  : tr("Couldn't create the torrent: %1").arg(err));
+    });
     connect(m_mgr, &DownloadManager::checksumChecked, this, [this](Download* d, bool match, const QString&) {
         if (!match)
             emit notice(tr("Checksum mismatch: %1 may be damaged or not the file that was published").arg(d->title()));

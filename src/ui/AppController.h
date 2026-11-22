@@ -140,6 +140,8 @@ public:
     Q_INVOKABLE QString extractorName() const; // "7-Zip", "Windows (zip and tar only)" or ""
     Q_INVOKABLE bool canExtract(qint64 id) const;
     Q_INVOKABLE QString extract(qint64 id);
+    Q_INVOKABLE bool canCreateTorrent(qint64 id) const;
+    Q_INVOKABLE QString createTorrent(qint64 id);
     int zoom() const;
     void setZoom(int percent);
     int zoomInEffect() const;

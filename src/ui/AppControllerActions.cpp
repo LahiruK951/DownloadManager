@@ -1,5 +1,6 @@
 // AppController: actions on downloads, links and schedules.
 #include "ui/AppController.h"
+#include "core/Metalink.h"
 
 #include <QClipboard>
 #include <cmath>
@@ -86,9 +87,23 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
         dir = defaultFolder();
     if (!QDir().mkpath(dir))
         return tr("Cannot create folder %1").arg(dir);
-    for (const QString& u : urls)
+    // Metalink files (dropped or opened): they stand for the downloads they list.
+    QStringList links;
+    QList<QString> metalinks;
+    for (const QString& u : urls) {
+        const QString local = u.startsWith(QLatin1String("file:"), Qt::CaseInsensitive) ? QUrl(u).toLocalFile()
+                              : QFileInfo(u).isAbsolute()                               ? u : QString();
+        if (!local.isEmpty() && QFileInfo(local).isFile() && Metalink::looksLike(local))
+            metalinks << local;
+        else
+            links << u;
+    }
+    for (const QString& u : links)
         if (!m_mgr->canHandle(u))
             return tr("Unsupported link: %1").arg(u);
+    for (const QString& m : metalinks)
+        if (m_mgr->addFromMetalink(m, QDir::toNativeSeparators(dir), start).isEmpty())
+            return tr("The Metalink file %1 lists nothing FluxDM can download").arg(QFileInfo(m).fileName());
     if (!checksum.trimmed().isEmpty() && !Checksum::parse(checksum).valid())
         return tr("The checksum isn't an MD5, SHA-1, SHA-256 or SHA-512 value.");
 
@@ -97,15 +112,15 @@ QString AppController::addDownloads(const QString& text, const QString& folder, 
     if (sched)
         m_ui.setValue(QStringLiteral("lastSchedule"), w.toMap());
     Download* last = nullptr;
-    for (const QString& u : urls) {
+    for (const QString& u : links) {
         const QVariantMap meta = m_browserMeta.take(u); // cookies etc. captured by the browser extension
-        QString name = urls.size() == 1 ? fileName.trimmed() : QString();
+        QString name = links.size() == 1 ? fileName.trimmed() : QString();
         last = m_mgr->add(u, QDir::toNativeSeparators(dir), name, start || sched,
                           meta.value(QStringLiteral("referrer")).toString(), meta.value(QStringLiteral("cookies")).toString(),
                           meta.value(QStringLiteral("userAgent")).toString(), sched ? &w : nullptr);
         if (last && existingFile >= 0)
             m_mgr->setExistingFileReaction(last, existingFile);
-        if (last && urls.size() == 1 && !checksum.trimmed().isEmpty())
+        if (last && links.size() == 1 && !checksum.trimmed().isEmpty())
             m_mgr->setExpectedChecksum(last, checksum);
         if (last && !meta.value(QStringLiteral("postData")).toString().isEmpty()) {
             last->rec.postData = meta.value(QStringLiteral("postData")).toString().toUtf8();

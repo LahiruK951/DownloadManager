@@ -10,6 +10,7 @@
 #include <QNetworkRequest>
 
 #include <libtorrent/alert_types.hpp>
+#include <libtorrent/create_torrent.hpp>
 #include <libtorrent/announce_entry.hpp>
 #include <libtorrent/peer_info.hpp>
 #include <libtorrent/load_torrent.hpp>
@@ -32,6 +33,36 @@ QByteArray toBytes(const std::vector<char>& v) { return QByteArray(v.data(), qsi
 
 constexpr lt::resume_data_flags_t kResumeFlags = lt::torrent_handle::save_info_dict;
 } // namespace
+
+bool BtEngine::createTorrent(const QString& path, const QString& torrentPath, const QString& webSeed, QString* error)
+{
+    try {
+        const QFileInfo fi(path);
+        std::vector<lt::create_file_entry> files = lt::list_files(ss(QDir::toNativeSeparators(fi.absoluteFilePath())));
+        if (files.empty()) {
+            if (error)
+                *error = tr("Nothing to put in a torrent");
+            return false;
+        }
+        lt::create_torrent ct(std::move(files)); // piece size chosen by libtorrent
+        ct.set_creator("FluxDM " FLUXDM_VERSION);
+        if (!webSeed.isEmpty())
+            ct.add_url_seed(ss(webSeed));
+        lt::set_piece_hashes(ct, ss(QDir::toNativeSeparators(fi.absolutePath())));
+        const std::vector<char> buf = ct.generate_buf();
+        QSaveFile out(torrentPath);
+        if (!out.open(QIODevice::WriteOnly) || out.write(buf.data(), qint64(buf.size())) < 0 || !out.commit()) {
+            if (error)
+                *error = out.errorString();
+            return false;
+        }
+        return true;
+    } catch (const std::exception& e) {
+        if (error)
+            *error = QString::fromLocal8Bit(e.what());
+        return false;
+    }
+}
 
 BtEngine::BtEngine(const QString& stateDir, int listenPort, bool offline, QObject* parent)
     : DownloadEngine(parent), m_stateDir(stateDir)
