@@ -172,7 +172,8 @@ ApplicationWindow {
         anchors.fill: parent
         keys: ["text/uri-list", "text/plain"]
         onDropped: (drop) => {
-            const text = drop.hasUrls ? drop.urls.map(u => u.toString()).join("\n") : drop.text
+            // url.toString() decodes spaces; links are separated by white space, so keep them encoded.
+            const text = drop.hasUrls ? drop.urls.map(u => u.toString().replace(/ /g, "%20")).join("\n") : drop.text
             addDialog.openWith(text)
             drop.accept()
         }

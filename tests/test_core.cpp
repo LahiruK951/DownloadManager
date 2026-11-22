@@ -2580,6 +2580,43 @@ private slots:
         QVERIFY(stopped.last().at(1).toByteArray().isEmpty());
     }
 
+    void droppedTorrentFile()
+    {
+        // Dropping a .torrent on the window gives the Add dialog a file:// URL (spaces encoded).
+        namespace lt = libtorrent;
+        QTemporaryDir src, state;
+        QDir(src.path()).mkpath("d");
+        QFile data(QDir(src.filePath("d")).filePath("x.bin"));
+        QVERIFY(data.open(QIODevice::WriteOnly));
+        data.write(makeData(64 * 1024));
+        data.close();
+        lt::create_torrent ct(lt::list_files(src.filePath("d").toStdString()), 16 * 1024);
+        lt::set_piece_hashes(ct, src.path().toStdString());
+        const std::vector<char> buf = ct.generate_buf();
+        const QString path = src.filePath("my pack [2026].torrent");
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(buf.data(), qint64(buf.size()));
+        f.close();
+
+        Database db;
+        QVERIFY(db.open(state.filePath("profile")));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new BtEngine(state.filePath("bt"), 0, true));
+        mgr.addEngine(new WwwEngine);
+        const QString dropped = QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded); // what QML's drop.urls gives
+        QVERIFY(dropped.contains("%20"));
+        const QStringList links = BatchLinks::expandAll({dropped});
+        QCOMPARE(links, QStringList{dropped}); // "%5B2026%5D" is not a range to expand
+        QCOMPARE(mgr.moduleFor(dropped), QStringLiteral("downloadsbt"));
+        QCOMPARE(mgr.moduleFor(QUrl::fromLocalFile(path).toString()), QStringLiteral("downloadsbt")); // decoded form
+        QCOMPARE(mgr.moduleFor(path), QStringLiteral("downloadsbt"));
+        QVERIFY(!mgr.canHandle(QUrl::fromLocalFile(src.filePath("d/x.bin")).toString())); // other files aren't links
+        Download* d = mgr.add(dropped, state.path(), {}, false);
+        QVERIFY(d);
+        QCOMPARE(d->title(), QStringLiteral("my pack [2026].torrent")); // shown decoded
+    }
+
     void torrentChooseFilesFirst()
     {
         namespace lt = libtorrent;

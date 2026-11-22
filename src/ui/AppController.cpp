@@ -1480,7 +1480,9 @@ void AppController::handleExternalArgs(const QStringList& args)
         if (a == QLatin1String("--silent") || a == QLatin1String("-s"))
             silent = true;
         else if (!a.startsWith(QLatin1Char('-')) && m_mgr->canHandle(a))
-            urls << a;
+            // A double-clicked .torrent in a folder with spaces: as an encoded file URL, so the space
+            // doesn't split it into two links in the Add dialog.
+            urls << (QFileInfo(a).isAbsolute() && QFileInfo::exists(a) ? QUrl::fromLocalFile(a).toString(QUrl::FullyEncoded) : a);
     }
     if (urls.isEmpty()) {
         emit showWindowRequested();
