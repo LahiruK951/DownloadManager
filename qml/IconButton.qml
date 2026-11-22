@@ -13,11 +13,23 @@ AbstractButton {
     implicitHeight: size
     hoverEnabled: true
     padding: 0
-    focusPolicy: Qt.NoFocus
+    focusPolicy: Qt.TabFocus // Tab reaches it; a click doesn't take focus from the list
+    Accessible.role: Accessible.Button
+    Accessible.name: tip
 
     background: Rectangle {
         radius: 6
         color: b.down ? Theme.pressed : (b.hovered && b.enabled ? Theme.hover : "transparent")
+        Rectangle { // keyboard focus ring
+            anchors.fill: parent
+            anchors.margins: -2
+            radius: parent.radius + 2
+            color: "transparent"
+            border.width: 2
+            border.color: Theme.accent
+            opacity: 0.6
+            visible: b.visualFocus
+        }
     }
     contentItem: Text {
         text: b.glyph

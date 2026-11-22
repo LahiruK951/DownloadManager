@@ -22,6 +22,10 @@ Rectangle {
     signal requestWindow(var download)
 
     readonly property var d: download
+    Accessible.role: Accessible.ListItem
+    Accessible.name: d.title + ", " + (d.seeding ? qsTr("Seeding") : d.stateText)
+                     + (d.total > 0 && !d.completed ? ", " + Math.floor(d.progress * 100) + "%" : "")
+    Accessible.selected: isSelected
     readonly property bool isSelected: (App.selectionRev, App.isSelected(download.id))
     readonly property bool isCurrent: App.selected === download
     readonly property bool showActions: hoverH.hovered || isSelected

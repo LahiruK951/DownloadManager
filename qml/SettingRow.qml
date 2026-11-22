@@ -42,6 +42,16 @@ Item {
         width: childrenRect.width
         height: childrenRect.height
     }
+    // Screen readers: a bare control (switch, number, list) is announced by this row's title.
+    Component.onCompleted: {
+        for (let i = 0; i < slot.children.length; ++i) {
+            const c = slot.children[i]
+            if (c.Accessible && !c.Accessible.name && !c.text) {
+                c.Accessible.name = r.title
+                c.Accessible.description = r.description
+            }
+        }
+    }
     Rectangle {
         visible: r.divider
         anchors.bottom: parent.bottom

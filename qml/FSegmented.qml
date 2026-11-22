@@ -20,6 +20,7 @@ Rectangle {
         id: row
         anchors.centerIn: parent
         Repeater {
+            id: rep
             model: seg.model
             delegate: AbstractButton {
                 id: btn
@@ -29,12 +30,28 @@ Rectangle {
                 implicitWidth: label.implicitWidth + 26
                 implicitHeight: seg.itemHeight
                 hoverEnabled: true
-                focusPolicy: Qt.NoFocus
+                focusPolicy: btn.current ? Qt.TabFocus : Qt.NoFocus // one Tab stop; arrows move inside
+                Accessible.role: Accessible.RadioButton
+                Accessible.name: modelData
+                Accessible.checkable: true
+                Accessible.checked: current
                 onClicked: seg.activated(index)
+                Keys.onLeftPressed: if (index > 0) { seg.activated(index - 1); rep.itemAt(index - 1).forceActiveFocus(Qt.TabFocusReason) }
+                Keys.onRightPressed: if (index < seg.model.length - 1) { seg.activated(index + 1); rep.itemAt(index + 1).forceActiveFocus(Qt.TabFocusReason) }
                 background: Rectangle {
                     radius: height / 2
                     color: btn.current ? Theme.accent : (btn.hovered ? Theme.hover : "transparent")
                     Behavior on color { ColorAnimation { duration: 120 } }
+                    Rectangle { // keyboard focus ring
+                        anchors.fill: parent
+                        anchors.margins: -2
+                        radius: parent.radius + 2
+                        color: "transparent"
+                        border.width: 2
+                        border.color: Theme.accent
+                        opacity: 0.6
+                        visible: btn.visualFocus
+                    }
                 }
                 contentItem: Text {
                     id: label

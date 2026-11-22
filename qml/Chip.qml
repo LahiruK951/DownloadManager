@@ -12,7 +12,11 @@ AbstractButton {
     implicitHeight: 28
     implicitWidth: row.implicitWidth + 24
     hoverEnabled: true
-    focusPolicy: Qt.NoFocus
+    focusPolicy: Qt.TabFocus
+    Accessible.role: Accessible.Button
+    Accessible.name: count > 0 ? label + ", " + count : label
+    Accessible.checkable: true
+    Accessible.checked: active
 
     TapHandler {
         acceptedButtons: Qt.RightButton
@@ -24,6 +28,16 @@ AbstractButton {
         color: chip.active ? Theme.accent : (chip.hovered ? Theme.hover : "transparent")
         border.width: chip.active ? 0 : 1
         border.color: Theme.border
+        Rectangle { // keyboard focus ring
+            anchors.fill: parent
+            anchors.margins: -2
+            radius: parent.radius + 2
+            color: "transparent"
+            border.width: 2
+            border.color: Theme.accent
+            opacity: 0.6
+            visible: chip.visualFocus
+        }
     }
     contentItem: Item {
         Row {
