@@ -6,9 +6,11 @@
 
 class QNetworkReply;
 
-// "Check for updates": reads a manifest {version, url, sha256, notes} (written by
+// "Check for updates": reads a manifest {version, url, sha256, signature, notes} (written by
 // scripts\package.ps1 -Installer as latest.json), downloads the installer and only accepts it
-// if its SHA-256 matches. HTTPS only (plain http just for localhost, i.e. tests).
+// if its SHA-256 matches. When a release public key is built in, the manifest must also carry a
+// valid Ed25519 signature of version + SHA-256 (ReleaseSignature). HTTPS only (plain http just
+// for localhost, i.e. tests). Each download goes to its own new temporary folder.
 class Updater : public QObject {
     Q_OBJECT
 public:
@@ -23,6 +25,8 @@ public:
     static bool allowedUrl(const QUrl& url);
     // Starts the installer quietly; it closes FluxDM, updates and starts it again.
     static bool install(const QString& installerPath);
+    // The key manifests must be signed with; "" = signatures not required. Default: built in.
+    void setPublicKey(const QByteArray& base64) { m_publicKey = base64; }
 
 signals:
     void checked(bool updateAvailable, const QString& version, const QString& notes);
@@ -34,6 +38,7 @@ private:
     QNetworkAccessManager m_nam;
     QString m_current, m_version, m_notes;
     QByteArray m_sha;
+    QByteArray m_publicKey = FLUXDM_UPDATE_PUBLIC_KEY;
     QUrl m_installer;
     QPointer<QNetworkReply> m_reply;
 };

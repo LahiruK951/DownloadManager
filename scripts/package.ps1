@@ -73,7 +73,15 @@ if ($Installer) {
     $sha = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()
     # The update manifest FluxDM's "Check for updates" reads (publish it next to the installer).
     $url = if ($UpdateBaseUrl) { $UpdateBaseUrl.TrimEnd('/') + "/FluxDM-$version-setup.exe" } else { "FluxDM-$version-setup.exe" }
-    [ordered]@{ version = $version; url = $url; sha256 = $sha; notes = "" } | ConvertTo-Json |
+    # Signed with the release key when $env:FLUXDM_SIGNING_KEY names its file (fluxdm-sign keygen);
+    # apps built with -DFLUXDM_UPDATE_PUBLIC_KEY refuse unsigned manifests.
+    $signature = ""
+    if ($env:FLUXDM_SIGNING_KEY) {
+        $signer = Join-Path $root "build\release\fluxdm-sign.exe"
+        $signature = (& $signer sign $env:FLUXDM_SIGNING_KEY $version $sha).Trim()
+        if ($LASTEXITCODE) { throw "signing failed" }
+    }
+    [ordered]@{ version = $version; url = $url; sha256 = $sha; signature = $signature; notes = "" } | ConvertTo-Json |
         Set-Content -Encoding utf8 (Join-Path $dist "latest.json")
     Write-Host "Installer $setup (sha256 $sha), update manifest dist\latest.json"
 }

@@ -23,6 +23,7 @@
 #include "core/InstanceServer.h"
 #include "core/Secret.h"
 #include "core/Checksum.h"
+#include "core/ReleaseSignature.h"
 #include <QLocalSocket>
 #include "engines/hls/M3u8.h"
 #include "core/BatchLinks.h"
@@ -1718,6 +1719,54 @@ private slots:
         QVERIFY(failed.last().at(0).toString().contains("incomplete"));
         u.check(QUrl("http://updates.example.org/latest.json"));
         QVERIFY(failed.last().at(0).toString().contains("HTTPS"));
+    }
+
+    void signedUpdates()
+    {
+        QByteArray priv, pub;
+        QVERIFY(ReleaseSignature::generateKey(&priv, &pub));
+        QCOMPARE(ReleaseSignature::publicKeyOf(priv), pub);
+        const QByteArray installer = makeData(64 * 1024);
+        const QByteArray sha = QCryptographicHash::hash(installer, QCryptographicHash::Sha256).toHex();
+        const QByteArray sig = ReleaseSignature::sign(priv, ReleaseSignature::message("9.9.1", sha));
+        QVERIFY(ReleaseSignature::verify(pub, ReleaseSignature::message("9.9.1", sha), sig));
+        QVERIFY(!ReleaseSignature::verify(pub, ReleaseSignature::message("9.9.2", sha), sig)); // other version
+        QByteArray other, otherPub;
+        QVERIFY(ReleaseSignature::generateKey(&other, &otherPub));
+        QVERIFY(!ReleaseSignature::verify(otherPub, ReleaseSignature::message("9.9.1", sha), sig)); // other key
+
+        HlsServer srv;
+        auto manifest = [&](const QByteArray& signature) {
+            return QJsonDocument(QJsonObject{{"version", "9.9.1"}, {"url", "setup.exe"}, {"sha256", QString::fromLatin1(sha)},
+                                             {"signature", QString::fromLatin1(signature)}}).toJson();
+        };
+        srv.files.insert("/good/latest.json", manifest(sig));
+        srv.files.insert("/good/setup.exe", installer);
+        srv.files.insert("/unsigned/latest.json", manifest({}));
+        srv.files.insert("/forged/latest.json", manifest(ReleaseSignature::sign(other, ReleaseSignature::message("9.9.1", sha))));
+        QVERIFY(srv.start());
+
+        Updater u("0.1.0");
+        u.setPublicKey(pub);
+        QSignalSpy checked(&u, &Updater::checked), ready(&u, &Updater::ready), failed(&u, &Updater::failed);
+        u.check(QUrl(srv.url("/unsigned/latest.json")));
+        QVERIFY(failed.wait(5000));
+        QVERIFY(failed.last().at(0).toString().contains("signed"));
+        u.check(QUrl(srv.url("/forged/latest.json")));
+        QVERIFY(failed.wait(5000));
+        QCOMPARE(checked.count(), 0);
+        u.check(QUrl(srv.url("/good/latest.json")));
+        QVERIFY(checked.wait(5000));
+        QVERIFY(checked.last().at(0).toBool());
+        u.download();
+        QVERIFY(ready.wait(5000));
+        const QString first = ready.last().at(0).toString();
+        QVERIFY(QFileInfo(first).absolutePath().contains("FluxDM-update-")); // its own new folder
+        u.download();
+        QVERIFY(ready.wait(5000));
+        QVERIFY(QFileInfo(ready.last().at(0).toString()).absolutePath() != QFileInfo(first).absolutePath());
+        for (const QVariantList& r : ready)
+            QDir(QFileInfo(r.at(0).toString()).absolutePath()).removeRecursively();
     }
 
     void remoteControl()

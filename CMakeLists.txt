@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network Sql Qml Quick QuickControls2 Test LinguistTools)
 find_package(CURL CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED) # Ed25519 release signatures (also used by libtorrent)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -38,6 +39,7 @@ add_library(fluxcore STATIC
     src/core/DiskSpace.h              src/core/DiskSpace.cpp
     src/core/InstanceServer.h         src/core/InstanceServer.cpp
     src/core/Checksum.h               src/core/Checksum.cpp
+    src/core/ReleaseSignature.h       src/core/ReleaseSignature.cpp
     src/core/TrafficMode.h
     src/core/Schedule.h
     src/core/BatchLinks.h
@@ -62,10 +64,13 @@ add_library(fluxcore STATIC
 target_include_directories(fluxcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # The remote-control web page (served by RemoteServer from :/remote/index.html).
 qt_add_resources(fluxcore "remote_ui" PREFIX "/remote" BASE src/remote FILES src/remote/index.html)
-target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl)
+target_link_libraries(fluxcore PUBLIC Qt6::Core Qt6::Network Qt6::Sql CURL::libcurl OpenSSL::Crypto)
 # Where "Check for updates" looks (latest.json from scripts\package.ps1 -Installer); empty = not set.
 set(FLUXDM_UPDATE_URL "" CACHE STRING "Update manifest URL (https://.../latest.json)")
-target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}" FLUXDM_UPDATE_URL="${FLUXDM_UPDATE_URL}")
+# Public key that must have signed update manifests (from "fluxdm-sign keygen"); empty = not required yet.
+set(FLUXDM_UPDATE_PUBLIC_KEY "" CACHE STRING "Ed25519 release public key (base64)")
+target_compile_definitions(fluxcore PUBLIC FLUXDM_VERSION="${PROJECT_VERSION}" FLUXDM_UPDATE_URL="${FLUXDM_UPDATE_URL}"
+                           FLUXDM_UPDATE_PUBLIC_KEY="${FLUXDM_UPDATE_PUBLIC_KEY}")
 if(MSVC)
     target_compile_options(fluxcore PUBLIC /utf-8 /W3 /bigobj)
     target_link_libraries(fluxcore PUBLIC bcrypt crypt32 dbghelp ole32)
@@ -194,6 +199,10 @@ add_custom_command(TARGET fluxdm POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/browser/firefox/manifest.json
             $<TARGET_FILE_DIR:fluxdm>/browser/firefox/manifest.json
     COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE_DIR:fluxdm>/browser/firefox/extension-id.txt)
+
+# Release signing tool for scripts\package.ps1 (not shipped).
+qt_add_executable(fluxdm-sign src/tools/sign.cpp)
+target_link_libraries(fluxdm-sign PRIVATE fluxcore)
 
 # ---------------------------------------------------------------- tests
 enable_testing()

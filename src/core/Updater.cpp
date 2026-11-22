@@ -7,7 +7,10 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QProcess>
+#include <QRandomGenerator>
 #include <QStandardPaths>
+
+#include "core/ReleaseSignature.h"
 
 Updater::Updater(const QString& currentVersion, QObject* parent)
     : QObject(parent), m_current(currentVersion)
@@ -59,6 +62,12 @@ void Updater::check(const QUrl& manifestUrl)
             emit failed(tr("The update information is incomplete"));
             return;
         }
+        if (!m_publicKey.isEmpty()
+            && !ReleaseSignature::verify(m_publicKey, ReleaseSignature::message(version, sha),
+                                         o.value(QStringLiteral("signature")).toString().toLatin1())) {
+            emit failed(tr("The update information isn't signed by the FluxDM release key; it was ignored"));
+            return;
+        }
         m_version = version;
         m_notes = o.value(QStringLiteral("notes")).toString();
         m_installer = url;
@@ -73,8 +82,13 @@ void Updater::download()
         emit failed(tr("No update to download"));
         return;
     }
-    const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(QStringLiteral("FluxDM-update"));
-    QDir().mkpath(dir);
+    // A new folder with an unguessable name, so nothing can put a file at the path in advance.
+    const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                            .filePath(QStringLiteral("FluxDM-update-%1").arg(QRandomGenerator::system()->generate64(), 16, 16, QLatin1Char('0')));
+    if (!QDir().mkdir(dir)) {
+        emit failed(tr("Cannot create a folder for the update"));
+        return;
+    }
     const QString path = QDir(dir).filePath(QStringLiteral("FluxDM-%1-setup.exe").arg(m_version));
     QNetworkRequest req(m_installer);
     req.setTransferTimeout(60000);
