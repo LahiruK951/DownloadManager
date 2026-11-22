@@ -402,6 +402,12 @@ Rectangle {
             onTriggered: row.requestConvert(row.d, "mp4")
         }
         FMenuItem {
+            glyph: Theme.icons.folder
+            text: qsTr("Extract here")
+            visible: (row.d.completed, row.d.converting, row.d.fileMissing, App.canExtract(row.d.id))
+            onTriggered: { const err = App.extract(row.d.id); if (err !== "") App.notice(err) }
+        }
+        FMenuItem {
             glyph: Theme.icons.globe
             text: qsTr("Open download page")
             visible: App.hasPage(row.d.id)

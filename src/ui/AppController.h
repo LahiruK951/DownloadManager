@@ -57,6 +57,7 @@ class AppController : public QObject {
     Q_PROPERTY(int ipVersion READ ipVersion WRITE setIpVersion NOTIFY settingsChanged)
     Q_PROPERTY(int autoRemoveDays READ autoRemoveDays WRITE setAutoRemoveDays NOTIFY settingsChanged)
     Q_PROPERTY(int btListenPort READ btListenPort WRITE setBtListenPort NOTIFY settingsChanged)
+    Q_PROPERTY(bool extractArchives READ extractArchives WRITE setExtractArchives NOTIFY settingsChanged)
     Q_PROPERTY(int zoom READ zoom WRITE setZoom NOTIFY settingsChanged)      // percent; applies after a restart
     Q_PROPERTY(int zoomInEffect READ zoomInEffect CONSTANT)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged) // "" = Windows' language
@@ -135,6 +136,10 @@ public:
     int ipVersion() const;
     int autoRemoveDays() const;
     int btListenPort() const;
+    bool extractArchives() const;
+    Q_INVOKABLE QString extractorName() const; // "7-Zip", "Windows (zip and tar only)" or ""
+    Q_INVOKABLE bool canExtract(qint64 id) const;
+    Q_INVOKABLE QString extract(qint64 id);
     int zoom() const;
     void setZoom(int percent);
     int zoomInEffect() const;
@@ -186,6 +191,7 @@ public:
     void setIpVersion(int v);
     void setAutoRemoveDays(int days);
     void setBtListenPort(int port); // used from the next start
+    void setExtractArchives(bool on);
     void setMonitorClipboard(bool v);
     bool notifyOnComplete() const;
     void setNotifyOnComplete(bool v);

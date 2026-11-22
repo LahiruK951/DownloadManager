@@ -269,6 +269,13 @@ Popup {
                         }
                     }
                     SettingRow {
+                        title: qsTr("Extract archives when they finish")
+                        description: App.extractorName() !== ""
+                                     ? qsTr("Into a folder named after the archive, next to it. Uses %1.").arg(App.extractorName())
+                                     : qsTr("Needs 7-Zip (7-zip.org).")
+                        FToggle { checked: App.extractArchives; enabled: App.extractorName() !== ""; onToggled: App.extractArchives = checked }
+                    }
+                    SettingRow {
                         title: qsTr("Remove finished downloads from the list")
                         description: qsTr("Only the entry in FluxDM goes; the files stay where they are.")
                         FComboBox {

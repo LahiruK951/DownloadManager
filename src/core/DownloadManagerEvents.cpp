@@ -127,6 +127,8 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
         checkWithAntivirus(d);
     if (!d->isTorrent() && !d->rec.expectedHash.isEmpty() && QFileInfo(filePath).isFile())
         verifyChecksum(d);
+    if (extractArchives() && canExtract(d))
+        extract(d);
 }
 
 bool DownloadManager::antivirusCheck() const { return m_db->setting(QStringLiteral("AntivirusCheck"), true).toBool(); }

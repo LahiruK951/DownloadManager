@@ -564,6 +564,19 @@ int AppController::ipVersion() const { return m_mgr->ipVersion(); }
 void AppController::setIpVersion(int v) { m_mgr->setIpVersion(v); emit settingsChanged(); }
 int AppController::autoRemoveDays() const { return m_mgr->autoRemoveDays(); }
 void AppController::setAutoRemoveDays(int days) { m_mgr->setAutoRemoveDays(days); emit settingsChanged(); }
+bool AppController::extractArchives() const { return m_mgr->extractArchives(); }
+void AppController::setExtractArchives(bool on) { m_mgr->setExtractArchives(on); emit settingsChanged(); }
+QString AppController::extractorName() const
+{
+    const QString tool = m_mgr->extractorPath();
+    if (tool.isEmpty())
+        return {};
+    return QFileInfo(tool).baseName().startsWith(QLatin1String("7z"), Qt::CaseInsensitive) ? QStringLiteral("7-Zip")
+                                                                                            : tr("Windows (zip and tar only)");
+}
+bool AppController::canExtract(qint64 id) const { return m_mgr->canExtract(byId(id)); }
+QString AppController::extract(qint64 id) { return m_mgr->extract(byId(id)); }
+
 int AppController::btListenPort() const { return m_mgr->btListenPort(); }
 void AppController::setBtListenPort(int port) { m_mgr->setBtListenPort(port); emit settingsChanged(); }
 

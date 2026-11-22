@@ -72,6 +72,13 @@ public:
 
     // Stream post-processing: remux HLS .ts to .mp4 with ffmpeg (FDM ships ffmpeg; we find one).
     bool convertStreams() const;
+    // Archives (.zip, .7z, .rar, .tar.*) unpacked into a folder next to them when they finish.
+    bool extractArchives() const;
+    void setExtractArchives(bool on);
+    QString extractorPath() const;                // 7-Zip if installed, else Windows' tar.exe; "" = none
+    static bool isArchive(const QString& path);
+    bool canExtract(const Download* d) const;     // finished archive the extractor can open
+    QString extract(Download* d);                 // starts it; returns an error text
     void setConvertStreams(bool on);
     QString ffmpegSetting() const;
     QString ytdlpSetting() const;
@@ -168,6 +175,7 @@ signals:
     void queueReordered();
     void conversionFinished(Download* d, const QString& output, const QString& error);
     void antivirusChecked(Download* d, bool blocked, const QString& message);
+    void extracted(Download* d, const QString& folder, const QString& error);
     void storageError(const QString& message); // the database could not be written (rate-limited)
     void checksumChecked(Download* d, bool match, const QString& text);
 

@@ -252,6 +252,88 @@ void DownloadManager::convertToMp4(Download* d)
                          QStringLiteral("-c"), QStringLiteral("copy"),
                          QStringLiteral("-bsf:a"), QStringLiteral("aac_adtstoasc"), QStringLiteral("-movflags"), QStringLiteral("+faststart"), dst});
 }
+// ------------------------------------------------------------------ archives
+
+bool DownloadManager::extractArchives() const { return m_db->setting(QStringLiteral("ExtractArchives"), false).toBool(); }
+void DownloadManager::setExtractArchives(bool on) { m_db->setSetting(QStringLiteral("ExtractArchives"), on); }
+
+static bool isSevenZip(const QString& tool) { return QFileInfo(tool).baseName().startsWith(QLatin1String("7z"), Qt::CaseInsensitive); }
+
+QString DownloadManager::extractorPath() const
+{
+    const QString env = qEnvironmentVariable("FLUXDM_7ZIP");
+    if (!env.isEmpty() && QFileInfo(env).isExecutable())
+        return env;
+    for (const QString& dir : {qEnvironmentVariable("ProgramFiles"), qEnvironmentVariable("ProgramW6432")}) {
+        const QString p = QDir(dir).filePath(QStringLiteral("7-Zip/7z.exe"));
+        if (!dir.isEmpty() && QFileInfo(p).isExecutable())
+            return QDir::toNativeSeparators(p);
+    }
+    if (const QString p = QStandardPaths::findExecutable(QStringLiteral("7z")); !p.isEmpty())
+        return p;
+    // Windows 10+ ships bsdtar (zip, tar.*). Its own copy, not a GNU tar from PATH (Git), which can't read zip.
+    const QString systemTar = QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/tar.exe"));
+    return !qEnvironmentVariableIsEmpty("SystemRoot") && QFileInfo(systemTar).isExecutable() ? QDir::toNativeSeparators(systemTar) : QString();
+}
+
+bool DownloadManager::isArchive(const QString& path)
+{
+    static const QRegularExpression re(QStringLiteral(R"(\.(zip|7z|rar|tar|tgz|tar\.(gz|bz2|xz|zst))$)"),
+                                       QRegularExpression::CaseInsensitiveOption);
+    return re.match(path).hasMatch();
+}
+
+bool DownloadManager::canExtract(const Download* d) const
+{
+    if (!d || !d->completed() || d->fileMissing() || d->moving() || d->converting() || !isArchive(d->rec.filePath)
+        || !QFileInfo(d->rec.filePath).isFile())
+        return false;
+    const QString tool = extractorPath();
+    if (tool.isEmpty())
+        return false;
+    // Windows' tar reads zip and tar archives; 7z and rar need 7-Zip.
+    static const QRegularExpression sevenOnly(QStringLiteral(R"(\.(7z|rar)$)"), QRegularExpression::CaseInsensitiveOption);
+    return isSevenZip(tool) || !sevenOnly.match(d->rec.filePath).hasMatch();
+}
+
+QString DownloadManager::extract(Download* d)
+{
+    if (!canExtract(d))
+        return extractorPath().isEmpty() ? tr("Install 7-Zip to extract archives") : tr("This file can't be extracted here");
+    const QString src = d->rec.filePath;
+    QString base = QFileInfo(src).fileName();
+    static const QRegularExpression ext(QStringLiteral(R"(\.(zip|7z|rar|tar|tgz|tar\.(gz|bz2|xz|zst))$)"), QRegularExpression::CaseInsensitiveOption);
+    base.remove(ext);
+    // Into its own folder: an archive with many top-level entries doesn't spill over the downloads folder.
+    const QString dest = FileNamer::uniquePath(QFileInfo(src).absolutePath(), base);
+    if (!QDir().mkpath(dest))
+        return tr("Cannot create folder %1").arg(QDir::toNativeSeparators(dest));
+    const QString tool = extractorPath();
+    const QStringList args = isSevenZip(tool)
+        ? QStringList{QStringLiteral("x"), QStringLiteral("-y"), QStringLiteral("-bd"), QStringLiteral("-o") + dest, QStringLiteral("--"), src}
+        : QStringList{QStringLiteral("-xf"), src, QStringLiteral("-C"), dest};
+    d->setConverting(true);
+    d->addLog(tr("Extracting to %1…").arg(QDir::toNativeSeparators(dest)));
+    auto* proc = new QProcess(this);
+    QPointer<Download> guard(d);
+    connect(proc, &QProcess::finished, this, [this, proc, guard, dest](int code, QProcess::ExitStatus status) {
+        proc->deleteLater();
+        const bool ok = status == QProcess::NormalExit && code == 0 && !QDir(dest).isEmpty(QDir::AllEntries | QDir::NoDotAndDotDot);
+        const QString err = ok ? QString()
+                               : QString::fromLocal8Bit(proc->readAllStandardError() + proc->readAllStandardOutput()).trimmed().section(QLatin1Char('\n'), -1);
+        if (!ok && QDir(dest).isEmpty(QDir::AllEntries | QDir::NoDotAndDotDot))
+            QDir().rmdir(dest);
+        if (!guard)
+            return;
+        guard->setConverting(false);
+        guard->addLog(ok ? tr("Extracted to %1").arg(QDir::toNativeSeparators(dest))
+                         : tr("Extraction failed: %1").arg(err.isEmpty() ? tr("exit code %1").arg(code) : err));
+        emit extracted(guard, ok ? dest : QString(), ok ? QString() : (err.isEmpty() ? tr("exit code %1").arg(code) : err));
+    });
+    proc->start(tool, args);
+    return {};
+}
+
 // ------------------------------------------------------------------ MP3/MP4 converter
 
 QString DownloadManager::convertibleFile(const Download* d)

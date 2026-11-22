@@ -1088,6 +1088,51 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void extractArchives()
+    {
+        QVERIFY(DownloadManager::isArchive("C:/d/a.zip") && DownloadManager::isArchive("x.tar.gz") && DownloadManager::isArchive("y.RAR"));
+        QVERIFY(!DownloadManager::isArchive("movie.mp4") && !DownloadManager::isArchive("zip"));
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.filePath("p")));
+        DownloadManager mgr(&db);
+        if (mgr.extractorPath().isEmpty())
+            QSKIP("no 7-Zip and no tar.exe");
+        // A zip made with Windows' tar.
+        QDir(dir.path()).mkpath("src/inner");
+        QFile a(dir.filePath("src/inner/readme.txt"));
+        QVERIFY(a.open(QIODevice::WriteOnly));
+        a.write("hello");
+        a.close();
+        QProcess tar;
+        tar.setWorkingDirectory(dir.filePath("src"));
+        tar.start(QDir(qEnvironmentVariable("SystemRoot")).filePath("System32/tar.exe"), {"-a", "-cf", dir.filePath("pack.zip"), "inner"});
+        QVERIFY(tar.waitForFinished(10000) && tar.exitCode() == 0);
+
+        DownloadRecord r;
+        r.id = 1;
+        r.url = QStringLiteral("https://example.com/pack.zip");
+        r.state = Download::Completed;
+        r.filePath = dir.filePath("pack.zip");
+        QVERIFY(db.save(r));
+        mgr.load();
+        Download* d = mgr.find(1);
+        QTRY_VERIFY(!d->fileMissing());
+        QVERIFY(mgr.canExtract(d));
+        QSignalSpy done(&mgr, &DownloadManager::extracted);
+        QVERIFY(mgr.extract(d).isEmpty());
+        QVERIFY(done.wait(15000));
+        QVERIFY2(done.first().at(2).toString().isEmpty(), qPrintable(done.first().at(2).toString()));
+        const QString folder = done.first().at(1).toString();
+        QCOMPARE(QFileInfo(folder).fileName(), QStringLiteral("pack"));
+        QCOMPARE(readAll(QDir(folder).filePath("inner/readme.txt")), QByteArray("hello"));
+        QVERIFY(!d->converting());
+        // Again: a second folder, nothing overwritten.
+        QVERIFY(mgr.extract(d).isEmpty());
+        QVERIFY(done.wait(15000));
+        QVERIFY(done.last().at(1).toString() != folder);
+    }
+
     void missingFilesAreNoticed()
     {
         QTemporaryDir dir;
