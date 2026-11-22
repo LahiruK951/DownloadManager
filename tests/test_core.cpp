@@ -1087,6 +1087,34 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void missingFilesAreNoticed()
+    {
+        QTemporaryDir dir;
+        const QString here = dir.filePath("here.bin"), gone = dir.filePath("gone.bin");
+        QFile f(here);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+        f.close();
+        {
+            Database db;
+            QVERIFY(db.open(dir.filePath("p")));
+            for (int i = 1; i <= 2; ++i) {
+                DownloadRecord r;
+                r.id = i;
+                r.url = QStringLiteral("https://example.com/%1").arg(i);
+                r.state = Download::Completed;
+                r.filePath = i == 1 ? here : gone;
+                QVERIFY(db.save(r));
+            }
+        }
+        Database db;
+        QVERIFY(db.open(dir.filePath("p")));
+        DownloadManager mgr(&db);
+        mgr.load(); // checks on a worker thread
+        QTRY_VERIFY_WITH_TIMEOUT(mgr.find(2)->fileMissing(), 5000);
+        QVERIFY(!mgr.find(1)->fileMissing());
+    }
+
     void trafficStatistics()
     {
         QTemporaryDir dir;

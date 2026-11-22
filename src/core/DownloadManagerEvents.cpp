@@ -423,10 +423,31 @@ void DownloadManager::recheckDiskSpace()
 
 void DownloadManager::checkMissingFiles()
 {
-    // FDM marks completed downloads whose file was moved or deleted.
+    // FDM marks completed downloads whose file was moved or deleted. Looking at many files (some on
+    // a network share that may hang) happens on a worker thread, never in the UI.
+    if (m_checkingFiles)
+        return;
+    QList<QPair<qint64, QString>> items;
     for (Download* d : m_list)
         if (d->completed() && !d->rec.filePath.isEmpty())
-            d->setFileMissing(!QFileInfo::exists(d->rec.filePath));
+            items.append({d->id(), d->rec.filePath});
         else
             d->setFileMissing(false);
+    if (items.isEmpty())
+        return;
+    m_checkingFiles = true;
+    auto missing = std::make_shared<QSet<qint64>>();
+    QThread* th = QThread::create([items, missing] {
+        for (const auto& [id, path] : items)
+            if (!QFileInfo::exists(path))
+                missing->insert(id);
+    });
+    connect(th, &QThread::finished, this, [this, th, items, missing] {
+        th->deleteLater();
+        m_checkingFiles = false;
+        for (const auto& [id, path] : items)
+            if (Download* d = find(id); d && d->completed() && d->rec.filePath == path)
+                d->setFileMissing(missing->contains(id));
+    });
+    th->start();
 }

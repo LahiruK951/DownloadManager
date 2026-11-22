@@ -202,6 +202,7 @@ private:
     Database* m_db;
     qint64 m_lastStorageError = 0; // ms since epoch of the last storageError signal
     qint64 m_pendingDown = 0, m_pendingUp = 0; // counted, not yet in usageStats
+    bool m_checkingFiles = false; // checkMissingFiles() is running on its thread
     QString m_pendingDay;
     QHash<QString, QPair<QString, QString>> m_sessionLogins; // server -> user, password
     QList<Tag> m_tags;
