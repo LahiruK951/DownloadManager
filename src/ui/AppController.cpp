@@ -124,6 +124,14 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         if (blocked)
             emit notice(QStringLiteral("%1: %2").arg(d->title(), msg));
     });
+    m_speedSampler.setInterval(1000);
+    connect(&m_speedSampler, &QTimer::timeout, this, [this] {
+        m_speedHistory.append(m_totalSpeed);
+        while (m_speedHistory.size() > 120)
+            m_speedHistory.removeFirst();
+        emit speedHistoryChanged();
+    });
+    m_speedSampler.start();
     connect(m_mgr, &DownloadManager::checksumChecked, this, [this](Download* d, bool match, const QString&) {
         if (!match)
             emit notice(tr("Checksum mismatch: %1 may be damaged or not the file that was published").arg(d->title()));
@@ -772,6 +780,17 @@ QUrl AppController::settingsFileUrl() const { return QUrl::fromLocalFile(m_ui.fi
 QString AppController::version() const { return QStringLiteral(FLUXDM_VERSION); }
 
 // ------------------------------------------------------------------ actions
+
+QVariantList AppController::speedHistory() const
+{
+    QVariantList out;
+    out.reserve(m_speedHistory.size());
+    for (double v : m_speedHistory)
+        out << v;
+    return out;
+}
+
+QVariantMap AppController::usage() const { return m_mgr->usage(); }
 
 QString AppController::verifyChecksum(qint64 id, const QString& expected) { return m_mgr->verifyChecksum(byId(id), expected); }
 bool AppController::isChecksum(const QString& text) const { return Checksum::parse(text).valid(); }

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     implicitHeight: 36
+    function openTraffic() { trafficPopup.open() }
     color: Theme.surface
 
     Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.border }
@@ -14,10 +15,20 @@ Rectangle {
         anchors.rightMargin: 10
         spacing: 6
 
-        Text { text: Theme.icons.down; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.accent }
-        Text { text: App.fmtSpeed(App.totalSpeed); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 90 }
-        Text { text: Theme.icons.up; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.success }
-        Text { text: App.fmtSpeed(App.totalUpload); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 80 }
+        // Speeds: click for the speed graph and traffic totals.
+        RowLayout {
+            spacing: 6
+            Text { text: Theme.icons.down; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.accent }
+            Text { text: App.fmtSpeed(App.totalSpeed); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 90 }
+            Text { text: Theme.icons.up; font.family: Theme.iconFont; font.pixelSize: 12; color: Theme.success }
+            Text { text: App.fmtSpeed(App.totalUpload); color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 80 }
+            HoverHandler { id: speedHover; cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: trafficPopup.visible ? trafficPopup.close() : trafficPopup.open() }
+            ToolTip.visible: speedHover.hovered && !trafficPopup.visible
+            ToolTip.text: qsTr("Speed graph and traffic totals")
+            ToolTip.delay: 600
+            TrafficPopup { id: trafficPopup; y: -height - 6 }
+        }
         Text {
             text: App.activeCount > 0 ? App.activeCount + " " + qsTr("active") : ""
             color: Theme.textDim

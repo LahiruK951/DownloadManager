@@ -75,6 +75,7 @@ DownloadManager::DownloadManager(Database* db, QObject* parent)
         recheckDiskSpace();
         if (++m_tick % 4 == 0) { // once a minute
             checkMissingFiles();
+            flushUsage();
             removeOldFinished();
         }
         schedule();
@@ -128,6 +129,49 @@ void DownloadManager::setAutoRemoveDays(int days)
 {
     m_db->setSetting(QStringLiteral("AutoRemoveDays"), qBound(0, days, 3650));
     removeOldFinished();
+}
+
+void DownloadManager::countTraffic(qint64 down, qint64 up, double speed)
+{
+    // Reports come every 500 ms; a bigger jump is progress restored from earlier (a resumed
+    // stream reporting what it already had), not traffic.
+    const qint64 plausible = qint64(qMax(0.0, speed) * 3) + 8LL * 1024 * 1024;
+    if (down > plausible)
+        down = 0;
+    if (up > plausible)
+        up = 0;
+    const QString today = QDate::currentDate().toString(Qt::ISODate);
+    if (today != m_pendingDay) {
+        flushUsage();
+        m_pendingDay = today;
+    }
+    m_pendingDown += qMax<qint64>(0, down);
+    m_pendingUp += qMax<qint64>(0, up);
+}
+
+void DownloadManager::flushUsage()
+{
+    if ((m_pendingDown > 0 || m_pendingUp > 0) && !m_pendingDay.isEmpty()
+        && m_db->addUsage(m_pendingDay, m_pendingDown, m_pendingUp)) {
+        m_pendingDown = 0;
+        m_pendingUp = 0;
+    }
+}
+
+QVariantMap DownloadManager::usage() const
+{
+    const QDate today = QDate::currentDate();
+    auto [dayDown, dayUp] = m_db->usageSince(today.toString(Qt::ISODate));
+    auto [monDown, monUp] = m_db->usageSince(QDate(today.year(), today.month(), 1).toString(Qt::ISODate));
+    auto [allDown, allUp] = m_db->usageSince(QString());
+    if (m_pendingDay == today.toString(Qt::ISODate)) {
+        dayDown += m_pendingDown; dayUp += m_pendingUp;
+    }
+    monDown += m_pendingDown; monUp += m_pendingUp;
+    allDown += m_pendingDown; allUp += m_pendingUp;
+    return {{QStringLiteral("todayDown"), dayDown}, {QStringLiteral("todayUp"), dayUp},
+            {QStringLiteral("monthDown"), monDown}, {QStringLiteral("monthUp"), monUp},
+            {QStringLiteral("totalDown"), allDown}, {QStringLiteral("totalUp"), allUp}};
 }
 
 int DownloadManager::btListenPort() const { return m_db->setting(QStringLiteral("BtListenPort"), 0).toInt(); }
@@ -668,6 +712,7 @@ void DownloadManager::shutdown()
         return;
     m_shuttingDown = true;
     m_clock.stop();
+    flushUsage();
     for (DownloadEngine* e : m_engines) {
         const auto finals = e->shutdown();
         for (auto it = finals.begin(); it != finals.end(); ++it) {
@@ -709,7 +754,10 @@ void DownloadManager::onStats(const TaskStats& st)
 {
     if (Download* d = find(st.id)) {
         const QString cat = d->rec.contentCategory;
+        const qint64 downBefore = d->rec.received, upBefore = d->uploaded();
         d->applyStats(st);
+        // Traffic statistics: only growth counts (a restart from zero is not negative traffic).
+        countTraffic(d->rec.received - downBefore, d->uploaded() - upBefore, st.speed + st.uploadSpeed);
         if (d->rec.contentCategory != cat)
             persist(d); // keep it when the torrent is not loaded (finished, or before metadata)
     }
@@ -734,6 +782,7 @@ void DownloadManager::onFinished(qint64 id, const QString& filePath)
     d->setTitle(QFileInfo(filePath).fileName());
     if (d->rec.total < 0)
         d->rec.total = d->rec.received;
+    countTraffic(d->rec.total - d->rec.received, 0, d->speed()); // the part since the last progress report
     d->rec.received = d->rec.total;
     d->rec.finished = QDateTime::currentDateTime();
     d->autoRetryCount = 0;

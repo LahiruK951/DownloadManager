@@ -110,7 +110,7 @@ ApplicationWindow {
         onExportClicked: exportDialog.open()
     }
 
-    footer: StatusBar {}
+    footer: StatusBar { id: statusBar }
 
     ColumnLayout {
         anchors.fill: parent
@@ -205,6 +205,7 @@ ApplicationWindow {
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "add-dup") { App.select(App.downloads.idAt(1)); addDialog.openWith(App.selected ? App.selected.url : "") }
+        else if (v === "traffic") statusBar.openTraffic()
         else if (v === "add-hls") addDialog.openWith("https://media.example.com/shows/night-drive/master.m3u8")
         else if (v === "menu") topBar.openMenu()
         else if (v === "delete") { App.select(App.downloads.idAt(5)); deleteDialog.openFor(App.selected) }

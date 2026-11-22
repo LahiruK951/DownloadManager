@@ -109,6 +109,7 @@ set(FLUXDM_QML_FILES
     qml/FToggle.qml
     qml/StatePill.qml
     qml/Toast.qml
+    qml/TrafficPopup.qml
     qml/SpeedLimitDialog.qml
     qml/RenameDialog.qml
     qml/LoginDialog.qml

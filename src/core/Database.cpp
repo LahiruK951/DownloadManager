@@ -90,6 +90,7 @@ bool Database::open(const QString& dir, QString* error)
         "CREATE TABLE IF NOT EXISTS Settings (Name TEXT PRIMARY KEY, Value TEXT)",
         "CREATE TABLE IF NOT EXISTS networkPasswords (server TEXT PRIMARY KEY, user TEXT, password BLOB)",
         "CREATE TABLE IF NOT EXISTS sslKnownHosts (host TEXT PRIMARY KEY, since INTEGER)",
+        "CREATE TABLE IF NOT EXISTS usageStats (day TEXT PRIMARY KEY, down INTEGER DEFAULT 0, up INTEGER DEFAULT 0)",
     };
     for (const char* s : schema)
         if (!exec(QString::fromLatin1(s))) {
@@ -395,6 +396,29 @@ int Database::loginCount()
 }
 
 void Database::clearLogins() { exec(QStringLiteral("DELETE FROM networkPasswords")); }
+
+// ------------------------------------------------------------------ traffic statistics
+
+bool Database::addUsage(const QString& day, qint64 down, qint64 up)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("INSERT INTO usageStats (day, down, up) VALUES (?, ?, ?)"
+                             " ON CONFLICT(day) DO UPDATE SET down = down + excluded.down, up = up + excluded.up"));
+    q.addBindValue(day);
+    q.addBindValue(down);
+    q.addBindValue(up);
+    return run(q, "save traffic statistics");
+}
+
+QPair<qint64, qint64> Database::usageSince(const QString& firstDay)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("SELECT COALESCE(SUM(down), 0), COALESCE(SUM(up), 0) FROM usageStats WHERE day >= ?"));
+    q.addBindValue(firstDay.isEmpty() ? QStringLiteral("0000") : firstDay); // an empty QString binds as NULL
+    if (!q.exec() || !q.next())
+        return {0, 0};
+    return {q.value(0).toLongLong(), q.value(1).toLongLong()};
+}
 
 // ------------------------------------------------------------------ tags
 

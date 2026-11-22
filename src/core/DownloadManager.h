@@ -150,6 +150,10 @@ public:
     int autoRemoveDays() const;             // finished downloads leave the list after N days; 0 = never
     void setAutoRemoveDays(int days);
     int removeOldFinished();
+    // Bytes downloaded / uploaded: {todayDown, todayUp, monthDown, monthUp, totalDown, totalUp}.
+    QVariantMap usage() const;
+    void countTraffic(qint64 down, qint64 up, double speed);
+    void flushUsage(); // writes what was counted since the last flush (every minute and on exit)
     int btListenPort() const;               // BitTorrent listening port, used from the next start
     void setBtListenPort(int port);                // returns how many were removed (files stay on disk)
 
@@ -197,6 +201,8 @@ private:
 
     Database* m_db;
     qint64 m_lastStorageError = 0; // ms since epoch of the last storageError signal
+    qint64 m_pendingDown = 0, m_pendingUp = 0; // counted, not yet in usageStats
+    QString m_pendingDay;
     QHash<QString, QPair<QString, QString>> m_sessionLogins; // server -> user, password
     QList<Tag> m_tags;
     QList<DownloadEngine*> m_engines;

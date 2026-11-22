@@ -46,6 +46,10 @@ public:
     void addTrustedHost(const QString& host);
     void clearTrustedHosts();
 
+    // Traffic per day ("yyyy-MM-dd"): bytes downloaded and uploaded.
+    bool addUsage(const QString& day, qint64 down, qint64 up);
+    QPair<qint64, qint64> usageSince(const QString& firstDay); // "" = all time
+
     QList<Tag> loadTags();
     int saveTag(const Tag& t); // inserts when t.id == 0; returns the id
     void removeTag(int id);

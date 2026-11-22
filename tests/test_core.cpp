@@ -1087,6 +1087,34 @@ private slots:
         QCOMPARE(db.loadDownloads().first().postData, p.postData);
     }
 
+    void trafficStatistics()
+    {
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        QVERIFY(db.addUsage("2026-10-31", 100, 5));
+        QVERIFY(db.addUsage("2026-11-02", 1000, 50));
+        QVERIFY(db.addUsage("2026-11-02", 1000, 50)); // adds up
+        QCOMPARE(db.usageSince("2026-11-01"), (QPair<qint64, qint64>(2000, 100)));
+        QCOMPARE(db.usageSince(QString()), (QPair<qint64, qint64>(2100, 105)));
+
+        RangeServer srv;
+        srv.data = makeData(256 * 1024);
+        QVERIFY(srv.start());
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url("/t.bin"), dir.path(), {}, true);
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(mgr.usage().value("todayDown").toLongLong() > 0, 3000);
+        const qint64 today = mgr.usage().value("todayDown").toLongLong();
+        QVERIFY2(today <= srv.data.size(), qPrintable(QString::number(today)));
+        QVERIFY(mgr.usage().value("totalDown").toLongLong() >= 2100 + today);
+        mgr.flushUsage();
+        QCOMPARE(db.usageSince(QDate::currentDate().toString(Qt::ISODate)).first, today); // written, not doubled
+        QCOMPARE(mgr.usage().value("todayDown").toLongLong(), today);
+    }
+
     void connectionSettingsAndCleanup()
     {
         RangeServer srv;

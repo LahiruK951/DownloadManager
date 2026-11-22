@@ -38,6 +38,8 @@ class AppController : public QObject {
     Q_PROPERTY(double totalSpeed READ totalSpeed NOTIFY statsChanged)
     Q_PROPERTY(double totalUpload READ totalUpload NOTIFY statsChanged)
     Q_PROPERTY(int activeCount READ activeCount NOTIFY statsChanged)
+    // Total download speed, one sample a second, oldest first (the last 2 minutes).
+    Q_PROPERTY(QVariantList speedHistory READ speedHistory NOTIFY speedHistoryChanged)
     Q_PROPERTY(int trafficMode READ trafficMode WRITE setTrafficMode NOTIFY trafficModeChanged)
     Q_PROPERTY(bool trafficScheduled READ trafficScheduled NOTIFY trafficModeChanged)
     Q_PROPERTY(int whenDone READ whenDone WRITE setWhenDone NOTIFY whenDoneChanged)
@@ -105,6 +107,8 @@ public:
     void setSearch(const QString& s);
     QVariantMap counts() const { return m_counts; }
     double totalSpeed() const { return m_totalSpeed; }
+    QVariantList speedHistory() const;
+    Q_INVOKABLE QVariantMap usage() const; // see DownloadManager::usage()
     double totalUpload() const { return m_totalUpload; }
     int activeCount() const { return m_activeCount; }
     int trafficMode() const;
@@ -364,6 +368,7 @@ signals:
     void searchChanged();
     void countsChanged();
     void statsChanged();
+    void speedHistoryChanged();
     void trafficModeChanged();
     void settingsChanged();
     void showWindowRequested();
@@ -418,6 +423,8 @@ private:
     QVariantMap m_counts;
     QTimer m_recountTimer;
     double m_totalSpeed = 0;
+    QList<double> m_speedHistory;
+    QTimer m_speedSampler;
     double m_totalUpload = 0;
     int m_activeCount = 0;
     int m_whenDone = 0; // 0 nothing, 1 sleep, 2 hibernate, 3 shut down, 4 exit FluxDM
