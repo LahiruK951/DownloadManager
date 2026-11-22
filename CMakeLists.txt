@@ -105,6 +105,10 @@ set(FLUXDM_QML_FILES
     qml/StatusBar.qml
     qml/AddDownloadDialog.qml
     qml/SettingsPage.qml
+    qml/SettingsGeneral.qml
+    qml/SettingsRemote.qml
+    qml/SettingsNetwork.qml
+    qml/SettingsBrowser.qml
     qml/SettingsCard.qml
     qml/SettingRow.qml
     qml/FSegmented.qml
