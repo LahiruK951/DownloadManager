@@ -191,6 +191,8 @@ void HttpTask::startSegment(Segment* s)
     const QByteArray cookies = headerSafe(m_p.cookies).toUtf8();
     if (!cookies.isEmpty())
         curl_easy_setopt(h, CURLOPT_COOKIE, cookies.constData());
+    // Cookie engine on (no file): cookies a server sets while redirecting are sent on the next hop.
+    curl_easy_setopt(h, CURLOPT_COOKIEFILE, "");
     // A form the browser submitted: the server only answers with the file to that POST.
     if (!m_p.postData.isEmpty()) {
         curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE_LARGE, curl_off_t(m_p.postData.size()));
@@ -275,6 +277,7 @@ size_t HttpTask::headerCb(char* ptr, size_t size, size_t nmemb, void* userdata)
         s->etag.clear();
         s->lastModified.clear();
         s->contentType.clear();
+        s->browserCheck = false;
         return len;
     }
     const int c = line.indexOf(':');
@@ -291,6 +294,8 @@ size_t HttpTask::headerCb(char* ptr, size_t size, size_t nmemb, void* userdata)
             s->lastModified = val;
         else if (key == "content-type")
             s->contentType = val;
+        else if (key == "cf-mitigated" && val.toLower().contains("challenge"))
+            s->browserCheck = true;
     }
     return len;
 }
@@ -525,6 +530,11 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
     if (rc == CURLE_LOGIN_DENIED || (code == 401 && !m_p.user.isEmpty())) {
         fail(m_p.user.isEmpty() ? QStringLiteral("Login required: the server asks for a user name and password")
                                 : QStringLiteral("Login failed: the server did not accept the user name or password"));
+        return;
+    }
+    // Only a real browser gets past this check; retrying from here cannot help.
+    if (s->browserCheck && code >= 400) {
+        fail(LinkCheck::browserCheckText(code));
         return;
     }
     const QString err = !s->fatal.isEmpty() ? s->fatal

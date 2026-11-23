@@ -97,7 +97,9 @@ QJsonObject handle(const QJsonObject& req)
         return {{QStringLiteral("ok"), true},
                 {QStringLiteral("version"), QStringLiteral(FLUXDM_VERSION)},
                 {QStringLiteral("running"), appRunning()}};
-    if (cmd != QLatin1String("download") && cmd != QLatin1String("show"))
+    static const QStringList forwarded{QStringLiteral("download"), QStringLiteral("downloadMany"),
+                                       QStringLiteral("torrentFile"), QStringLiteral("show")};
+    if (!forwarded.contains(cmd))
         return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("unknown command")}};
     if (!appRunning() && !launchApp())
         return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("Cannot start FluxDM")}};

@@ -24,6 +24,10 @@ QString resolveTarget(const QString& dir, const QString& name, int reaction, boo
 QString completionTarget(const QString& target, int reaction);
 // True for a bencoded .torrent file (checked by content, not by name).
 bool looksLikeTorrentFile(const QString& path);
+// Copies a .torrent the browser saved (e.g. from a site behind a browser check) into `dir`, so
+// it stays usable after the browser removes its copy. Returns the new path, or "" with *error
+// set when `src` is not a readable .torrent file.
+QString keepTorrentFile(const QString& src, const QString& dir, QString* error);
 // FDM-style automatic tag: Video, Music, Archive, Docs, Programs, Pictures or Other.
 QString category(const QString& fileName);
 // Category of a multi-file download ([{name, size}], e.g. a torrent): the one holding the most

@@ -170,6 +170,28 @@ QString categoryOfFiles(const QVariantList& files)
     return best;
 }
 
+QString keepTorrentFile(const QString& src, const QString& dir, QString* error)
+{
+    const QFileInfo fi(src);
+    if (!fi.isAbsolute() || !looksLikeTorrentFile(src)) {
+        *error = QStringLiteral("Not a .torrent file");
+        return {};
+    }
+    QString name = sanitize(fi.fileName());
+    if (!name.endsWith(QLatin1String(".torrent"), Qt::CaseInsensitive))
+        name += QStringLiteral(".torrent");
+    if (!QDir().mkpath(dir)) {
+        *error = QStringLiteral("Cannot create %1").arg(QDir::toNativeSeparators(dir));
+        return {};
+    }
+    const QString target = uniquePath(dir, name);
+    if (!QFile::copy(src, target)) {
+        *error = QStringLiteral("Cannot copy %1").arg(QDir::toNativeSeparators(src));
+        return {};
+    }
+    return target;
+}
+
 bool looksLikeTorrentFile(const QString& path)
 {
     const QFileInfo fi(path);

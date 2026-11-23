@@ -23,6 +23,9 @@ QDateTime linkExpiry(const QUrl& url);
 // "HTTP error <code>" prefix that the auto-retry rules match on.
 QString httpErrorText(long code, const QUrl& url, const QDateTime& now = QDateTime::currentDateTime());
 
+// "HTTP error <code>: …" for a site that only lets a real web browser through (Cloudflare check).
+QString browserCheckText(long code);
+
 // Full message for the web-page case, mentioning the expiry time when the link carries one.
 QString webPageText(const QUrl& url, const QDateTime& now = QDateTime::currentDateTime());
 

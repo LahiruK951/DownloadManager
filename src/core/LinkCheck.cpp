@@ -82,6 +82,13 @@ QString httpErrorText(long code, const QUrl& url, const QDateTime& now)
     return prefix;
 }
 
+QString browserCheckText(long code)
+{
+    return QStringLiteral("HTTP error %1: this site only lets a web browser download (browser check). "
+                          "Click the link in your browser with FluxDM's browser integration turned on, "
+                          "or save the file in your browser and open it with FluxDM").arg(code);
+}
+
 QString webPageText(const QUrl& url, const QDateTime& now)
 {
     const QString expired = expiredPart(url, now);

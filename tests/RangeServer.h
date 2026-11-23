@@ -18,6 +18,7 @@ public:
     QByteArray contentDisposition;
     QByteArray contentType;  // e.g. "text/html" to imitate an expired file-host link
     QByteArray basicAuth;    // "user:password" required (HTTP Basic), empty = open
+    QByteArray failHeaders;  // extra header lines sent with failStatus, each ending in "\r\n"
     int unauthorized = 0;    // 401 answers sent
     int open = 0, peakOpen = 0;       // concurrent connections now / at most
     int active = 0, peakActive = 0;   // responses being sent now / at most (closing sockets don't count)
@@ -68,7 +69,8 @@ private:
                 return;
             }
             if (failStatus) {
-                sock->write("HTTP/1.1 " + QByteArray::number(failStatus) + " Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                sock->write("HTTP/1.1 " + QByteArray::number(failStatus) + " Error\r\n" + failHeaders
+                            + "Content-Length: 0\r\nConnection: close\r\n\r\n");
                 sock->disconnectFromHost();
                 return;
             }

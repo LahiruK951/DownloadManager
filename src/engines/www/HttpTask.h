@@ -28,6 +28,7 @@ struct Segment {
     int source = 0;    // 0 = the original address, n = mirror n
     bool reachedEnd = false;
     bool paused = false;
+    bool browserCheck = false; // the reply is a Cloudflare "are you a browser" challenge
     QString fatal;
 
     QByteArray contentDisposition, contentRange, etag, lastModified, contentType;

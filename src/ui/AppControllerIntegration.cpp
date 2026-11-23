@@ -157,9 +157,20 @@ QString AppController::handleBrowserRequest(const QVariantMap& r)
         emit showWindowRequested();
         return {};
     }
-    if (cmd != QLatin1String("download"))
+    QString url;
+    if (cmd == QLatin1String("torrentFile")) {
+        // A .torrent the browser downloaded itself: sites behind a browser check (Cloudflare)
+        // refuse FluxDM's own request. Keep a copy; the extension then removes the browser's.
+        QString err;
+        url = FileNamer::keepTorrentFile(r.value(QStringLiteral("path")).toString(),
+                                         QDir(Instance::profileDir()).filePath(QStringLiteral("torrents")), &err);
+        if (url.isEmpty())
+            return err;
+    } else if (cmd == QLatin1String("download")) {
+        url = r.value(QStringLiteral("url")).toString().trimmed();
+    } else {
         return tr("Unknown command");
-    const QString url = r.value(QStringLiteral("url")).toString().trimmed();
+    }
     if (!m_mgr->canHandle(url))
         return tr("Unsupported link");
     QVariantMap meta;

@@ -122,6 +122,48 @@ function skippedByExtension(url, list) {
   }
 }
 
+// .torrent files: the browser finishes the (small) file itself, then FluxDM gets the saved copy.
+// Some sites (Cloudflare's browser check) answer only a real browser, so FluxDM fetching the
+// link again would fail even with the browser's cookies.
+const torrentsInFlight = new Set();
+
+function isTorrent(item, url) {
+  if (item.mime === "application/x-bittorrent" || /\.torrent$/i.test(item.filename || "")) return true;
+  try {
+    return /\.torrent$/i.test(new URL(url).pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function handOffTorrentFile(id) {
+  const [item] = await chrome.downloads.search({ id });
+  if (!item || item.state !== "complete" || !item.filename) return;
+  const reply = await sendToHost({
+    cmd: "torrentFile",
+    path: item.filename,
+    url: item.finalUrl || item.url,
+    referrer: item.referrer || "",
+  });
+  if (!reply.ok) return; // FluxDM not available: the browser's copy stays where it is
+  try {
+    await chrome.downloads.removeFile(id); // FluxDM keeps its own copy
+  } catch (e) {}
+  try {
+    await chrome.downloads.erase({ id });
+  } catch (e) {}
+}
+
+chrome.downloads.onChanged.addListener((delta) => {
+  if (!delta.state || !torrentsInFlight.has(delta.id)) return;
+  if (delta.state.current === "complete") {
+    torrentsInFlight.delete(delta.id);
+    handOffTorrentFile(delta.id);
+  } else if (delta.state.current === "interrupted") {
+    torrentsInFlight.delete(delta.id);
+  }
+});
+
 chrome.downloads.onCreated.addListener(async (item) => {
   const url = item.finalUrl || item.url;
   if (bypass.has(url)) {
@@ -138,6 +180,12 @@ chrome.downloads.onCreated.addListener(async (item) => {
   }
   if (skippedByExtension(url, s.skipExtensions)) return;
   if (skippedBySite([url, item.referrer || ""], s.skipSites)) return;
+  if (isTorrent(item, url)) {
+    torrentsInFlight.add(item.id);
+    const [now] = await chrome.downloads.search({ id: item.id }); // it may have finished already
+    if (now && now.state === "complete" && torrentsInFlight.delete(item.id)) handOffTorrentFile(item.id);
+    return;
+  }
   if (s.minSizeKB > 0) {
     const size = item.totalBytes > 0 ? item.totalBytes : await remoteSize(url);
     if (size >= 0 && size < s.minSizeKB * 1024) return;

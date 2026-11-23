@@ -326,6 +326,30 @@ private slots:
         QVERIFY(!FileNamer::looksLikeTorrentFile(write("data.bin", makeData(4096))));
     }
 
+    void keepTorrentFromBrowser()
+    {
+        // The browser saved a .torrent (a site behind a browser check); FluxDM keeps its own copy.
+        QTemporaryDir dir;
+        const QByteArray torrent = "d8:announce35:udp://tracker.example:1337/announce4:infod6:lengthi1e4:name1:a12:piece lengthi16384eee";
+        auto write = [&](const char* name, const QByteArray& data) {
+            QFile f(dir.filePath(name));
+            f.open(QIODevice::WriteOnly);
+            f.write(data);
+            return dir.filePath(name);
+        };
+        const QString keep = dir.filePath("kept");
+        QString err;
+        const QString a = FileNamer::keepTorrentFile(write("Movie [1080p].torrent", torrent), keep, &err);
+        QVERIFY2(!a.isEmpty(), qPrintable(err));
+        QCOMPARE(QFileInfo(a).absolutePath(), QFileInfo(keep).absoluteFilePath());
+        QVERIFY(readAll(a) == torrent);
+        const QString b = FileNamer::keepTorrentFile(write("14B77402", torrent), keep, &err); // no extension
+        QVERIFY(b.endsWith(".torrent"));
+        QVERIFY(FileNamer::keepTorrentFile(write("Movie [1080p].torrent", torrent), keep, &err) != a); // never overwrites
+        QVERIFY(FileNamer::keepTorrentFile(write("page.torrent", "<!doctype html><html>challenge page</html>"), keep, &err).isEmpty());
+        QVERIFY(FileNamer::keepTorrentFile(QStringLiteral("relative.torrent"), keep, &err).isEmpty());
+    }
+
     void uniquePath()
     {
         QTemporaryDir dir;
@@ -575,6 +599,25 @@ private slots:
         QVERIFY(o.failed);
         QVERIFY2(o.error.startsWith("HTTP error 403: the link expired on"), qPrintable(o.error));
         QVERIFY(!DownloadManager::isRetriable(o.error));
+    }
+
+    void browserCheckErrorExplains()
+    {
+        // Cloudflare's "are you a browser" challenge: say so, and don't retry.
+        RangeServer srv;
+        srv.data = makeData(1024);
+        srv.failStatus = 403;
+        srv.failHeaders = "Server: cloudflare\r\ncf-mitigated: challenge\r\n";
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        eng.start(params(8, srv.url("/torrent/download/14B77402B5BF7D4E"), dir.path()));
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.contains("only lets a web browser download"), qPrintable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(LinkCheck::browserCheckText(503)));
     }
 
     // ffmpeg for converter tests: FLUXDM_FFMPEG, else FDM's bundled copy if installed (read-only use).

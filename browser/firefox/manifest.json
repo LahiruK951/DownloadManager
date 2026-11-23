@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FluxDM",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Send your downloads to the FluxDM download manager.",
   "browser_specific_settings": {
     "gecko": { "id": "browser-integration@fluxdm", "strict_min_version": "128.0" }
