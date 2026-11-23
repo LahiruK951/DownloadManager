@@ -35,7 +35,6 @@ ColumnLayout {
                     onClicked: App.restartApp()
                 }
                 FComboBox {
-                    Layout.preferredWidth: 220
                     model: App.languages.map(l => l.name)
                     currentIndex: Math.max(0, App.languages.findIndex(l => l.code === App.language))
                     onActivated: (i) => App.language = App.languages[i].code
@@ -58,7 +57,6 @@ ColumnLayout {
                     onClicked: App.restartApp()
                 }
                 FComboBox {
-                    Layout.preferredWidth: 110
                     model: zoomRow.levels.map(z => z + " %")
                     currentIndex: Math.max(0, zoomRow.levels.indexOf(App.zoom))
                     onActivated: (i) => App.zoom = zoomRow.levels[i]

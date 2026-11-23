@@ -213,7 +213,6 @@ Popup {
                         title: qsTr("If the file already exists")
                         description: qsTr("For new downloads. “Replace” only removes the old file once the new one is complete.")
                         FComboBox {
-                            Layout.preferredWidth: 200
                             model: [qsTr("Keep both (add a number)"), qsTr("Replace it"), qsTr("Ask me")]
                             currentIndex: (App.defaultFolder, App.existingFileDefault())
                             onActivated: (i) => App.setExistingFileDefault(i)
@@ -279,7 +278,6 @@ Popup {
                         title: qsTr("Remove finished downloads from the list")
                         description: qsTr("Only the entry in FluxDM goes; the files stay where they are.")
                         FComboBox {
-                            Layout.preferredWidth: 200
                             readonly property var days: [0, 1, 7, 30, 90]
                             model: [qsTr("Never"), qsTr("After 1 day"), qsTr("After 7 days"), qsTr("After 30 days"), qsTr("After 90 days")]
                             currentIndex: Math.max(0, days.indexOf(App.autoRemoveDays))
@@ -484,7 +482,6 @@ Popup {
                                 }
                                 Text { text: Theme.icons.chevronRight; font.family: Theme.iconFont; font.pixelSize: 10; color: Theme.textDim }
                                 FComboBox {
-                                    Layout.preferredWidth: 120
                                     model: page.modeNames
                                     currentIndex: ruleRow.modelData.mode
                                     onActivated: (i) => { page.rules[ruleRow.index].mode = i; page.saveRules() }

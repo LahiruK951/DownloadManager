@@ -7,6 +7,23 @@ ComboBox {
     font.pixelSize: Theme.fontBody
     hoverEnabled: true
 
+    // One fixed width that fits the longest choice, whatever is selected (a list of choices), so the
+    // box doesn't jump around and the open list never cuts its entries short. An editable box (e.g. a
+    // folder) takes the width its layout gives it.
+    property real minWidth: 120
+    property real maxWidth: 440
+    readonly property real widestText: {
+        let w = 0
+        const n = cb.count
+        cb.font.pixelSize // re-measure on zoom
+        for (let i = 0; i < n; ++i)
+            w = Math.max(w, fm.advanceWidth(cb.textAt(i)))
+        return Math.ceil(w)
+    }
+    implicitWidth: cb.editable ? 200
+                 : Math.min(maxWidth, Math.max(minWidth, widestText + 12 + indicator.width + 8 + leftPadding + rightPadding + 4))
+    FontMetrics { id: fm; font: cb.font }
+
     background: Rectangle {
         radius: Theme.radius
         color: Theme.inputBg
@@ -51,7 +68,7 @@ ComboBox {
             text: item.modelData
             font: cb.font
             color: Theme.text
-            elide: Text.ElideMiddle
+            elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
@@ -71,7 +88,7 @@ ComboBox {
 
     popup: Popup {
         y: cb.height + 4
-        width: cb.width
+        width: Math.max(cb.width, Math.min(cb.maxWidth + 40, cb.widestText + 40))
         padding: 4
         implicitHeight: Math.min(contentItem.implicitHeight + 8, 320)
         contentItem: ListView {
