@@ -182,6 +182,18 @@
         <source>Show</source>
         <translation>Mostrar</translation>
     </message>
+    <message>
+        <source>Unfinished in your list: %1</source>
+        <translation>Sin terminar en tu lista: %1</translation>
+    </message>
+    <message>
+        <source>Looks like the unfinished %1</source>
+        <translation>Parece la descarga sin terminar %1</translation>
+    </message>
+    <message>
+        <source>Continue it</source>
+        <translation>Continuarla</translation>
+    </message>
 </context>
 <context>
     <name>AppController</name>
@@ -483,6 +495,14 @@
         <source>%1 %2 is available: update it in Settings &gt; Downloads</source>
         <translation>%1 %2 está disponible: actualízalo en Configuración &gt; Descargas</translation>
     </message>
+    <message>
+        <source>This download cannot be continued with another link.</source>
+        <translation>Esta descarga no se puede continuar con otro enlace.</translation>
+    </message>
+    <message>
+        <source>Continuing %1 with the new link</source>
+        <translation>Continuando %1 con el nuevo enlace</translation>
+    </message>
 </context>
 <context>
     <name>BottomPanel</name>
@@ -779,6 +799,53 @@
     <message>
         <source>Trust this server and continue</source>
         <translation>Confiar en este servidor y continuar</translation>
+    </message>
+</context>
+<context>
+    <name>ChangeAddressDialog</name>
+    <message>
+        <source>Change address</source>
+        <translation>Cambiar dirección</translation>
+    </message>
+    <message>
+        <source>Open the download page, start the download again (or copy its link) and paste the new link here. FluxDM keeps the %1 already downloaded and continues if it is the same file.</source>
+        <translation>Abre la página de descarga, inicia la descarga de nuevo (o copia su enlace) y pega aquí el nuevo enlace. FluxDM conserva los %1 ya descargados y continúa si es el mismo archivo.</translation>
+    </message>
+    <message>
+        <source>Open the download page, start the download again (or copy its link) and paste the new link here.</source>
+        <translation>Abre la página de descarga, inicia la descarga de nuevo (o copia su enlace) y pega aquí el nuevo enlace.</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Enlace</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Pegar</translation>
+    </message>
+    <message>
+        <source>The clipboard has no link.</source>
+        <translation>El portapapeles no contiene ningún enlace.</translation>
+    </message>
+    <message>
+        <source>Download page (optional)</source>
+        <translation>Página de descarga (opcional)</translation>
+    </message>
+    <message>
+        <source>Open page</source>
+        <translation>Abrir página</translation>
+    </message>
+    <message>
+        <source>Open website</source>
+        <translation>Abrir sitio web</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Save and continue</source>
+        <translation>Guardar y continuar</translation>
     </message>
 </context>
 <context>
@@ -1325,6 +1392,30 @@
         <source>BitTorrent support is not available</source>
         <translation>BitTorrent no está disponible</translation>
     </message>
+    <message>
+        <source>Only unfinished web downloads can get a new address.</source>
+        <translation>Solo las descargas web sin terminar pueden recibir una nueva dirección.</translation>
+    </message>
+    <message>
+        <source>Not a web or FTP address: %1</source>
+        <translation>No es una dirección web ni FTP: %1</translation>
+    </message>
+    <message>
+        <source>This link is a different kind of download (for example a video stream or a torrent). Add it as a new download.</source>
+        <translation>Este enlace es otro tipo de descarga (por ejemplo, un vídeo en streaming o un torrent). Añádelo como una descarga nueva.</translation>
+    </message>
+    <message>
+        <source>The download page must be a web address (http or https).</source>
+        <translation>La página de descarga debe ser una dirección web (http o https).</translation>
+    </message>
+    <message>
+        <source>Address changed to %1; continuing from %2 if it is the same file</source>
+        <translation>Dirección cambiada a %1; se continúa desde %2 si es el mismo archivo</translation>
+    </message>
+    <message>
+        <source>Address changed to %1</source>
+        <translation>Dirección cambiada a %1</translation>
+    </message>
 </context>
 <context>
     <name>DownloadRow</name>
@@ -1619,6 +1710,14 @@
     <message>
         <source>Create torrent and share</source>
         <translation>Crear torrent y compartir</translation>
+    </message>
+    <message>
+        <source>Change address…</source>
+        <translation>Cambiar dirección…</translation>
+    </message>
+    <message>
+        <source>Open website (%1)</source>
+        <translation>Abrir sitio web (%1)</translation>
     </message>
 </context>
 <context>
@@ -2696,10 +2795,6 @@
         <translation>Dónde se guardan las nuevas descargas.</translation>
     </message>
     <message>
-        <source>Switch traffic modes automatically — for example Snail mode during working hours.</source>
-        <translation>Cambia de modo de tráfico automáticamente; por ejemplo, el modo caracol en horario de trabajo.</translation>
-    </message>
-    <message>
         <source>BitTorrent</source>
         <translation>BitTorrent</translation>
     </message>
@@ -3056,14 +3151,6 @@
         <translation>Los demás pares se conectan a este puerto. Se aplica la próxima vez que se inicie FluxDM.</translation>
     </message>
     <message>
-        <source>Traffic Modes</source>
-        <translation>Modos de tráfico</translation>
-    </message>
-    <message>
-        <source>Limits for each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.</source>
-        <translation>Límites de cada modo y reglas que cambian de modo automáticamente. También puedes cambiar de modo en la barra de estado, abajo en la ventana.</translation>
-    </message>
-    <message>
         <source>Rules</source>
         <translation>Reglas</translation>
     </message>
@@ -3078,6 +3165,26 @@
     <message>
         <source>For videos from YouTube and other sites. Not found: download it, put yt-dlp.exe next to FluxDM or on PATH, or choose it here.</source>
         <translation>Para vídeos de YouTube y otros sitios. No encontrado: descárgalo, pon yt-dlp.exe junto a FluxDM o en el PATH, o elígelo aquí.</translation>
+    </message>
+    <message>
+        <source>Network Traffic</source>
+        <translation>Tráfico de red</translation>
+    </message>
+    <message>
+        <source>How fast FluxDM downloads in each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.</source>
+        <translation>La velocidad de descarga de FluxDM en cada modo y las reglas que cambian de modo automáticamente. También puedes cambiar desde la barra de estado, en la parte inferior de la ventana.</translation>
+    </message>
+    <message>
+        <source>Modes</source>
+        <translation>Modos</translation>
+    </message>
+    <message>
+        <source>Limits for each mode. The active mode has a blue outline.</source>
+        <translation>Límites de cada modo. El modo activo tiene un contorno azul.</translation>
+    </message>
+    <message>
+        <source>Switch modes automatically — for example Snail mode during working hours.</source>
+        <translation>Cambia de modo automáticamente: por ejemplo, el modo Caracol en horario laboral.</translation>
     </message>
 </context>
 <context>
