@@ -10,8 +10,9 @@ scripts\setup-toolchain.ps1          # one time: VS Build Tools, CMake, Ninja, P
 scripts\build.ps1                    # configure + build + windeployqt  -> build\release\FluxDM.exe
 scripts\build.ps1 -Test              # ... and run the test suite
 scripts\build.ps1 -Run               # ... and launch the app
-scripts\package.ps1                  # portable release zip -> dist\FluxDM-<version>-win64.zip
+scripts\package.ps1                  # portable release zip -> dist\FluxDM-<version>-win64.zip (with ffmpeg + yt-dlp)
 scripts\package.ps1 -Installer       # ... plus FluxDM-<version>-setup.exe + latest.json (needs Inno Setup 6)
+scripts\package.ps1 -NoTools         # ... without ffmpeg/yt-dlp (FluxDM can download them itself)
 scripts\build.ps1 -UpdateTranslations # refresh i18n\*.ts from the sources (see i18n\README.md)
 scripts\shot.ps1                     # headless screenshots of every view -> build\shots
 ```
@@ -21,6 +22,23 @@ A second launch forwards its arguments to the running instance.
 
 Manual testing: `python scripts\range_server.py <dir> --rate-kbps 256` serves files with Range support,
 throttled per connection.
+
+## Install on another PC
+
+Copy `dist\FluxDM-<version>-setup.exe` to the other PC and run it. No administrator rights are needed
+(it installs for the current user; "for all users" is offered too). Setup adds a Start-menu entry and an
+uninstaller (Settings > Apps), and offers to open .torrent files and magnet links with FluxDM, to connect
+it to your browsers and to start it with Windows. ffmpeg and yt-dlp come with it (`tools\`); FluxDM
+checks for newer versions once a day and shows an "Update" button in Settings > Downloads only when one
+exists. The setup is not code-signed, so Windows SmartScreen warns the first time: "More info" > "Run
+anyway". Uninstalling keeps your download list and settings unless you choose to delete them.
+
+Browser extension: after installing, load it from `<install folder>\browser\chromium` (Chrome, Edge,
+Brave: Extensions > Developer mode > Load unpacked) or `browser\firefox` - see Settings > Browser.
+
+The portable zip works too: unpack it anywhere and run `FluxDM.exe`.
+
+Silent install for scripts: `FluxDM-<version>-setup.exe /VERYSILENT /CURRENTUSER /TASKS="assoc,browser"`.
 
 ## Layout
 
@@ -79,7 +97,8 @@ App:
 - Remote control from the local network (web page, access code; off by default; Host-header check,
   idle timeouts, per-address and global sign-in limits, expiring tokens).
 - App log, crash dumps and "Report a problem" (nothing is sent automatically); updater (SHA-256 checked,
-  optionally Ed25519-signed manifests) and an Inno Setup installer script; translations (Spanish
+  optionally Ed25519-signed manifests) and an Inno Setup installer; ffmpeg and yt-dlp shipped and
+  kept up to date (GitHub releases, SHA-256 checked); translations (Spanish
   complete, machine-made).
 - UI built from a small design system (`qml/F*.qml`), full-page settings.
 
@@ -96,6 +115,6 @@ $env:FLUXDM_SIGNING_KEY = "D:\keys\fluxdm-release.key"; scripts\package.ps1 -Ins
 
 Keep the private key out of the repository and off shared folders.
 
-Not done yet: building the installer (needs Inno Setup), a release host for updates and its signing key,
+Not done yet: code signing (SmartScreen warns about the unsigned setup), a release host for updates and its signing key,
 more languages, Linux/macOS builds, a separate folder for unfinished files, HLS/DASH disk writes off the
 UI thread, and FDM 3.9's legacy features (site explorer, HTML spider, partial ZIP).

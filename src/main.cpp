@@ -79,7 +79,8 @@ int main(int argc, char* argv[])
             probe.disconnectFromServer();
             QThread::msleep(100);
         }
-    } else if (!args.contains(QStringLiteral("--uninstall-cleanup")) && forwardToRunningInstance(args)) {
+    } else if (!args.contains(QStringLiteral("--uninstall-cleanup")) && !args.contains(QStringLiteral("--install-setup"))
+               && forwardToRunningInstance(args)) {
         return 0;
     }
 
@@ -140,10 +141,22 @@ int main(int argc, char* argv[])
         if (demo)
             DevDemo::seed(mgr, QDir(dataDir).filePath(QStringLiteral("downloads")));
         AppController ctl(&mgr, dataDir);
-        // Run by the uninstaller: undo what FluxDM registered for this Windows account.
+        // Run by the uninstaller: undo what this copy registered for this Windows account.
         if (args.contains(QStringLiteral("--uninstall-cleanup"))) {
-            ctl.setBrowserIntegrated(false);
-            ctl.setTorrentAssociated(false);
+            ctl.uninstallCleanup();
+            mgr.shutdown();
+            AppLog::shutdown();
+            return 0;
+        }
+        // Run by the installer for the options ticked there: "--install-setup assoc browser autostart".
+        if (const qsizetype at = args.indexOf(QStringLiteral("--install-setup")); at >= 0) {
+            const QStringList opts = args.mid(at + 1);
+            if (opts.contains(QStringLiteral("assoc")))
+                ctl.setTorrentAssociated(true);
+            if (opts.contains(QStringLiteral("browser")))
+                ctl.setBrowserIntegrated(true);
+            if (opts.contains(QStringLiteral("autostart")))
+                ctl.setStartWithWindows(true);
             mgr.shutdown();
             AppLog::shutdown();
             return 0;

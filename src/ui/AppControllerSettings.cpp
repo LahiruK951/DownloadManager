@@ -524,6 +524,31 @@ void AppController::restartApp()
 static const char* kRunKey = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static bool devProfile() { return qEnvironmentVariableIsSet("FLUXDM_DATA_DIR"); }
 
+// Run by the uninstaller: undo only what belongs to this copy of FluxDM. Another copy (portable,
+// a developer build) shares the profile and may have registered itself since.
+void AppController::uninstallCleanup()
+{
+    setTorrentAssociated(false); // only acts when the association opens this exe
+#ifdef Q_OS_WIN
+    if (devProfile())
+        return;
+    const auto here = [](const QString& path) {
+        return !path.isEmpty()
+               && QFileInfo(path).absolutePath().compare(QCoreApplication::applicationDirPath(), Qt::CaseInsensitive) == 0;
+    };
+    QFile manifest(QDir(Instance::profileDir()).filePath(QStringLiteral("nativehost.json")));
+    if (manifest.open(QIODevice::ReadOnly)) {
+        const QString host = QJsonDocument::fromJson(manifest.readAll()).object().value(QStringLiteral("path")).toString();
+        manifest.close();
+        if (here(host))
+            setBrowserIntegrated(false);
+    }
+    const QString run = QSettings(QString::fromLatin1(kRunKey), QSettings::NativeFormat).value(QStringLiteral("FluxDM")).toString();
+    if (run.contains(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()), Qt::CaseInsensitive))
+        setStartWithWindows(false);
+#endif
+}
+
 bool AppController::startWithWindows() const
 {
 #ifdef Q_OS_WIN

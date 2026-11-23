@@ -260,6 +260,7 @@ public:
     // --- browser integration (native messaging host + extension)
     Q_INVOKABLE bool browserIntegrated() const;
     Q_INVOKABLE QString setBrowserIntegrated(bool on); // returns error text or ""
+    void uninstallCleanup(); // --uninstall-cleanup: associations, browser helper, autostart of this copy
     Q_INVOKABLE QString extensionDir() const;
     Q_INVOKABLE void openExtensionDir() const;
     Q_INVOKABLE QString firefoxExtensionDir() const;

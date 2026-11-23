@@ -207,6 +207,24 @@ add_custom_command(TARGET fluxdm POST_BUILD
 qt_add_executable(fluxdm-sign src/tools/sign.cpp)
 target_link_libraries(fluxdm-sign PRIVATE fluxcore)
 
+# Writes resources/fluxdm.ico from the runtime icon drawing (not shipped; the .ico is committed).
+qt_add_executable(fluxdm-makeicon src/tools/makeicon.cpp src/ui/AppIcon.h)
+target_include_directories(fluxdm-makeicon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(fluxdm-makeicon PRIVATE Qt6::Gui)
+
+# Exe icon and version information (Explorer, shortcuts, the uninstall entry).
+function(fluxdm_add_win_resources target name description)
+    if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/resources/fluxdm.ico)
+        set(FLUXDM_RC_NAME ${name})
+        set(FLUXDM_RC_DESCRIPTION ${description})
+        set(FLUXDM_RC_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/fluxdm.ico)
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/resources/fluxdm.rc.in ${CMAKE_CURRENT_BINARY_DIR}/${name}.rc @ONLY)
+        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${name}.rc)
+    endif()
+endfunction()
+fluxdm_add_win_resources(fluxdm FluxDM "FluxDM download manager")
+fluxdm_add_win_resources(fluxdm-nativehost fluxdm-nativehost "FluxDM browser helper")
+
 # ---------------------------------------------------------------- tests
 enable_testing()
 qt_add_executable(test_core tests/test_core.cpp tests/RangeServer.h tests/HlsServer.h
