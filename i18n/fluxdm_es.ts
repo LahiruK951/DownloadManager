@@ -2621,18 +2621,6 @@
         <translation>Dónde se guardan las nuevas descargas.</translation>
     </message>
     <message>
-        <source>Traffic modes</source>
-        <translation>Modos de tráfico</translation>
-    </message>
-    <message>
-        <source>Limits for each mode. Switch modes from the status bar at the bottom of the window.</source>
-        <translation>Límites de cada modo. Cambia de modo desde la barra de estado, abajo en la ventana.</translation>
-    </message>
-    <message>
-        <source>Snail schedule</source>
-        <translation>Horario del modo caracol</translation>
-    </message>
-    <message>
         <source>Switch traffic modes automatically — for example Snail mode during working hours.</source>
         <translation>Cambia de modo de tráfico automáticamente; por ejemplo, el modo caracol en horario de trabajo.</translation>
     </message>
@@ -2995,6 +2983,18 @@
     <message>
         <source>Other peers connect to this port. Takes effect the next time FluxDM starts.</source>
         <translation>Los demás pares se conectan a este puerto. Se aplica la próxima vez que se inicie FluxDM.</translation>
+    </message>
+    <message>
+        <source>Traffic Modes</source>
+        <translation>Modos de tráfico</translation>
+    </message>
+    <message>
+        <source>Limits for each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.</source>
+        <translation>Límites de cada modo y reglas que cambian de modo automáticamente. También puedes cambiar de modo en la barra de estado, abajo en la ventana.</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>Reglas</translation>
     </message>
 </context>
 <context>

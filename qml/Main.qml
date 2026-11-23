@@ -202,7 +202,8 @@ ApplicationWindow {
             App.bottomPanelTab = v === "panel-log" ? 2 : (v === "panel-files" ? 1 : 0)
             if (v === "panel-done") Qt.callLater(bottomPanel.scrollGeneralToEnd)
         } else if (v.startsWith("settings")) {
-            settingsDialog.openSection(["settings", "settings-downloads", "settings-traffic", "settings-schedule", "settings-bt", "settings-browser", "settings-network", "settings-remote"].indexOf(v))
+            const names = ["settings", "settings-downloads", "settings-traffic", "settings-bt", "settings-browser", "settings-network", "settings-remote"]
+            settingsDialog.openSection(v === "settings-schedule" ? 2 : names.indexOf(v)) // the schedule is part of Traffic Modes now
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "add-dup") { App.select(App.downloads.idAt(1)); addDialog.openWith(App.selected ? App.selected.url : "") }
@@ -221,7 +222,7 @@ ApplicationWindow {
         else if (v.startsWith("ctx")) devMenuTimer.start() // ctx[:<row>], ctx-multi
         else if (v === "network-manual") { // throwaway profile only
             App.setProxySettings(2, "socks5", "proxy.example.com", 1080, "me", "secret", false)
-            settingsDialog.openSection(6)
+            settingsDialog.openSection(5) // Network
         }
         else if (v === "report") reportDialog.openReport(false)
         else if (v === "metered") meteredDialog.ask(2)

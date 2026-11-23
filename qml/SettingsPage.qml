@@ -16,8 +16,7 @@ Popup {
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
         { title: qsTr("Downloads"), glyph: Theme.icons.down, desc: qsTr("Where new downloads are saved.") },
-        { title: qsTr("Traffic modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode. Switch modes from the status bar at the bottom of the window.") },
-        { title: qsTr("Snail schedule"), glyph: Theme.icons.clock, desc: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.") },
+        { title: qsTr("Traffic Modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.") },
         { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
         { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge, Brave and Firefox to FluxDM.") },
         { title: qsTr("Network"), glyph: String.fromCharCode(0xE968), desc: qsTr("Proxy and how many connections FluxDM opens to one server.") },
@@ -107,7 +106,7 @@ Popup {
                         required property var modelData
                         required property int index
                         readonly property bool current: page.section === index
-                        visible: index !== 4 || App.torrentSupport
+                        visible: index !== 3 || App.torrentSupport
                         Layout.fillWidth: true
                         implicitHeight: 38
                         hoverEnabled: true
@@ -415,11 +414,29 @@ Popup {
                     text: qsTr("Snail mode also throttles BitTorrent uploads so your connection stays usable.")
                 }
 
-                // ---------------- Snail schedule
+                // ---------------- Traffic Modes: rules (automatic switching)
                 ColumnLayout {
-                    visible: page.section === 3
+                    visible: page.section === 2
                     Layout.fillWidth: true
+                    Layout.topMargin: 12
                     spacing: 10
+
+                    Text {
+                        text: qsTr("Rules")
+                        color: Theme.text
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                        Layout.leftMargin: 2
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 2
+                        Layout.topMargin: -4
+                        text: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.")
+                        color: Theme.textDim
+                        font.pixelSize: Theme.fontSmall
+                        wrapMode: Text.WordWrap
+                    }
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -514,7 +531,7 @@ Popup {
 
                 // ---------------- BitTorrent
                 SettingsCard {
-                    visible: page.section === 4
+                    visible: page.section === 3
                     title: qsTr("Sharing")
                     Layout.fillWidth: true
                     SettingRow {
@@ -573,13 +590,13 @@ Popup {
                 }
 
                 // ---------------- Remote
-                SettingsRemote { visible: page.section === 7; Layout.fillWidth: true }
+                SettingsRemote { visible: page.section === 6; Layout.fillWidth: true }
 
                 // ---------------- Network
-                SettingsNetwork { visible: page.section === 6; Layout.fillWidth: true }
+                SettingsNetwork { visible: page.section === 5; Layout.fillWidth: true }
 
                 // ---------------- Browser
-                SettingsBrowser { id: browserSection; visible: page.section === 5; Layout.fillWidth: true }
+                SettingsBrowser { id: browserSection; visible: page.section === 4; Layout.fillWidth: true }
 
                 Item { implicitHeight: 24 }
             }
