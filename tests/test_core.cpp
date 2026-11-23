@@ -3152,6 +3152,42 @@ private slots:
         QVERIFY(!srv.paths.contains("/a/v.mp4"));
     }
 
+    // "Continue it" / a browser re-sending the link: the same address again picks the partial up
+    // and drops the expired redirect it had saved.
+    void sameLinkAgainContinues()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn1/v.mp4")).toUtf8());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url(QStringLiteral("/dload/v.mp4")), dir.path(), {}, true);
+        QVERIFY(d);
+        mgr.setSpeedLimit(d, 1024);
+        QTRY_VERIFY_WITH_TIMEOUT(d->received() > srv.data.size() / 4 && !d->rec.resumeData.isEmpty(), 30000);
+        mgr.pause(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->pendingStops == 0, 5000);
+        mgr.setSpeedLimit(d, 0);
+
+        srv.pathStatus.insert("/cdn1/v.mp4", 403);
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn2/v.mp4")).toUtf8());
+        srv.rangeStarts.clear();
+        srv.paths.clear();
+        QCOMPARE(mgr.changeAddress(d, d->url()), QString());
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 30000);
+        QVERIFY(readAll(d->filePath()) == srv.data);
+        QVERIFY2(!srv.rangeStarts.contains(0), "the same link again restarted from byte 0");
+        QVERIFY(!srv.paths.contains("/cdn1/v.mp4")); // the expired link was not even tried
+        QCOMPARE(mgr.downloads().size(), 1);
+    }
+
     void changeAddressDifferentFileKeepsPart()
     {
         RangeServer srv, other;

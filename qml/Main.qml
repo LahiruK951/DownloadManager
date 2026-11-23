@@ -207,6 +207,7 @@ ApplicationWindow {
             settingsDialog.openSection(v === "settings-schedule" ? 2 : names.indexOf(v)) // the schedule is part of Network Traffic now
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
+        else if (v === "add-continue") { App.select(App.downloads.idAt(3)); addDialog.openWith(App.selected ? App.selected.url : "") } // a paused row
         else if (v === "add-dup") { App.select(App.downloads.idAt(1)); addDialog.openWith(App.selected ? App.selected.url : "") }
         else if (v === "traffic") statusBar.openTraffic()
         else if (v === "add-hls") addDialog.openWith("https://media.example.com/shows/night-drive/master.m3u8")

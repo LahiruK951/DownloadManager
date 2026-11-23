@@ -154,18 +154,73 @@ QVariantMap AppController::duplicateOf(const QString& text) const
     return out;
 }
 
+static bool canContinue(const Download* d)
+{
+    return d && (d->paused() || d->failed()) && DownloadManager::canChangeAddress(d);
+}
+
+QVariantMap AppController::unfinishedMatch(const QString& text, const QString& name) const
+{
+    static const QRegularExpression ws(QStringLiteral("\\s+"));
+    const QStringList links = text.split(ws, Qt::SkipEmptyParts);
+    if (links.size() != 1)
+        return {};
+    const QString url = links.first();
+    const QString module = m_mgr->moduleFor(url); // web links (or the developer demo ones)
+    if (module != QLatin1String("downloadswww") && module != QLatin1String("downloadsdemo"))
+        return {};
+    const Download* match = m_mgr->findByUrl(url);
+    const bool exact = canContinue(match);
+    if (!exact) {
+        match = nullptr;
+        const QString want = !name.trimmed().isEmpty() ? FileNamer::sanitize(name.trimmed()) : expectedName(url);
+        if (!want.isEmpty())
+            for (const Download* d : m_mgr->downloads())
+                if (canContinue(d) && d->rec.moduleUid == module && d->received() > 0
+                    && d->title().compare(want, Qt::CaseInsensitive) == 0) {
+                    match = d;
+                    break;
+                }
+    }
+    if (!match)
+        return {};
+    return {{QStringLiteral("id"), match->id()},
+            {QStringLiteral("title"), match->title()},
+            {QStringLiteral("percent"), match->rec.total > 0 ? int(match->received() * 100 / match->rec.total) : -1},
+            {QStringLiteral("exact"), exact}};
+}
+
+QString AppController::continueWith(qint64 id, const QString& url)
+{
+    Download* d = byId(id);
+    if (!canContinue(d))
+        return tr("This download cannot be continued with another link.");
+    // Also for the same link: that drops the expired saved link and its browser data is fresher.
+    return changeAddress(id, url, {});
+}
+
 QString AppController::addSilently(const QString& text, const QString& folder, const QString& fileName)
 {
     static const QRegularExpression ws(QStringLiteral("\\s+"));
     QStringList fresh;
     Download* existing = nullptr;
+    Download* continued = nullptr;
     for (const QString& u : BatchLinks::expandAll(text.split(ws, Qt::SkipEmptyParts))) {
         Download* d = m_mgr->findByUrl(u);
+        if (canContinue(d) && continueWith(d->id(), u).isEmpty()) { // paused or failed: pick it up again
+            continued = d;
+            continue;
+        }
         if (d && !d->completed() && d->rec.state != Download::Error) {
             existing = d;
             continue;
         }
         fresh << u;
+    }
+    if (fresh.isEmpty() && continued) {
+        select(continued->id());
+        emit notice(tr("Continuing %1 with the new link").arg(continued->title()));
+        return {};
     }
     if (fresh.isEmpty() && existing) {
         select(existing->id());

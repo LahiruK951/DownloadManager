@@ -19,6 +19,9 @@ FDialog {
     property int existingChoice: 0 // 0 keep both, 1 replace
     // The link is already in the list: say so (adding again is still allowed).
     readonly property var duplicate: linkCount > 0 ? App.duplicateOf(urlsField.text) : ({})
+    // A paused or failed download of the same file: offer to continue it instead of starting over.
+    readonly property var unfinished: linkCount === 1 && !torrent ? App.unfinishedMatch(urlsField.text, nameField.text) : ({})
+    readonly property bool canContinue: unfinished.id !== undefined
     readonly property string autoFolder: App.folderFor(urlsField.text)
     onAutoFolderChanged: if (!folderTouched && visible) folderField.editText = autoFolder
 
@@ -150,7 +153,43 @@ FDialog {
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 4
-            visible: dlg.duplicate.count > 0
+            visible: dlg.canContinue
+            spacing: 8
+            Text {
+                text: Theme.icons.refresh
+                font.family: Theme.iconFont
+                font.pixelSize: 12
+                color: Theme.accent
+            }
+            Text {
+                Layout.fillWidth: true
+                readonly property string what: dlg.unfinished.percent >= 0 ? "%1 (%2%)".arg(dlg.unfinished.title || "").arg(dlg.unfinished.percent)
+                                                                         : (dlg.unfinished.title || "")
+                text: dlg.unfinished.exact ? qsTr("Unfinished in your list: %1").arg(what)
+                                           : qsTr("Looks like the unfinished %1").arg(what)
+                elide: Text.ElideMiddle
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
+            FButton {
+                text: qsTr("Show")
+                onClicked: { App.select(dlg.unfinished.id); dlg.close() }
+            }
+            FButton {
+                kind: "primary"
+                text: qsTr("Continue it")
+                onClicked: {
+                    const err = App.continueWith(dlg.unfinished.id, urlsField.text.trim())
+                    if (err === "") dlg.close()
+                    else errorText.text = err
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            visible: dlg.duplicate.count > 0 && !dlg.canContinue
             spacing: 8
             Text {
                 text: Theme.icons.warn
@@ -211,7 +250,7 @@ FDialog {
     buttons: [
         FButton { text: qsTr("Cancel"); onClicked: dlg.close() },
         FButton {
-            kind: "primary"
+            kind: dlg.canContinue ? "secondary" : "primary" // "Continue it" is the better choice then
             glyph: Theme.icons.down
             text: dlg.linkCount > 1 ? qsTr("Download %1 files").arg(dlg.linkCount) : qsTr("Download")
             enabled: dlg.linkCount > 0

@@ -225,6 +225,11 @@ public:
     Q_INVOKABLE int countLinks(const QString& text) const;
     // Links in `text` that are already in the list: {count, id, title, state} of the first one; empty if none.
     Q_INVOKABLE QVariantMap duplicateOf(const QString& text) const;
+    // A paused or failed download this single link can continue: the same link, or a link to a
+    // file with the same name. {id, title, percent, exact}; empty if none.
+    Q_INVOKABLE QVariantMap unfinishedMatch(const QString& text, const QString& name) const;
+    // Continue that download with this link (keeps the downloaded part). Error text or "".
+    Q_INVOKABLE QString continueWith(qint64 id, const QString& url);
     Q_INVOKABLE bool isTorrentLink(const QString& text) const;
     Q_INVOKABLE QString linkModule(const QString& text) const; // module uid of the first link, "" if none
     Q_INVOKABLE void stopSeeding(qint64 id);
