@@ -38,6 +38,7 @@
 #include "core/Checksum.h"
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
+#include "core/ExternalTools.h"
 #include "core/Download.h"
 #include "core/DownloadManager.h"
 #include "core/FileNamer.h"
@@ -108,6 +109,37 @@ AppController::AppController(DownloadManager* mgr, const QString& dataDir, QObje
         setUpdate(4, tr("FluxDM %1 is ready to install.").arg(m_updater->version()));
     });
     connect(m_updater, &Updater::failed, this, [this](const QString& err) { setUpdate(5, err); });
+    // ffmpeg and yt-dlp: FluxDM's own copies (shipped in <app>\tools, updated into the profile).
+    m_tools = new ExternalTools(QDir(Instance::profileDir()).filePath(QStringLiteral("tools")),
+                                QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("tools")), this);
+    m_tools->setExtractor(m_mgr->extractorPath());
+    m_mgr->setTools(m_tools);
+    connect(m_tools, &ExternalTools::changed, this, &AppController::toolsChanged);
+    connect(m_tools, &ExternalTools::updated, this, [this](int, bool, const QString& message) { emit notice(message); });
+    connect(m_tools, &ExternalTools::checked, this, [this] {
+        m_ui.setValue(QStringLiteral("toolsLastCheck"), QDateTime::currentDateTime());
+        // Tell once per new version, and only about an outdated copy FluxDM manages.
+        const QVariantList all = tools();
+        for (int i = 0; i < all.size(); ++i) {
+            const QVariantMap t = all[i].toMap();
+            const QString name = ExternalTools::key(ExternalTools::Tool(i));
+            const QString latest = t.value(QStringLiteral("latest")).toString();
+            const QString seen = QStringLiteral("toolsNotified/") + name;
+            if (t.value(QStringLiteral("managed")).toBool() && t.value(QStringLiteral("canUpdate")).toBool()
+                && m_ui.value(seen).toString() != latest) {
+                m_ui.setValue(seen, latest);
+                emit notice(tr("%1 %2 is available: update it in Settings > Downloads").arg(name, latest));
+            }
+        }
+    });
+    // A daily look for newer ffmpeg/yt-dlp (sites change; old yt-dlp versions stop working), not on
+    // metered connections, not in dev/test profiles.
+    if (autoCheckUpdates() && !qEnvironmentVariableIsSet("FLUXDM_DATA_DIR")
+        && m_ui.value(QStringLiteral("toolsLastCheck")).toDateTime().secsTo(QDateTime::currentDateTime()) > 86400)
+        QTimer::singleShot(20000, this, [this] {
+            if (!m_metered->metered())
+                m_tools->checkLatest();
+        });
     // A daily look, a little after start, when an update address is set.
     if (autoCheckUpdates() && !updateUrl().isEmpty()
         && m_ui.value(QStringLiteral("updateLastCheck")).toDateTime().secsTo(QDateTime::currentDateTime()) > 86400)

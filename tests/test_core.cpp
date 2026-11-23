@@ -35,9 +35,11 @@
 #include <QProcess>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include "core/Database.h"
 #include "core/FileNamer.h"
 #include "core/LinkCheck.h"
+#include "core/ExternalTools.h"
 #include "core/SleepGuard.h"
 #include "core/MediaConvert.h"
 #include "core/ProxySettings.h"
@@ -599,6 +601,151 @@ private slots:
         QVERIFY(o.failed);
         QVERIFY2(o.error.startsWith("HTTP error 403: the link expired on"), qPrintable(o.error));
         QVERIFY(!DownloadManager::isRetriable(o.error));
+    }
+
+    // ------------------------------------------------------------ ffmpeg / yt-dlp (ExternalTools)
+
+    void externalToolVersions()
+    {
+        QVERIFY(ExternalTools::compareVersions("2026.10.26", "2026.11.02") < 0);
+        QVERIFY(ExternalTools::compareVersions("2026.11.02.233000", "2026.11.02") > 0); // nightly
+        QVERIFY(ExternalTools::compareVersions("9.1", "8.1.1") > 0);
+        QCOMPARE(ExternalTools::compareVersions("7.1.1-essentials_build-www.gyan.dev", "7.1.1"), 0);
+        QVERIFY(ExternalTools::compareVersions("", "1.0") < 0); // unknown version: older than any
+    }
+
+    static void writeTool(const QString& dir, const QString& exe, const QByteArray& body, const QJsonObject& versions)
+    {
+        QDir().mkpath(dir);
+        QFile f(QDir(dir).filePath(exe));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(body);
+        f.close();
+        QFile v(QDir(dir).filePath("versions.json"));
+        QVERIFY(v.open(QIODevice::WriteOnly));
+        v.write(QJsonDocument(versions).toJson());
+    }
+
+    void externalToolsPickNewestCopy()
+    {
+        QTemporaryDir dir;
+        const QString profile = dir.filePath("profile/tools"), bundled = dir.filePath("app/tools");
+        ExternalTools tools(profile, bundled);
+        QVERIFY(tools.managed(ExternalTools::YtDlp).path.isEmpty());
+
+        writeTool(bundled, "yt-dlp.exe", "bundled", {{"yt-dlp", "2026.10.26"}, {"ffmpeg", "9.1"}});
+        QCOMPARE(tools.managed(ExternalTools::YtDlp).version, QStringLiteral("2026.10.26"));
+        QVERIFY(tools.managed(ExternalTools::YtDlp).bundled);
+        QVERIFY(tools.managed(ExternalTools::Ffmpeg).path.isEmpty()); // listed, but no ffmpeg.exe
+
+        writeTool(profile, "yt-dlp.exe", "updated", {{"yt-dlp", "2026.11.20"}});
+        QCOMPARE(tools.managed(ExternalTools::YtDlp).version, QStringLiteral("2026.11.20"));
+        QVERIFY(!tools.managed(ExternalTools::YtDlp).bundled);
+
+        // A FluxDM update brought a newer one than the profile's: the bundled copy wins again.
+        writeTool(bundled, "yt-dlp.exe", "bundled2", {{"yt-dlp", "2026.12.01"}});
+        QCOMPARE(tools.managed(ExternalTools::YtDlp).version, QStringLiteral("2026.12.01"));
+        QVERIFY(tools.managed(ExternalTools::YtDlp).bundled);
+    }
+
+    static QByteArray releaseJson(const QString& tag, const QString& asset, const QString& url, const QByteArray& body, bool goodDigest = true)
+    {
+        const QByteArray sha = QCryptographicHash::hash(goodDigest ? body : body + "x", QCryptographicHash::Sha256).toHex();
+        const QJsonObject a{{"name", asset}, {"browser_download_url", url}, {"digest", "sha256:" + QString::fromLatin1(sha)}};
+        return QJsonDocument(QJsonObject{{"tag_name", tag}, {"assets", QJsonArray{a}}}).toJson();
+    }
+
+    void externalToolsUpdateYtDlp()
+    {
+        HlsServer srv;
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        const QString profile = dir.filePath("profile/tools");
+        writeTool(dir.filePath("app/tools"), "yt-dlp.exe", "old", {{"yt-dlp", "2026.10.26"}});
+        ExternalTools tools(profile, dir.filePath("app/tools"));
+        tools.setReleaseApi(ExternalTools::YtDlp, QUrl(srv.url("/api/yt-dlp")));
+        tools.setReleaseApi(ExternalTools::Ffmpeg, QUrl(srv.url("/api/ffmpeg"))); // 404: that check fails quietly
+        const QByteArray exe = "MZ new yt-dlp " + makeData(100 * 1024);
+        srv.files["/dl/yt-dlp.exe"] = exe;
+        srv.files["/api/yt-dlp"] = releaseJson("2026.11.20", "yt-dlp.exe", srv.url("/dl/yt-dlp.exe"), exe);
+
+        QSignalSpy checked(&tools, &ExternalTools::checked);
+        tools.checkLatest();
+        QTRY_COMPARE_WITH_TIMEOUT(checked.size(), 1, 15000);
+        QCOMPARE(tools.latest(ExternalTools::YtDlp), QStringLiteral("2026.11.20"));
+        QVERIFY(tools.updateAvailable(ExternalTools::YtDlp));
+        QVERIFY(!tools.updateAvailable(ExternalTools::Ffmpeg));
+
+        QSignalSpy updated(&tools, &ExternalTools::updated);
+        tools.update(ExternalTools::YtDlp);
+        QTRY_COMPARE_WITH_TIMEOUT(updated.size(), 1, 15000);
+        QVERIFY2(updated[0][1].toBool(), qPrintable(updated[0][2].toString()));
+        const ExternalTools::Copy c = tools.managed(ExternalTools::YtDlp);
+        QCOMPARE(c.version, QStringLiteral("2026.11.20"));
+        QVERIFY(!c.bundled);
+        QVERIFY(readAll(c.path) == exe);
+        QVERIFY(!tools.updateAvailable(ExternalTools::YtDlp)); // the update button goes away
+
+        // A file that doesn't match the published checksum is never installed.
+        const QByteArray evil = "MZ tampered " + makeData(1024);
+        srv.files["/dl/yt-dlp.exe"] = evil;
+        srv.files["/api/yt-dlp"] = releaseJson("2026.12.01", "yt-dlp.exe", srv.url("/dl/yt-dlp.exe"), evil, false);
+        tools.update(ExternalTools::YtDlp);
+        QTRY_COMPARE_WITH_TIMEOUT(updated.size(), 2, 15000);
+        QVERIFY(!updated[1][1].toBool());
+        QVERIFY2(updated[1][2].toString().contains("checksum"), qPrintable(updated[1][2].toString()));
+        QCOMPARE(tools.managed(ExternalTools::YtDlp).version, QStringLiteral("2026.11.20"));
+        QVERIFY(readAll(tools.managed(ExternalTools::YtDlp).path) == exe);
+        QCOMPARE(QDir(profile).entryList(QDir::Files | QDir::Hidden).filter(".download-").size(), 0); // no leftovers
+    }
+
+    void externalToolsUpdateFfmpeg()
+    {
+        // ffmpeg comes zipped (bin/ffmpeg.exe + LICENSE); Windows' own tar unpacks it.
+        const QString tar = QDir(qEnvironmentVariable("SystemRoot")).filePath("System32/tar.exe");
+        if (!QFileInfo(tar).isExecutable())
+            QSKIP("Windows tar.exe not available");
+        QTemporaryDir dir;
+        const QString src = dir.filePath("src/ffmpeg-9.2-essentials_build");
+        const QByteArray exe = "MZ ffmpeg 9.2 " + makeData(50 * 1024);
+        writeTool(src + "/bin", "ffmpeg.exe", exe, {});
+        {
+            QFile l(src + "/LICENSE");
+            QVERIFY(l.open(QIODevice::WriteOnly));
+            l.write("GPL v3");
+        }
+        const QString zip = dir.filePath("ffmpeg-9.2-essentials_build.zip");
+        QProcess p;
+        p.start(tar, {"-a", "-cf", QDir::toNativeSeparators(zip), "-C", QDir::toNativeSeparators(dir.filePath("src")), "ffmpeg-9.2-essentials_build"});
+        QVERIFY(p.waitForFinished(30000) && p.exitCode() == 0);
+        const QByteArray zipped = readAll(zip);
+
+        HlsServer srv;
+        QVERIFY(srv.start());
+        srv.files["/dl/ff.zip"] = zipped;
+        srv.files["/api/ffmpeg"] = releaseJson("9.2", "ffmpeg-9.2-essentials_build.zip", srv.url("/dl/ff.zip"), zipped);
+        const QString profile = dir.filePath("profile/tools");
+        ExternalTools tools(profile, dir.filePath("app/tools"));
+        tools.setReleaseApi(ExternalTools::Ffmpeg, QUrl(srv.url("/api/ffmpeg")));
+        tools.setExtractor(QDir::toNativeSeparators(tar));
+        QSignalSpy updated(&tools, &ExternalTools::updated);
+        tools.update(ExternalTools::Ffmpeg); // none installed yet: "Download"
+        QTRY_COMPARE_WITH_TIMEOUT(updated.size(), 1, 30000);
+        QVERIFY2(updated[0][1].toBool(), qPrintable(updated[0][2].toString()));
+        const ExternalTools::Copy c = tools.managed(ExternalTools::Ffmpeg);
+        QCOMPARE(c.version, QStringLiteral("9.2"));
+        QVERIFY(readAll(c.path) == exe);
+        QVERIFY(readAll(QDir(profile).filePath("ffmpeg-LICENSE.txt")) == "GPL v3");
+        QVERIFY(!QDir(QDir(profile).filePath(".unpack-ffmpeg")).exists());
+
+        // The download manager uses FluxDM's copy unless the user chose one.
+        Database db;
+        QVERIFY(db.open(dir.filePath("db")));
+        DownloadManager mgr(&db);
+        if (qEnvironmentVariableIsEmpty("FLUXDM_FFMPEG")) {
+            mgr.setTools(&tools);
+            QCOMPARE(mgr.ffmpegPath(), c.path);
+        }
     }
 
     void browserCheckErrorExplains()

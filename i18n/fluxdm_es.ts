@@ -479,6 +479,10 @@
         <source>No links to download</source>
         <translation>No hay enlaces para descargar</translation>
     </message>
+    <message>
+        <source>%1 %2 is available: update it in Settings &gt; Downloads</source>
+        <translation>%1 %2 está disponible: actualízalo en Configuración &gt; Descargas</translation>
+    </message>
 </context>
 <context>
     <name>BottomPanel</name>
@@ -1657,6 +1661,77 @@
     </message>
 </context>
 <context>
+    <name>ExternalTools</name>
+    <message>
+        <source>%1 is up to date</source>
+        <translation>%1 está actualizado</translation>
+    </message>
+    <message>
+        <source>Updates are only downloaded over HTTPS</source>
+        <translation>Las actualizaciones solo se descargan por HTTPS</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t look for a new %1: %2</source>
+        <translation>No se pudo buscar una versión nueva de %1: %2</translation>
+    </message>
+    <message>
+        <source>No %1 download for Windows found in its latest release</source>
+        <translation>La última versión de %1 no incluye una descarga para Windows</translation>
+    </message>
+    <message>
+        <source>Looking for the latest version…</source>
+        <translation>Buscando la última versión…</translation>
+    </message>
+    <message>
+        <source>Cannot create %1</source>
+        <translation>No se puede crear %1</translation>
+    </message>
+    <message>
+        <source>Cannot write %1</source>
+        <translation>No se puede escribir %1</translation>
+    </message>
+    <message>
+        <source>Downloading %1 %2…</source>
+        <translation>Descargando %1 %2…</translation>
+    </message>
+    <message>
+        <source>Downloading %1 %2… %3%</source>
+        <translation>Descargando %1 %2… %3%</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t download %1: %2</source>
+        <translation>No se pudo descargar %1: %2</translation>
+    </message>
+    <message>
+        <source>The downloaded %1 didn&apos;t match its checksum; nothing was changed</source>
+        <translation>El %1 descargado no coincide con su suma de verificación; no se cambió nada</translation>
+    </message>
+    <message>
+        <source>%1 is in use; try again when your downloads have finished</source>
+        <translation>%1 está en uso; vuelve a intentarlo cuando terminen tus descargas</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t install %1</source>
+        <translation>No se pudo instalar %1</translation>
+    </message>
+    <message>
+        <source>%1 %2 is installed</source>
+        <translation>%1 %2 está instalado</translation>
+    </message>
+    <message>
+        <source>Can&apos;t unpack ffmpeg: no extractor (Windows&apos; tar or 7-Zip) found</source>
+        <translation>No se puede descomprimir ffmpeg: no se encontró un descompresor (tar de Windows o 7-Zip)</translation>
+    </message>
+    <message>
+        <source>Unpacking ffmpeg %1…</source>
+        <translation>Descomprimiendo ffmpeg %1…</translation>
+    </message>
+    <message>
+        <source>Couldn&apos;t unpack ffmpeg</source>
+        <translation>No se pudo descomprimir ffmpeg</translation>
+    </message>
+</context>
+<context>
     <name>FileExistsDialog</name>
     <message>
         <source>File already exists</source>
@@ -2757,10 +2832,6 @@
         <translation>Para vídeos de YouTube y otros sitios: %1</translation>
     </message>
     <message>
-        <source>For videos from YouTube and other sites. Not found: put yt-dlp.exe next to FluxDM or on PATH, or choose it here.</source>
-        <translation>Para vídeos de YouTube y otros sitios. No se encontró: pon yt-dlp.exe junto a FluxDM o en el PATH, o elígelo aquí.</translation>
-    </message>
-    <message>
         <source>Default folder</source>
         <translation>Carpeta predeterminada</translation>
     </message>
@@ -2996,6 +3067,18 @@
         <source>Rules</source>
         <translation>Reglas</translation>
     </message>
+    <message>
+        <source>Using %1, included with FluxDM. Choose another copy here if you prefer.</source>
+        <translation>Se usa %1, incluido con FluxDM. Si lo prefieres, elige aquí otra copia.</translation>
+    </message>
+    <message>
+        <source>Using %1, updated by FluxDM. Choose another copy here if you prefer.</source>
+        <translation>Se usa %1, actualizado por FluxDM. Si lo prefieres, elige aquí otra copia.</translation>
+    </message>
+    <message>
+        <source>For videos from YouTube and other sites. Not found: download it, put yt-dlp.exe next to FluxDM or on PATH, or choose it here.</source>
+        <translation>Para vídeos de YouTube y otros sitios. No encontrado: descárgalo, pon yt-dlp.exe junto a FluxDM o en el PATH, o elígelo aquí.</translation>
+    </message>
 </context>
 <context>
     <name>SettingsRemote</name>
@@ -3214,6 +3297,17 @@
     <message>
         <source>Create</source>
         <translation>Crear</translation>
+    </message>
+</context>
+<context>
+    <name>ToolUpdateButton</name>
+    <message>
+        <source>Download</source>
+        <translation>Descargar</translation>
+    </message>
+    <message>
+        <source>Update to %1</source>
+        <translation>Actualizar a %1</translation>
     </message>
 </context>
 <context>

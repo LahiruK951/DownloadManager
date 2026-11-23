@@ -38,6 +38,7 @@
 #include "core/Checksum.h"
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
+#include "core/ExternalTools.h"
 #include "core/Download.h"
 #include "core/DownloadManager.h"
 #include "core/FileNamer.h"
@@ -432,3 +433,33 @@ QString AppController::ffmpegFound() const { return QDir::toNativeSeparators(m_m
 QString AppController::ytdlpSetting() const { return m_mgr->ytdlpSetting(); }
 void AppController::setYtdlpSetting(const QString& path) { m_mgr->setYtdlpSetting(path); }
 QString AppController::ytdlpFound() const { return QDir::toNativeSeparators(m_mgr->ytdlpPath()); }
+
+QVariantList AppController::tools() const
+{
+    QVariantList out;
+    for (int i = 0; i < ExternalTools::kCount; ++i) {
+        const auto t = ExternalTools::Tool(i);
+        const QString found = QDir::toNativeSeparators(i == ExternalTools::YtDlp ? m_mgr->ytdlpPath() : m_mgr->ffmpegPath());
+        const ExternalTools::Copy own = m_tools->managed(t);
+        const bool managed = !found.isEmpty() && found.compare(own.path, Qt::CaseInsensitive) == 0;
+        out << QVariantMap{
+            {QStringLiteral("found"), found},
+            {QStringLiteral("managed"), managed},
+            {QStringLiteral("bundled"), managed && own.bundled},
+            {QStringLiteral("version"), managed ? own.version : QString()},
+            {QStringLiteral("latest"), m_tools->latest(t)},
+            // Only FluxDM's own copy is updated (a copy the user chose is theirs to manage); with
+            // none at all, FluxDM can download one.
+            {QStringLiteral("canUpdate"), m_tools->updateAvailable(t) && (managed || found.isEmpty())},
+            {QStringLiteral("busy"), m_tools->busy(t)},
+            {QStringLiteral("status"), m_tools->status(t)},
+        };
+    }
+    return out;
+}
+
+void AppController::updateTool(int tool)
+{
+    if (tool >= 0 && tool < ExternalTools::kCount)
+        m_tools->update(ExternalTools::Tool(tool));
+}

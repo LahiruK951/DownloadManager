@@ -3,7 +3,8 @@
 #   scripts\package.ps1 -NoBuild
 #   scripts\package.ps1 -Installer [-UpdateBaseUrl https://example.org/fluxdm]
 #       also dist\FluxDM-<version>-setup.exe (Inno Setup 6) and dist\latest.json for the updater
-param([switch]$NoBuild, [switch]$Installer, [string]$UpdateBaseUrl = "")
+#   scripts\package.ps1 -NoTools    (without ffmpeg and yt-dlp; FluxDM can download them itself)
+param([switch]$NoBuild, [switch]$Installer, [switch]$NoTools, [string]$UpdateBaseUrl = "")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $bin = Join-Path $root "build\release"
@@ -24,6 +25,11 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 Copy-Item (Join-Path $bin "FluxDM.exe"), (Join-Path $bin "fluxdm-nativehost.exe") $stage
 Get-ChildItem $bin -Filter *.dll | Where-Object { $_.Name -notmatch '^Qt6' } | Copy-Item -Destination $stage
 Copy-Item -Recurse (Join-Path $bin "browser") (Join-Path $stage "browser")
+# ffmpeg + yt-dlp in tools\ (with versions.json, so FluxDM knows what it ships)
+if (-not $NoTools) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "fetch-tools.ps1") -Dest (Join-Path $stage "tools")
+    if ($LASTEXITCODE) { throw "fetch-tools failed" }
+}
 
 # Qt runtime for both executables
 & "$env:FLUXDM_QT_DIR\bin\windeployqt.exe" --release --qmldir (Join-Path $root "qml") --no-translations `
@@ -50,8 +56,9 @@ Browser integration: Settings > Browser (load the extension from the
 browser\chromium folder - or browser\firefox for Firefox - then switch on
 "Connect FluxDM to your browsers").
 
-The MP3/MP4 converter and DASH streams need ffmpeg: put ffmpeg.exe next
-to FluxDM.exe, on PATH, or set it in Settings > Downloads.
+ffmpeg and yt-dlp (video sites, stream conversion, the MP3/MP4 converter)
+are in the tools folder; FluxDM offers updates for them in Settings >
+Downloads when newer versions come out. See tools\README.txt.
 "@
 
 Remove-Item $zip -ErrorAction SilentlyContinue

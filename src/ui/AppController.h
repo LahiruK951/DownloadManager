@@ -19,6 +19,7 @@ class Download;
 class DownloadManager;
 class DownloadsModel;
 class DownloadsFilterModel;
+class ExternalTools;
 class QQmlEngine;
 class QJSEngine;
 
@@ -75,6 +76,8 @@ class AppController : public QObject {
     Q_PROPERTY(QString updateUrl READ updateUrl WRITE setUpdateUrl NOTIFY updateChanged)
     Q_PROPERTY(bool autoCheckUpdates READ autoCheckUpdates WRITE setAutoCheckUpdates NOTIFY updateChanged)
     Q_PROPERTY(int updateState READ updateState NOTIFY updateChanged)
+    // [yt-dlp, ffmpeg]: {found, version, managed, latest, canUpdate, busy, status}
+    Q_PROPERTY(QVariantList tools READ tools NOTIFY toolsChanged)
     Q_PROPERTY(QString updateStatus READ updateStatus NOTIFY updateChanged)
     Q_PROPERTY(bool chooseTorrentFiles READ chooseTorrentFiles WRITE setChooseTorrentFiles NOTIFY settingsChanged)
     Q_PROPERTY(bool antivirusCheck READ antivirusCheck WRITE setAntivirusCheck NOTIFY settingsChanged)
@@ -297,6 +300,8 @@ public:
     Q_INVOKABLE QString ytdlpSetting() const;
     Q_INVOKABLE void setYtdlpSetting(const QString& path);
     Q_INVOKABLE QString ytdlpFound() const;
+    QVariantList tools() const;
+    Q_INVOKABLE void updateTool(int tool); // 0 = yt-dlp, 1 = ffmpeg: download/update FluxDM's own copy
     Q_INVOKABLE void pauseAll();
     Q_INVOKABLE void resumeAll();
     Q_INVOKABLE QString openFile(qint64 id);         // error text or ""; falls back to "Open with"
@@ -391,6 +396,7 @@ signals:
     void sortChanged();
     void remoteChanged();
     void updateChanged();
+    void toolsChanged();
     void tagsChanged();
     void fileConflict(QObject* download);  // "ask" found an existing file
     void certificateRequired(QObject* download); // untrusted TLS certificate
@@ -418,6 +424,7 @@ private:
     TorrentFolderWatcher* m_torrentWatcher = nullptr;
     RemoteServer* m_remote = nullptr;
     Updater* m_updater = nullptr;
+    ExternalTools* m_tools = nullptr;
     MeteredGuard* m_metered = nullptr;
     int m_updateState = 0;
     QString m_updateStatus, m_updateFile;

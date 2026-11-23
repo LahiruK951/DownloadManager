@@ -1,5 +1,6 @@
 // DownloadManager: moving files, stream conversion and the MP3/MP4 converter.
 #include "core/DownloadManager.h"
+#include "core/ExternalTools.h"
 #include "core/Metalink.h"
 #include "core/AppLog.h"
 #ifdef FLUXDM_HAS_TORRENT
@@ -201,6 +202,9 @@ QString DownloadManager::ytdlpPath() const
     for (const QString& candidate : {ytdlpSetting(), qEnvironmentVariable("FLUXDM_YTDLP")})
         if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable())
             return candidate;
+    if (m_tools)
+        if (const QString own = m_tools->managed(ExternalTools::YtDlp).path; !own.isEmpty())
+            return own;
     const QString beside = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("yt-dlp.exe"));
     if (QFileInfo(beside).isExecutable())
         return beside;
@@ -212,6 +216,9 @@ QString DownloadManager::ffmpegPath() const
     for (const QString& candidate : {ffmpegSetting(), qEnvironmentVariable("FLUXDM_FFMPEG")})
         if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable())
             return candidate;
+    if (m_tools)
+        if (const QString own = m_tools->managed(ExternalTools::Ffmpeg).path; !own.isEmpty())
+            return own;
     const QString beside = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("ffmpeg.exe"));
     if (QFileInfo(beside).isExecutable())
         return beside;

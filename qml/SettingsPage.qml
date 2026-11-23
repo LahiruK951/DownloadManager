@@ -12,6 +12,20 @@ Popup {
     property int folderRev: 0
     property string ffmpeg: ""
     property string ytdlp: ""
+    // FluxDM's own ffmpeg / yt-dlp: version, and an update button only when a newer one exists.
+    readonly property var ytTool: App.tools[0]
+    readonly property var ffTool: App.tools[1]
+    function toolNote(t, name, fallback) {
+        if (t.status !== "" && !t.busy) return t.status // the last update failed: say why
+        if (!t.managed) return fallback
+        const v = t.version !== "" ? name + " " + t.version : name
+        return t.bundled ? qsTr("Using %1, included with FluxDM. Choose another copy here if you prefer.").arg(v)
+                         : qsTr("Using %1, updated by FluxDM. Choose another copy here if you prefer.").arg(v)
+    }
+    Connections {
+        target: App
+        function onToolsChanged() { page.ffmpeg = App.ffmpegFound(); page.ytdlp = App.ytdlpFound() }
+    }
     readonly property var modeNames: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
@@ -239,9 +253,10 @@ Popup {
                     }
                     SettingRow {
                         title: qsTr("ffmpeg location")
-                        description: qsTr("Leave empty to look for ffmpeg next to FluxDM and on PATH.")
+                        description: page.toolNote(page.ffTool, "ffmpeg", qsTr("Leave empty to look for ffmpeg next to FluxDM and on PATH."))
                         Row {
                             spacing: 8
+                            ToolUpdateButton { tool: page.ffTool; toolIndex: 1 }
                             FTextField {
                                 id: ffmpegField
                                 width: 260
@@ -253,10 +268,12 @@ Popup {
                     }
                     SettingRow {
                         title: qsTr("yt-dlp location")
-                        description: page.ytdlp !== "" ? qsTr("For videos from YouTube and other sites: %1").arg(page.ytdlp)
-                                                       : qsTr("For videos from YouTube and other sites. Not found: put yt-dlp.exe next to FluxDM or on PATH, or choose it here.")
+                        description: page.toolNote(page.ytTool, "yt-dlp",
+                                                   page.ytdlp !== "" ? qsTr("For videos from YouTube and other sites: %1").arg(page.ytdlp)
+                                                                     : qsTr("For videos from YouTube and other sites. Not found: download it, put yt-dlp.exe next to FluxDM or on PATH, or choose it here."))
                         RowLayout {
                             spacing: 8
+                            ToolUpdateButton { tool: page.ytTool; toolIndex: 0 }
                             FTextField {
                                 id: ytdlpField
                                 implicitWidth: 260

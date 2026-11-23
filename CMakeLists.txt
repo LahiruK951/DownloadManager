@@ -30,6 +30,7 @@ add_library(fluxcore STATIC
     src/core/AppLog.h                 src/core/AppLog.cpp
     src/core/RemoteServer.h           src/core/RemoteServer.cpp
     src/core/Updater.h                src/core/Updater.cpp
+    src/core/ExternalTools.h          src/core/ExternalTools.cpp
     src/core/AttachmentCheck.h        src/core/AttachmentCheck.cpp
     src/core/FdmImport.h              src/core/FdmImport.cpp
     src/core/MeteredGuard.h           src/core/MeteredGuard.cpp
@@ -140,6 +141,7 @@ set(FLUXDM_QML_FILES
     qml/ScheduleDialog.qml
     qml/WhenDoneDialog.qml
     qml/FButton.qml
+    qml/ToolUpdateButton.qml
     qml/FTextField.qml
     qml/FTextArea.qml
     qml/FCheckBox.qml

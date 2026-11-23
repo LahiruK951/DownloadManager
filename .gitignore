@@ -3,3 +3,6 @@ vcpkg_installed/
 *.user
 .vs/
 dist/
+
+# ffmpeg / yt-dlp downloaded by scripts/fetch-tools.ps1
+third_party/tools/

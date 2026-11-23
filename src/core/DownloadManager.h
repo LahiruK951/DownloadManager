@@ -15,6 +15,7 @@
 
 class Database;
 class DownloadEngine;
+class ExternalTools;
 
 // Owns all downloads, runs the queue according to the traffic mode and the
 // schedules, and routes each download to its engine module.
@@ -88,9 +89,12 @@ public:
     QString ffmpegSetting() const;
     QString ytdlpSetting() const;
     void setYtdlpSetting(const QString& path);
-    QString ytdlpPath() const; // setting, FLUXDM_YTDLP, next to FluxDM, PATH; "" if none
+    QString ytdlpPath() const; // setting, FLUXDM_YTDLP, FluxDM's own (tools), next to FluxDM, PATH; "" if none
     void setFfmpegSetting(const QString& path);
-    QString ffmpegPath() const; // resolved: setting, FLUXDM_FFMPEG, then PATH; "" if none
+    QString ffmpegPath() const; // setting, FLUXDM_FFMPEG, FluxDM's own (tools), next to FluxDM, PATH; "" if none
+    // The ffmpeg/yt-dlp copies FluxDM ships and updates (none in tests).
+    void setTools(ExternalTools* tools) { m_tools = tools; }
+    ExternalTools* tools() const { return m_tools; }
     void stopSeeding(Download* d);
     void pauseAll();
     void resumeAll();
@@ -215,6 +219,7 @@ private:
     void onLog(qint64 id, const QString& line);
 
     Database* m_db;
+    ExternalTools* m_tools = nullptr;
     qint64 m_lastStorageError = 0; // ms since epoch of the last storageError signal
     qint64 m_pendingDown = 0, m_pendingUp = 0; // counted, not yet in usageStats
     bool m_checkingFiles = false; // checkMissingFiles() is running on its thread
