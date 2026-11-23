@@ -76,7 +76,7 @@ Download modules (FDM's plugin layout):
   video + audio, merged with ffmpeg), stop/continue.
 
 App:
-- Network Traffic: modes Snail/Medium/High and rules that switch them by day and time; per-download schedules;
+- Traffic: modes Snail/Medium/High and rules that switch them by day and time; per-download schedules;
   "when done" sleep/hibernate/shut down/exit; automatic retries; batch links `file[1-20].zip`.
 - Browser integration: `fluxdm-nativehost.exe` + Chrome/Edge/Brave/Firefox extension (catches downloads,
   context menu, detects HLS/DASH streams on the page, site exclusions, Alt+click to skip, "download all

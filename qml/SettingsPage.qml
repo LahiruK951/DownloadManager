@@ -53,7 +53,7 @@ Popup {
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
         { title: qsTr("Downloads"), glyph: Theme.icons.down, desc: qsTr("Where new downloads are saved.") },
-        { title: qsTr("Network Traffic"), glyph: Theme.icons.bolt, desc: qsTr("How fast FluxDM downloads in each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.") },
+        { title: qsTr("Traffic"), glyph: Theme.icons.bolt, desc: qsTr("How fast FluxDM downloads in each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.") },
         { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
         { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge, Brave and Firefox to FluxDM.") },
         { title: qsTr("Network"), glyph: String.fromCharCode(0xE968), desc: qsTr("Proxy and how many connections FluxDM opens to one server.") },
@@ -378,7 +378,7 @@ Popup {
                         }
                     }
                 }
-                // ---------------- Network Traffic: modes
+                // ---------------- Traffic: modes
                 SectionHeading {
                     visible: page.section === 2
                     Layout.fillWidth: true
@@ -461,7 +461,7 @@ Popup {
                     text: qsTr("Snail mode also throttles BitTorrent uploads so your connection stays usable.")
                 }
 
-                // ---------------- Network Traffic: rules (automatic switching)
+                // ---------------- Traffic: rules (automatic switching)
                 SectionHeading {
                     visible: page.section === 2
                     Layout.fillWidth: true

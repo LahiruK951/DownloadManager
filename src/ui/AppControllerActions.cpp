@@ -706,11 +706,13 @@ void AppController::copyLink(qint64 id)
 
 void AppController::quit() { QCoreApplication::quit(); }
 
+// "FluxDM keeps running in the notification area": said once, the first time ever, not every session.
 void AppController::notifyHiddenToTray()
 {
-    if (m_trayHintShown)
+    if (m_trayHintShown || m_ui.value(QStringLiteral("trayHintShown"), false).toBool())
         return;
     m_trayHintShown = true;
+    m_ui.setValue(QStringLiteral("trayHintShown"), true);
     emit hiddenToTray();
 }
 

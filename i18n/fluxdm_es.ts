@@ -3167,10 +3167,6 @@
         <translation>Para vídeos de YouTube y otros sitios. No encontrado: descárgalo, pon yt-dlp.exe junto a FluxDM o en el PATH, o elígelo aquí.</translation>
     </message>
     <message>
-        <source>Network Traffic</source>
-        <translation>Tráfico de red</translation>
-    </message>
-    <message>
         <source>How fast FluxDM downloads in each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.</source>
         <translation>La velocidad de descarga de FluxDM en cada modo y las reglas que cambian de modo automáticamente. También puedes cambiar desde la barra de estado, en la parte inferior de la ventana.</translation>
     </message>
@@ -3185,6 +3181,10 @@
     <message>
         <source>Switch modes automatically — for example Snail mode during working hours.</source>
         <translation>Cambia de modo automáticamente: por ejemplo, el modo Caracol en horario laboral.</translation>
+    </message>
+    <message>
+        <source>Traffic</source>
+        <translation>Tráfico</translation>
     </message>
 </context>
 <context>

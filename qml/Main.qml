@@ -204,7 +204,7 @@ ApplicationWindow {
             if (v === "panel-done") Qt.callLater(bottomPanel.scrollGeneralToEnd)
         } else if (v.startsWith("settings")) {
             const names = ["settings", "settings-downloads", "settings-traffic", "settings-bt", "settings-browser", "settings-network", "settings-remote"]
-            settingsDialog.openSection(v === "settings-schedule" ? 2 : names.indexOf(v)) // the schedule is part of Network Traffic now
+            settingsDialog.openSection(v === "settings-schedule" ? 2 : names.indexOf(v)) // the schedule is part of Traffic now
         }
         else if (v === "add") addDialog.openWith("https://example.com/part[01-12].zip")
         else if (v === "add-continue") { App.select(App.downloads.idAt(3)); addDialog.openWith(App.selected ? App.selected.url : "") } // a paused row
