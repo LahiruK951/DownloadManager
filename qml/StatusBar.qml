@@ -73,7 +73,7 @@ Rectangle {
             itemHeight: 22
             model: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
             currentIndex: App.trafficMode
-            tips: [App.tumDescription(0), App.tumDescription(1), App.tumDescription(2)]
+            tips: App.tumDescriptions
             onActivated: (i) => App.trafficMode = i
         }
     }

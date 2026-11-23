@@ -42,6 +42,7 @@ class AppController : public QObject {
     Q_PROPERTY(QVariantList speedHistory READ speedHistory NOTIFY speedHistoryChanged)
     Q_PROPERTY(int trafficMode READ trafficMode WRITE setTrafficMode NOTIFY trafficModeChanged)
     Q_PROPERTY(bool trafficScheduled READ trafficScheduled NOTIFY trafficModeChanged)
+    Q_PROPERTY(QStringList tumDescriptions READ tumDescriptions NOTIFY trafficModeChanged) // status-bar tips; refresh when limits change
     Q_PROPERTY(int whenDone READ whenDone WRITE setWhenDone NOTIFY whenDoneChanged)
     Q_PROPERTY(bool torrentSupport READ torrentSupport CONSTANT)
     Q_PROPERTY(bool browserAddSilently READ browserAddSilently WRITE setBrowserAddSilently NOTIFY settingsChanged)
@@ -356,6 +357,7 @@ public:
     Q_INVOKABLE QVariantMap tumSettings(int mode) const;
     Q_INVOKABLE void setTumSettings(int mode, int maxDownloads, int maxConnections, int speedLimitKBps);
     Q_INVOKABLE QString tumDescription(int mode) const;
+    QStringList tumDescriptions() const { return {tumDescription(0), tumDescription(1), tumDescription(2)}; }
 
     // --- helpers
     Q_INVOKABLE QString clipboardUrls() const;
