@@ -17,6 +17,8 @@
 #include <QUrlQuery>
 #include <QRegularExpression>
 #include <QJsonObject>
+#include <QLocale>
+#include "core/Types.h"
 #include <QPointer>
 #include <thread>
 #include <QCoreApplication>
@@ -102,6 +104,62 @@ QString DownloadManager::rename(Download* d, const QString& newNameIn)
     d->setTitle(newName);
     d->notify();
     persist(d);
+    return {};
+}
+
+bool DownloadManager::canChangeAddress(const Download* d)
+{
+    // downloadsdemo: the developer-only simulated downloads, so screenshots can show it.
+    return d && !d->completed()
+        && (d->rec.moduleUid == QLatin1String("downloadswww") || d->rec.moduleUid == QLatin1String("downloadsdemo"));
+}
+
+QByteArray DownloadManager::withNewAddress(const QByteArray& resumeData)
+{
+    QJsonObject rd = QJsonDocument::fromJson(resumeData).object();
+    if (rd.isEmpty())
+        return resumeData;
+    rd.remove(QStringLiteral("url")); // the saved (redirected) link belongs to the old address
+    rd[QStringLiteral("verifyAddress")] = true;
+    return QJsonDocument(rd).toJson(QJsonDocument::Compact);
+}
+
+QString DownloadManager::changeAddress(Download* d, const QString& urlIn, const QString& pageIn)
+{
+    if (!canChangeAddress(d))
+        return tr("Only unfinished web downloads can get a new address.");
+    const QString url = urlIn.trimmed();
+    const QUrl u(url);
+    const QString scheme = u.scheme().toLower();
+    if (!u.isValid() || u.host().isEmpty() || (scheme != QLatin1String("http") && scheme != QLatin1String("https") && scheme != QLatin1String("ftp")))
+        return tr("Not a web or FTP address: %1").arg(url);
+    if (moduleFor(url) != d->rec.moduleUid)
+        return tr("This link is a different kind of download (for example a video stream or a torrent). Add it as a new download.");
+    const QString page = pageIn.trimmed();
+    if (!page.isEmpty() && !page.startsWith(QLatin1String("http://"), Qt::CaseInsensitive)
+        && !page.startsWith(QLatin1String("https://"), Qt::CaseInsensitive))
+        return tr("The download page must be a web address (http or https).");
+
+    if (d->running())
+        stopDownload(d); // its last resume data arrives later; onStopped applies the new address to it
+    d->rec.url = url;
+    if (!page.isEmpty())
+        d->rec.referrer = headerSafe(page);
+    d->rec.mirrors.removeAll(url);
+    if (!d->rec.resumeData.isEmpty()) {
+        d->rec.resumeData = withNewAddress(d->rec.resumeData);
+        d->newAddress = true;
+        d->addLog(tr("Address changed to %1; continuing from %2 if it is the same file")
+                      .arg(url, QLocale().formattedDataSize(d->rec.received)));
+    } else {
+        d->addLog(tr("Address changed to %1").arg(url));
+    }
+    d->autoRetryCount = 0;
+    d->autoRetryAt = {};
+    d->setState(Download::Queued);
+    d->notify();
+    persist(d);
+    schedule();
     return {};
 }
 

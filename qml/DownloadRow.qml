@@ -19,6 +19,7 @@ Rectangle {
     signal requestConvert(var download, string format)
     signal requestCertificate(var download)
     signal requestMirrors(var download)
+    signal requestChangeAddress(var download)
     signal requestWindow(var download)
 
     readonly property var d: download
@@ -281,6 +282,12 @@ Rectangle {
                 tip: qsTr("Sign in…")
                 onClicked: row.requestLogin(row.d)
             }
+            IconButton { // the link expired or was refused: a fresh one continues the download
+                visible: row.d.linkProblem && App.canChangeAddress(row.d.id)
+                glyph: String.fromCharCode(0xE70F) // Edit
+                tip: qsTr("Change address…")
+                onClicked: row.requestChangeAddress(row.d)
+            }
             IconButton {
                 visible: !row.d.needsLogin && !row.d.fileExists && !row.d.awaitingFiles && !row.d.certificateProblem
                 glyph: (row.d.completed && row.d.seeding) ? Theme.icons.upload
@@ -414,9 +421,10 @@ Rectangle {
             onTriggered: { const err = App.createTorrent(row.d.id); if (err !== "") App.notice(err) }
         }
         FMenuItem {
+            readonly property string page: (row.d.url, row.d.referrer, App.pageUrl(row.d.id))
             glyph: Theme.icons.globe
-            text: qsTr("Open download page")
-            visible: App.hasPage(row.d.id)
+            text: App.hasPage(row.d.id) ? qsTr("Open download page") : qsTr("Open website (%1)").arg(page.replace(/^https?:\/\//, "").replace(/\/$/, ""))
+            visible: page !== ""
             onTriggered: App.openPage(row.d.id)
         }
         FMenuSeparator {}
@@ -491,6 +499,12 @@ Rectangle {
             onTriggered: row.requestMove()
         }
         FMenuItem { glyph: Theme.icons.copy; text: qsTr("Copy link"); onTriggered: App.copyLink(row.d.id) }
+        FMenuItem {
+            glyph: String.fromCharCode(0xE70F) // Edit
+            text: qsTr("Change address…")
+            visible: (row.d.state, row.d.url, App.canChangeAddress(row.d.id))
+            onTriggered: row.requestChangeAddress(row.d)
+        }
         FMenuItem {
             glyph: Theme.icons.link
             text: qsTr("Mirrors…")

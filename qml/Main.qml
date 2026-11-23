@@ -80,7 +80,7 @@ ApplicationWindow {
         }
     }
 
-    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible || meteredDialog.visible || mirrorsDialog.visible
+    readonly property bool dialogOpen: addDialog.visible || settingsDialog.visible || deleteDialog.visible || aboutDialog.visible || scheduleDialog.visible || whenDoneDialog.visible || speedLimitDialog.visible || renameDialog.visible || loginDialog.visible || fileExistsDialog.visible || torrentFilesDialog.visible || tagDialog.visible || convertDialog.visible || reportDialog.visible || certificateDialog.visible || meteredDialog.visible || mirrorsDialog.visible || changeAddressDialog.visible
 
     Shortcut { sequence: "Ctrl+N"; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
     Shortcut { sequences: [StandardKey.Paste]; enabled: !win.dialogOpen; onActivated: addDialog.openWith(App.clipboardUrls()) }
@@ -149,6 +149,7 @@ ApplicationWindow {
                 onRequestConvert: (d, f) => convertDialog.openFor(d, f)
                 onRequestCertificate: (d) => certificateDialog.openFor(d)
                 onRequestMirrors: (d) => mirrorsDialog.openFor(d)
+                onRequestChangeAddress: (d) => changeAddressDialog.openFor(d)
                 onRequestWindow: (d) => win.openDownloadWindow(d)
                 onRequestSchedule: (d) => scheduleDialog.openFor(d)
                 onRequestAdd: addDialog.openWith(App.clipboardUrls())
@@ -225,6 +226,10 @@ ApplicationWindow {
             settingsDialog.openSection(5) // Network
         }
         else if (v === "report") reportDialog.openReport(false)
+        else if (v.startsWith("changeaddr")) { // changeaddr[:<row>]
+            App.select(App.downloads.idAt(v.indexOf(":") > 0 ? parseInt(v.split(":")[1]) : 0))
+            changeAddressDialog.openFor(App.selected)
+        }
         else if (v === "metered") meteredDialog.ask(2)
         else if (v === "window") { App.select(App.downloads.idAt(0)); openDownloadWindow(App.selected) }
         else if (v === "exists") devExistsTimer.start()
@@ -276,6 +281,7 @@ ApplicationWindow {
     CertificateDialog { id: certificateDialog }
     MeteredDialog { id: meteredDialog }
     MirrorsDialog { id: mirrorsDialog }
+    ChangeAddressDialog { id: changeAddressDialog }
     WhenDoneDialog { id: whenDoneDialog }
     FileDialog {
         id: importDialog

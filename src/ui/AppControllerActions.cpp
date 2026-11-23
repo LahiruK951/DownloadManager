@@ -40,6 +40,7 @@
 #include "core/BrowserHost.h"
 #include "core/Instance.h"
 #include "core/Download.h"
+#include "core/Types.h"
 #include "core/DownloadManager.h"
 #include "core/FileNamer.h"
 #include "ui/DownloadsModel.h"
@@ -395,10 +396,67 @@ bool AppController::hasPage(qint64 id) const
     return d && !d->isTorrent() && isWebLink(d->referrer()) && d->referrer() != d->url();
 }
 
+// Pasted links have no referrer: the website's home page is the next best way back to the file.
+QString AppController::pageUrl(qint64 id) const
+{
+    const Download* d = byId(id);
+    if (!d || d->isTorrent())
+        return {};
+    if (hasPage(id))
+        return d->referrer();
+    const QUrl u(d->url());
+    if (!isWebLink(d->url()) || u.host().isEmpty())
+        return {};
+    QUrl home;
+    home.setScheme(u.scheme());
+    home.setHost(u.host());
+    home.setPort(u.port());
+    home.setPath(QStringLiteral("/"));
+    return home.toString();
+}
+
 void AppController::openPage(qint64 id)
 {
-    if (hasPage(id))
-        QDesktopServices::openUrl(QUrl(byId(id)->referrer()));
+    openUrl(pageUrl(id));
+}
+
+void AppController::openUrl(const QString& url)
+{
+    if (isWebLink(url.trimmed()))
+        QDesktopServices::openUrl(QUrl(url.trimmed()));
+}
+
+bool AppController::canChangeAddress(qint64 id) const { return DownloadManager::canChangeAddress(byId(id)); }
+
+QString AppController::changeAddress(qint64 id, const QString& url, const QString& page)
+{
+    Download* d = byId(id);
+    if (!d)
+        return {};
+    // Coming from the browser: its cookies and user agent belong with the new link.
+    const QVariantMap meta = m_browserMeta.value(url.trimmed());
+    const QString err = m_mgr->changeAddress(d, url, page.trimmed().isEmpty() ? meta.value(QStringLiteral("referrer")).toString() : page);
+    if (!err.isEmpty())
+        return err;
+    if (!meta.isEmpty()) {
+        if (const QString c = meta.value(QStringLiteral("cookies")).toString(); !c.isEmpty())
+            d->rec.cookies = headerSafe(c);
+        if (const QString ua = meta.value(QStringLiteral("userAgent")).toString(); !ua.isEmpty())
+            d->rec.userAgent = headerSafe(ua);
+        if (const QByteArray post = meta.value(QStringLiteral("postData")).toString().toUtf8(); !post.isEmpty())
+            d->rec.postData = post;
+        m_mgr->persistRecord(d);
+    }
+    select(id);
+    return {};
+}
+
+QString AppController::clipboardLink() const
+{
+    for (const QString& w : QGuiApplication::clipboard()->text().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts))
+        if (isWebLink(w) || w.startsWith(QLatin1String("ftp://"), Qt::CaseInsensitive))
+            return w;
+    return {};
 }
 
 void AppController::copyPath(qint64 id)

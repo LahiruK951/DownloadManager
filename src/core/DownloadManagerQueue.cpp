@@ -163,6 +163,10 @@ bool DownloadManager::startDownload(Download* d)
     p.pickFiles = d->rec.pickFiles;
     p.sequential = d->rec.sequential;
     p.resumeData = d->rec.resumeData;
+    if (d->newAddress) { // stopped data that arrived after "Change address" still names the old link
+        p.resumeData = withNewAddress(p.resumeData);
+        d->newAddress = false; // from here the engine keeps "verifyAddress" until it is confirmed
+    }
     p.maxConnections = limits(m_effectiveMode).maxConnections;
     p.speedLimit = qint64(d->rec.speedLimitKBps) * 1024;
     d->setState(Download::Starting);

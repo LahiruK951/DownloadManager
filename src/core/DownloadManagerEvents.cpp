@@ -307,16 +307,18 @@ void DownloadManager::onStopped(qint64 id, const QByteArray& resumeData)
         statsChanged();
         return;
     }
+    // After "Change address" the task's last data still names the old link.
+    const QByteArray data = d->newAddress ? withNewAddress(resumeData) : resumeData;
     // If the download was already restarted, this stale data belongs to the old task.
-    if (!d->running() && d->pendingStops == 0 && !resumeData.isEmpty() && d->rec.state != Download::Queued) {
-        d->rec.resumeData = resumeData;
+    if (!d->running() && d->pendingStops == 0 && !data.isEmpty() && d->rec.state != Download::Queued) {
+        d->rec.resumeData = data;
         d->setSegmentsFromResumeData();
         d->notify();
-        m_db->saveProgress(id, d->rec.received, resumeData);
-    } else if (d->rec.state == Download::Queued && !resumeData.isEmpty() && !d->rec.resumeData.isEmpty()) {
-        // Re-queued by a traffic-mode/schedule switch: keep the freshest resume point.
-        d->rec.resumeData = resumeData;
-        m_db->saveProgress(id, d->rec.received, resumeData);
+        m_db->saveProgress(id, d->rec.received, data);
+    } else if (d->rec.state == Download::Queued && !data.isEmpty() && !d->rec.resumeData.isEmpty()) {
+        // Re-queued by a traffic-mode/schedule switch or a new address: keep the freshest resume point.
+        d->rec.resumeData = data;
+        m_db->saveProgress(id, d->rec.received, data);
     }
     statsChanged();
 }

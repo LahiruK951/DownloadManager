@@ -308,8 +308,14 @@ public:
     Q_INVOKABLE QString openFile(qint64 id);         // error text or ""; falls back to "Open with"
     Q_INVOKABLE QString openWith(qint64 id);         // Windows "Open with" chooser; error text or ""
     Q_INVOKABLE void openFolder(qint64 id);
-    Q_INVOKABLE void openPage(qint64 id);            // the web page the download came from
-    Q_INVOKABLE bool hasPage(qint64 id) const;
+    Q_INVOKABLE void openPage(qint64 id);            // the web page the download came from, else its website
+    Q_INVOKABLE bool hasPage(qint64 id) const;       // the page it came from is known
+    Q_INVOKABLE QString pageUrl(qint64 id) const;    // what openPage opens; "" if nothing
+    Q_INVOKABLE void openUrl(const QString& url);    // a web page in the browser
+    Q_INVOKABLE bool canChangeAddress(qint64 id) const;
+    // New link for an unfinished download; keeps the downloaded part. Error text or "".
+    Q_INVOKABLE QString changeAddress(qint64 id, const QString& url, const QString& page);
+    Q_INVOKABLE QString clipboardLink() const;       // the first web link on the clipboard, or ""
     Q_INVOKABLE void copyLink(qint64 id);
     Q_INVOKABLE void copyPath(qint64 id);
     Q_INVOKABLE QString rename(qint64 id, const QString& newName); // error text or ""

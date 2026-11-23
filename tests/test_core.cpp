@@ -3079,6 +3079,115 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(d2->completed(), 20000);
     }
 
+    // Both the signed link and its page are dead: the user pastes a new link to the same file.
+    void changeAddressKeepsPartial()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn1/v.mp4")).toUtf8());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url(QStringLiteral("/dload/v.mp4")), dir.path(), {}, true);
+        QVERIFY(d);
+        mgr.setSpeedLimit(d, 1024); // still running when the first resume data is saved
+        QTRY_VERIFY2_WITH_TIMEOUT(d->received() > srv.data.size() / 4 && !d->rec.resumeData.isEmpty(),
+                                  qPrintable(QStringLiteral("state %1, %2 bytes, resume %3, %4").arg(d->rec.state).arg(d->received()).arg(d->rec.resumeData.size()).arg(d->error())), 30000);
+        mgr.pause(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->pendingStops == 0, 5000);
+        const qint64 kept = d->received();
+
+        srv.redirects.clear();
+        srv.pathStatus.insert("/cdn1/v.mp4", 416);
+        srv.pathStatus.insert("/dload/v.mp4", 403);
+        // Wrong kinds of link are refused and change nothing.
+        QVERIFY(!mgr.changeAddress(d, QStringLiteral("not a link")).isEmpty());
+        QVERIFY(!mgr.changeAddress(d, QStringLiteral("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567")).isEmpty());
+        QVERIFY(!mgr.changeAddress(d, srv.url(QStringLiteral("/v.mp4")), QStringLiteral("ftp://x")).isEmpty());
+        QVERIFY(d->paused());
+
+        srv.rangeStarts.clear();
+        QCOMPARE(mgr.changeAddress(d, srv.url(QStringLiteral("/mirror/v.mp4")), srv.url(QStringLiteral("/watch/v"))), QString());
+        mgr.setSpeedLimit(d, 0);
+        QCOMPARE(d->url(), srv.url(QStringLiteral("/mirror/v.mp4")));
+        QCOMPARE(d->referrer(), srv.url(QStringLiteral("/watch/v")));
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 30000);
+        QVERIFY(readAll(d->filePath()) == srv.data);
+        QVERIFY(kept > 0);
+        QVERIFY(!srv.rangeStarts.isEmpty());
+        QVERIFY2(!srv.rangeStarts.contains(0), "the new address restarted from byte 0");
+    }
+
+    void changeAddressWhileRunning()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url(QStringLiteral("/a/v.mp4")), dir.path(), {}, true);
+        QVERIFY(d);
+        mgr.setSpeedLimit(d, 1024); // still running when the first resume data is saved
+        QTRY_VERIFY2_WITH_TIMEOUT(d->received() > srv.data.size() / 4 && !d->rec.resumeData.isEmpty(),
+                                  qPrintable(QStringLiteral("state %1, %2 bytes, resume %3, %4").arg(d->rec.state).arg(d->received()).arg(d->rec.resumeData.size()).arg(d->error())), 30000);
+        srv.rangeStarts.clear();
+        srv.paths.clear();
+        QCOMPARE(mgr.changeAddress(d, srv.url(QStringLiteral("/b/v.mp4"))), QString());
+        mgr.setSpeedLimit(d, 0);
+        QTRY_VERIFY_WITH_TIMEOUT(d->completed(), 30000);
+        QVERIFY(readAll(d->filePath()) == srv.data);
+        QVERIFY2(!srv.rangeStarts.contains(0), "the new address restarted from byte 0");
+        QVERIFY(!srv.paths.contains("/a/v.mp4"));
+    }
+
+    void changeAddressDifferentFileKeepsPart()
+    {
+        RangeServer srv, other;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        other.data = makeData(12 * 1024 * 1024);
+        QVERIFY(srv.start());
+        QVERIFY(other.start());
+        QTemporaryDir dir;
+        Database db;
+        QVERIFY(db.open(dir.path()));
+        DownloadManager mgr(&db);
+        mgr.addEngine(new WwwEngine);
+        mgr.load();
+        Download* d = mgr.add(srv.url(QStringLiteral("/v.mp4")), dir.path(), {}, true);
+        QVERIFY(d);
+        mgr.setSpeedLimit(d, 1024); // still running when the first resume data is saved
+        QTRY_VERIFY2_WITH_TIMEOUT(d->received() > srv.data.size() / 4 && !d->rec.resumeData.isEmpty(),
+                                  qPrintable(QStringLiteral("state %1, %2 bytes, resume %3, %4").arg(d->rec.state).arg(d->received()).arg(d->rec.resumeData.size()).arg(d->error())), 30000);
+        mgr.pause(d);
+        QTRY_VERIFY_WITH_TIMEOUT(d->pendingStops == 0, 5000);
+        const qint64 kept = d->received();
+        const QString part = d->filePath() + FileNamer::kPartSuffix;
+
+        QCOMPARE(mgr.changeAddress(d, other.url(QStringLiteral("/v.mp4"))), QString());
+        mgr.setSpeedLimit(d, 0);
+        QTRY_VERIFY_WITH_TIMEOUT(d->failed(), 30000);
+        QVERIFY2(d->error().contains(QStringLiteral("is a different file")), qPrintable(d->error()));
+        QVERIFY(d->linkProblem());
+        QVERIFY(!d->autoRetryAt.isValid());
+        QVERIFY(QFile::exists(part));
+        QCOMPARE(d->received(), kept);
+        QVERIFY(QJsonDocument::fromJson(d->rec.resumeData).object().value(QStringLiteral("verifyAddress")).toBool());
+    }
+
 #ifdef FLUXDM_HAS_TORRENT
     void torrentFromLocalSeeder()
     {

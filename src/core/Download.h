@@ -71,6 +71,7 @@ class Download : public QObject {
     Q_PROPERTY(qint64 queueOrder READ queueOrder NOTIFY changed)
     Q_PROPERTY(bool certificateProblem READ certificateProblem NOTIFY changed) // stopped: untrusted TLS certificate
     Q_PROPERTY(bool fileExists READ fileExists NOTIFY changed) // stopped: "ask" and the file is already there
+    Q_PROPERTY(bool linkProblem READ linkProblem NOTIFY changed) // stopped: the link expired or refuses to continue
 
 public:
     enum State { Queued = 0, Starting, Downloading, Paused, Error, Completed };
@@ -80,6 +81,7 @@ public:
 
     DownloadRecord rec;
     int pendingStops = 0; // engine stop requests not yet acknowledged
+    bool newAddress = false; // the user changed the address; applied to resume data until the next start
     int autoRetryCount = 0;   // automatic retries used since the last success/manual action
     QDateTime autoRetryAt;    // when the next automatic retry happens (invalid = none)
 
@@ -168,6 +170,19 @@ public:
     }
     bool certificateProblem() const { return failed() && rec.lastError.startsWith(QLatin1String("Untrusted certificate")); }
     bool fileExists() const { return failed() && rec.lastError.startsWith(QLatin1String("File already exists")); }
+    // The link stopped working (expired, removed, sends a page): a fresh link may fix it.
+    bool linkProblem() const
+    {
+        if (!failed())
+            return false;
+        static const QStringList starts = {QStringLiteral("HTTP error 403"), QStringLiteral("HTTP error 404"),
+                                           QStringLiteral("HTTP error 410"), QStringLiteral("HTTP error 416"),
+                                           QStringLiteral("The server sent a web page"), QStringLiteral("The new link is a different file")};
+        for (const QString& p : starts)
+            if (rec.lastError.startsWith(p))
+                return true;
+        return false;
+    }
     bool needsLogin() const
     {
         return failed() && (rec.lastError.startsWith(QLatin1String("HTTP error 401")) || rec.lastError.startsWith(QLatin1String("Login ")));

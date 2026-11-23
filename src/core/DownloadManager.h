@@ -59,6 +59,13 @@ public:
     // Rename a finished file on disk (not torrents: libtorrent owns their names). Error text or "".
     QString rename(Download* d, const QString& newName);
     static bool canRename(const Download* d);
+    // A new link for an unfinished web download (the old one expired). The part already downloaded
+    // is kept and continued if the new link serves a file of the same size. `page`, when given,
+    // becomes the download page. Error text or "".
+    QString changeAddress(Download* d, const QString& url, const QString& page = {});
+    static bool canChangeAddress(const Download* d);
+    // Resume data that makes the engine use the record's URL and check it is the same file.
+    static QByteArray withNewAddress(const QByteArray& resumeData);
 
     // Server logins, per "scheme://host:port". Kept for this session; saved when `remember`.
     static QString loginServer(const QString& url);
