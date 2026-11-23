@@ -60,8 +60,9 @@ Download modules (FDM's plugin layout):
   retries, Content-Disposition names, system or manual (HTTP/SOCKS5) proxy, per-download, global and
   per-server limits, server logins
   (401/FTP; saved per server, DPAPI-encrypted), "file exists" choice (keep both / replace / ask), clear
-  errors for dead links (web page instead of the file, expired signed links), mirrors, POST (form)
-  downloads, trust-per-server for untrusted certificates, Metalink (`.meta4`/`.metalink`: mirrors +
+  errors for dead links (web page instead of the file, expired signed links), a fresh link from the
+  original address when a saved (redirected) link has expired, "Change address…" that keeps the part
+  already downloaded (same-size check), mirrors, POST (form) downloads, trust-per-server for untrusted certificates, Metalink (`.meta4`/`.metalink`: mirrors +
   checksum), IPv4/IPv6 choice, own user agent.
 - **downloadsbt** – BitTorrent (libtorrent 2.1): magnets, local/web `.torrent`, choose files before
   downloading, Peers/Trackers tabs, download in order, seeding to a share ratio, upload limit, DHT/LSD/UPnP,
@@ -75,7 +76,7 @@ Download modules (FDM's plugin layout):
   video + audio, merged with ffmpeg), stop/continue.
 
 App:
-- Traffic modes Snail/Medium/High with a weekly **snail schedule**; per-download schedules;
+- Network Traffic: modes Snail/Medium/High and rules that switch them by day and time; per-download schedules;
   "when done" sleep/hibernate/shut down/exit; automatic retries; batch links `file[1-20].zip`.
 - Browser integration: `fluxdm-nativehost.exe` + Chrome/Edge/Brave/Firefox extension (catches downloads,
   context menu, detects HLS/DASH streams on the page, site exclusions, Alt+click to skip, "download all
@@ -84,7 +85,8 @@ App:
   downloading (torrents), multi-select, sorting (date/name/size/status), folders by file type, move to folder, rename,
   open/open with, missing-file detection, import/export, per-download speed limit, completion notification
   + sound, keeps the PC awake while downloading, tray, clipboard monitor, light/dark, manual queue order,
-  separate download windows, zoom, import from Free Download Manager, duplicate-link warning, checksum
+  separate download windows, zoom, import from Free Download Manager, duplicate-link warning ("Continue it"
+  for an unfinished download of the same file), checksum
   check (MD5/SHA-1/SHA-256/SHA-512), extract finished archives (7-Zip or Windows tar), speed graph and
   traffic totals (today/month/all time), auto-remove finished entries, start with Windows, keyboard
   shortcuts (listed in About), screen-reader names and Tab focus on the custom controls.
