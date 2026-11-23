@@ -26,11 +26,34 @@ Popup {
         target: App
         function onToolsChanged() { page.ffmpeg = App.ffmpegFound(); page.ytdlp = App.ytdlpFound() }
     }
+    // A heading inside a page, styled like a SettingsCard title ("Modes", "Rules").
+    component SectionHeading: ColumnLayout {
+        id: heading
+        property string title: ""
+        property string description: ""
+        spacing: 8
+        Text {
+            text: heading.title
+            color: Theme.text
+            font.pixelSize: 14
+            font.weight: Font.DemiBold
+            Layout.leftMargin: 2
+        }
+        Text {
+            visible: heading.description !== ""
+            Layout.fillWidth: true
+            Layout.leftMargin: 2
+            text: heading.description
+            color: Theme.textDim
+            font.pixelSize: Theme.fontSmall
+            wrapMode: Text.WordWrap
+        }
+    }
     readonly property var modeNames: [qsTr("Snail"), qsTr("Medium"), qsTr("High")]
     readonly property var sections: [
         { title: qsTr("General"), glyph: Theme.icons.settings, desc: qsTr("Appearance and how FluxDM behaves on your desktop.") },
         { title: qsTr("Downloads"), glyph: Theme.icons.down, desc: qsTr("Where new downloads are saved.") },
-        { title: qsTr("Traffic Modes"), glyph: Theme.icons.bolt, desc: qsTr("Limits for each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.") },
+        { title: qsTr("Network Traffic"), glyph: Theme.icons.bolt, desc: qsTr("How fast FluxDM downloads in each mode, and rules that switch modes automatically. You can also switch from the status bar at the bottom of the window.") },
         { title: qsTr("BitTorrent"), glyph: Theme.icons.link, desc: qsTr("Seeding, upload speed and file associations.") },
         { title: qsTr("Browser"), glyph: Theme.icons.globe, desc: qsTr("Send downloads from Chrome, Edge, Brave and Firefox to FluxDM.") },
         { title: qsTr("Network"), glyph: String.fromCharCode(0xE968), desc: qsTr("Proxy and how many connections FluxDM opens to one server.") },
@@ -355,10 +378,17 @@ Popup {
                         }
                     }
                 }
-                // ---------------- Traffic modes
+                // ---------------- Network Traffic: modes
+                SectionHeading {
+                    visible: page.section === 2
+                    Layout.fillWidth: true
+                    title: qsTr("Modes")
+                    description: qsTr("Limits for each mode. The active mode has a blue outline.")
+                }
                 GridLayout {
                     visible: page.section === 2
                     Layout.fillWidth: true
+                    Layout.topMargin: -12 // keep the heading close to its cards
                     columns: content.width > 700 ? 3 : 1
                     columnSpacing: 14
                     rowSpacing: 14
@@ -431,29 +461,19 @@ Popup {
                     text: qsTr("Snail mode also throttles BitTorrent uploads so your connection stays usable.")
                 }
 
-                // ---------------- Traffic Modes: rules (automatic switching)
-                ColumnLayout {
+                // ---------------- Network Traffic: rules (automatic switching)
+                SectionHeading {
                     visible: page.section === 2
                     Layout.fillWidth: true
                     Layout.topMargin: 12
+                    title: qsTr("Rules")
+                    description: qsTr("Switch modes automatically — for example Snail mode during working hours.")
+                }
+                ColumnLayout {
+                    visible: page.section === 2
+                    Layout.fillWidth: true
+                    Layout.topMargin: -12 // keep the heading close to its rules
                     spacing: 10
-
-                    Text {
-                        text: qsTr("Rules")
-                        color: Theme.text
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                        Layout.leftMargin: 2
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        Layout.leftMargin: 2
-                        Layout.topMargin: -4
-                        text: qsTr("Switch traffic modes automatically — for example Snail mode during working hours.")
-                        color: Theme.textDim
-                        font.pixelSize: Theme.fontSmall
-                        wrapMode: Text.WordWrap
-                    }
 
                     Rectangle {
                         Layout.fillWidth: true
