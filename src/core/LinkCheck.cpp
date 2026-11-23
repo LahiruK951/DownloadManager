@@ -73,7 +73,8 @@ QString httpErrorText(long code, const QUrl& url, const QDateTime& now)
     case 403: return prefix + QStringLiteral(": access denied. The link may have expired, or it only works from the browser that opened it");
     case 404: return prefix + QStringLiteral(": the file was not found on the server");
     case 410: return prefix + QStringLiteral(": the link has expired or the file was removed");
-    case 416: return prefix + QStringLiteral(": the server rejected the requested part of the file");
+    case 416: return prefix + QStringLiteral(": the server refused to continue the file. The link has probably expired: "
+                                             "use Change address to give FluxDM a fresh link; the downloaded part is kept");
     case 429: return prefix + QStringLiteral(": the server is limiting requests; trying again later");
     default: break;
     }

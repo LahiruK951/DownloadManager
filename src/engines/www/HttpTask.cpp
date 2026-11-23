@@ -148,6 +148,8 @@ void HttpTask::startSegment(Segment* s)
     s->reachedEnd = false;
     s->paused = false;
     s->fatal.clear();
+    s->linkFailure = false;
+    s->webPage = false;
     s->contentDisposition.clear();
     s->contentRange.clear();
     s->etag.clear();
@@ -160,8 +162,8 @@ void HttpTask::startSegment(Segment* s)
 
     if (m_sources.isEmpty())
         m_sources = QStringList{m_p.url} + m_p.mirrors;
-    const QByteArray url = (s->source > 0 && s->source < m_sources.size() ? m_sources[s->source]
-                            : (m_effUrl.isEmpty() ? m_p.url : m_effUrl)).toUtf8();
+    s->usedUrl = s->source > 0 && s->source < m_sources.size() ? m_sources[s->source] : currentUrl();
+    const QByteArray url = s->usedUrl.toUtf8();
     curl_easy_setopt(h, CURLOPT_URL, url.constData());
     curl_easy_setopt(h, CURLOPT_PRIVATE, s);
     curl_easy_setopt(h, CURLOPT_WRITEFUNCTION, &HttpTask::writeCb);
@@ -351,7 +353,11 @@ bool HttpTask::onFirstData(Segment* s)
     if (!isHttp() || !m_resumable)
         return true;
     if (code != 206) {
-        s->fatal = QStringLiteral("Server ignored the range request (HTTP %1)").arg(code);
+        // An expired link often answers with a page (sign-in, "link expired") instead of the file.
+        s->linkFailure = true;
+        s->webPage = LinkCheck::isUnexpectedWebPage(s->contentType, s->contentDisposition, {m_fileName});
+        s->fatal = s->webPage ? LinkCheck::webPageText(QUrl(m_p.url))
+                              : QStringLiteral("Server ignored the range request (HTTP %1)").arg(code);
         return false;
     }
     const qint64 tot = parseContentRangeTotal(s->contentRange);
@@ -359,12 +365,44 @@ bool HttpTask::onFirstData(Segment* s)
         s->fatal = QStringLiteral("serves a file of a different size");
         return false;
     }
+    if (tot > 0 && tot != m_total && (m_verifyAddress || m_linkRefreshed)) {
+        // A new or refreshed link to something else: keep what was downloaded, let the user decide.
+        s->fatal = QStringLiteral("The new link is a different file (%1 bytes instead of %2). The part already "
+                                  "downloaded is kept; use Restart to download the new file from the beginning")
+                       .arg(tot)
+                       .arg(m_total);
+        m_fatalTask = true;
+        return false;
+    }
     if (tot > 0 && tot != m_total) {
         s->fatal = QStringLiteral("File size changed on the server");
         m_changedOnServer = true;
         return false;
     }
+    if (s->source == 0 && (m_effUrl.isEmpty() || m_linkRefreshed || m_verifyAddress))
+        adoptLink(s);
     return true;
+}
+
+// The original or a new address delivered the right part: remember where it led, so the other
+// connections and the next resume use that link directly.
+void HttpTask::adoptLink(Segment* s)
+{
+    char* eff = nullptr;
+    curl_easy_getinfo(s->h, CURLINFO_EFFECTIVE_URL, &eff);
+    if (eff && *eff)
+        m_effUrl = QString::fromUtf8(eff);
+    if (!s->etag.isEmpty() && !m_etag.isEmpty() && s->etag != m_etag)
+        log(QStringLiteral("The server reports another version tag, but the size is the same; continuing"));
+    if (!s->etag.isEmpty())
+        m_etag = s->etag;
+    if (m_verifyAddress)
+        log(QStringLiteral("The new link is the same file; continuing at %1 of %2 bytes").arg(received()).arg(m_total));
+    else if (m_linkRefreshed)
+        log(QStringLiteral("Got a fresh link; continuing"));
+    m_verifyAddress = false;
+    m_linkRefreshed = false;
+    m_dirty = true;
 }
 
 bool HttpTask::initMeta(Segment* s, long code)
@@ -513,6 +551,31 @@ void HttpTask::onDone(Segment* s, CURLcode rc, qint64 nowMs)
         s->retryAt = nowMs;
         return;
     }
+    // Resuming with a link that no longer works. Download sites often redirect to a signed link
+    // that expires after a few hours; the original address hands out a fresh one.
+    const bool linkCode = code == 401 || code == 403 || code == 404 || code == 410 || code == 416;
+    if (isHttp() && m_metaKnown && (linkCode || s->linkFailure) && !s->browserCheck) {
+        auto retryNow = [s, nowMs] {
+            s->fatal.clear();
+            s->retryAt = nowMs; // not counted as a retry
+        };
+        if (s->usedUrl != currentUrl()) { // asked before another connection replaced the link
+            retryNow();
+            return;
+        }
+        if (!m_effUrl.isEmpty() && m_effUrl != m_p.url && !m_linkRefreshed) {
+            log(QStringLiteral("The saved link no longer works (%1); asking %2 for a fresh one")
+                    .arg(code >= 400 ? QStringLiteral("HTTP %1").arg(code) : s->fatal, m_p.url));
+            m_effUrl.clear();
+            m_linkRefreshed = true;
+            retryNow();
+            return;
+        }
+        if (s->webPage) { // the original address sends a page too: nothing left to try here
+            fail(s->fatal);
+            return;
+        }
+    }
     if (m_changedOnServer) {
         if (++m_restarts > 2) {
             fail(QStringLiteral("The file keeps changing on the server"));
@@ -655,6 +718,8 @@ QByteArray HttpTask::resumeData() const
     o[QStringLiteral("partPath")] = m_partPath;
     o[QStringLiteral("etag")] = QString::fromLatin1(m_etag);
     o[QStringLiteral("lastModified")] = QString::fromLatin1(m_lastModified);
+    if (m_verifyAddress) // a changed address not yet confirmed to be the same file
+        o[QStringLiteral("verifyAddress")] = true;
     QJsonArray segs;
     for (const auto& s : m_segs)
         segs.append(QJsonArray{s->begin, s->end, s->done});
@@ -674,6 +739,7 @@ bool HttpTask::restore(const QByteArray& data)
     m_partPath = o.value(QStringLiteral("partPath")).toString();
     m_etag = o.value(QStringLiteral("etag")).toString().toLatin1();
     m_lastModified = o.value(QStringLiteral("lastModified")).toString().toLatin1();
+    m_verifyAddress = o.value(QStringLiteral("verifyAddress")).toBool();
 
     std::vector<std::unique_ptr<Segment>> segs;
     for (const auto& v : o.value(QStringLiteral("segments")).toArray()) {

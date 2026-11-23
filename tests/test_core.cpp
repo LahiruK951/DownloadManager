@@ -121,6 +121,38 @@ TaskParams params(qint64 id, const QString& url, const QString& dir, int conns =
     p.maxConnections = conns;
     return p;
 }
+
+// Starts `p`, stops it once about a quarter of `size` has arrived and returns the resume data
+// (empty if it finished first or never stopped).
+QByteArray downloadPartly(WwwEngine& eng, const TaskParams& p, qint64 size)
+{
+    QSignalSpy stats(&eng, &DownloadEngine::stats), stopped(&eng, &DownloadEngine::stopped);
+    QSignalSpy fin(&eng, &DownloadEngine::finished);
+    eng.start(p);
+    QElapsedTimer t;
+    t.start();
+    qint64 got = 0;
+    while (got < size / 4 && t.elapsed() < 30000 && fin.isEmpty()) {
+        QTest::qWait(20);
+        if (!stats.isEmpty())
+            got = stats.last().at(0).value<TaskStats>().received;
+    }
+    if (!fin.isEmpty())
+        return {};
+    eng.stop(p.id);
+    t.restart();
+    while (stopped.isEmpty() && t.elapsed() < 5000)
+        QTest::qWait(20);
+    return stopped.isEmpty() ? QByteArray() : stopped.last().at(1).toByteArray();
+}
+
+bool logged(const QSignalSpy& log, const QString& text)
+{
+    for (const QList<QVariant>& a : log)
+        if (a.at(1).toString().contains(text))
+            return true;
+    return false;
+}
     // Serves master -> media playlist with `count` AES-128 segments (implicit IVs from sequence 10).
 QByteArray setupHls(HlsServer& srv, int count, QList<QByteArray>* plainOut)
     {
@@ -479,6 +511,96 @@ private slots:
         QVERIFY2(!srv.rangeStarts.contains(0), "resume restarted from byte 0");
     }
 
+    // A site redirects to a signed link that expires (eporner, file hosts). Resuming hours later
+    // must ask the original address for a fresh link and continue, not start over.
+    void expiredRedirectGetsFreshLink()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn1/v.mp4")).toUtf8());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        const QByteArray resume = downloadPartly(eng, params(21, srv.url(QStringLiteral("/dload/v.mp4")), dir.path()), srv.data.size());
+        QVERIFY(!resume.isEmpty());
+        QVERIFY(QJsonDocument::fromJson(resume).object().value(QStringLiteral("url")).toString().endsWith(QStringLiteral("/cdn1/v.mp4")));
+
+        srv.pathStatus.insert("/cdn1/v.mp4", 416); // expired
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn2/v.mp4")).toUtf8());
+        srv.rangeStarts.clear();
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed), log(&eng, &DownloadEngine::log);
+        TaskParams p = params(21, srv.url(QStringLiteral("/dload/v.mp4")), dir.path());
+        p.resumeData = resume;
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 60000);
+        QVERIFY2(o.finished, qPrintable(o.error));
+        QVERIFY(readAll(o.path) == srv.data);
+        QVERIFY(!srv.rangeStarts.isEmpty());
+        QVERIFY2(!srv.rangeStarts.contains(0), "the fresh link restarted from byte 0");
+        QVERIFY(srv.paths.contains("/cdn2/v.mp4"));
+        QVERIFY(logged(log, QStringLiteral("asking")));
+        QVERIFY(logged(log, QStringLiteral("Got a fresh link")));
+    }
+
+    void expiredRedirectNoLoop()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn1/v.mp4")).toUtf8());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        const QByteArray resume = downloadPartly(eng, params(22, srv.url(QStringLiteral("/dload/v.mp4")), dir.path()), srv.data.size());
+        QVERIFY(!resume.isEmpty());
+
+        // The original address refuses too: fail once, clearly, and keep the part.
+        srv.redirects.clear();
+        srv.pathStatus.insert("/cdn1/v.mp4", 403);
+        srv.pathStatus.insert("/dload/v.mp4", 403);
+        srv.requests = 0;
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(22, srv.url(QStringLiteral("/dload/v.mp4")), dir.path());
+        p.resumeData = resume;
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.startsWith(QStringLiteral("HTTP error 403")), qPrintable(o.error));
+        QVERIFY2(srv.requests <= 10, qPrintable(QString::number(srv.requests)));
+        QVERIFY(QFile::exists(dir.filePath(QStringLiteral("v.mp4")) + FileNamer::kPartSuffix));
+        QVERIFY(!fail.last().at(2).toByteArray().isEmpty()); // resume data survives the failure
+    }
+
+    void freshLinkToAnotherFileKeepsPart()
+    {
+        RangeServer srv;
+        srv.data = makeData(8 * 1024 * 1024);
+        srv.chunk = 16 * 1024;
+        srv.intervalMs = 5;
+        QVERIFY(srv.start());
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn1/v.mp4")).toUtf8());
+        QTemporaryDir dir;
+        WwwEngine eng;
+        const QByteArray resume = downloadPartly(eng, params(23, srv.url(QStringLiteral("/dload/v.mp4")), dir.path()), srv.data.size());
+        QVERIFY(!resume.isEmpty());
+
+        srv.pathStatus.insert("/cdn1/v.mp4", 410);
+        srv.redirects.insert("/dload/v.mp4", srv.url(QStringLiteral("/cdn2/v.mp4")).toUtf8());
+        srv.data = makeData(12 * 1024 * 1024); // the site now serves something else
+        QSignalSpy fin(&eng, &DownloadEngine::finished), fail(&eng, &DownloadEngine::failed);
+        TaskParams p = params(23, srv.url(QStringLiteral("/dload/v.mp4")), dir.path());
+        p.resumeData = resume;
+        eng.start(p);
+        const Outcome o = waitForEnd(fin, fail, 30000);
+        QVERIFY(o.failed);
+        QVERIFY2(o.error.contains(QStringLiteral("is a different file")), qPrintable(o.error));
+        QVERIFY(!DownloadManager::isRetriable(o.error));
+        QVERIFY(QFile::exists(dir.filePath(QStringLiteral("v.mp4")) + FileNamer::kPartSuffix));
+    }
+
     void noRangeSupportFallsBackToSingleConnection()
     {
         RangeServer srv;
@@ -552,6 +674,8 @@ private slots:
         QVERIFY(DownloadManager::isRetriable(LinkCheck::httpErrorText(503, valid, now)));
         QVERIFY(DownloadManager::isRetriable(LinkCheck::httpErrorText(429, valid, now)));
         QVERIFY(!DownloadManager::isRetriable(LinkCheck::webPageText(valid, now)));
+        QVERIFY(LinkCheck::httpErrorText(416, valid, now).contains(QStringLiteral("Change address")));
+        QVERIFY(!DownloadManager::isRetriable(LinkCheck::httpErrorText(416, valid, now)));
     }
 
     void webPageInsteadOfFileFails()

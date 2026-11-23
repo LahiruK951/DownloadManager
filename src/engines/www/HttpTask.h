@@ -29,6 +29,9 @@ struct Segment {
     bool reachedEnd = false;
     bool paused = false;
     bool browserCheck = false; // the reply is a Cloudflare "are you a browser" challenge
+    bool linkFailure = false;  // resuming: the link answered without the requested part
+    bool webPage = false;      // ... and sent a web page instead
+    QString usedUrl;           // the address this connection asked
     QString fatal;
 
     QByteArray contentDisposition, contentRange, etag, lastModified, contentType;
@@ -84,6 +87,7 @@ private:
     bool isHttp() const;
     bool onFirstData(Segment* s);
     bool initMeta(Segment* s, long code);
+    void adoptLink(Segment* s);
     void startSegment(Segment* s);
     void releaseHandle(Segment* s);
     int activeCount() const;
@@ -112,6 +116,12 @@ private:
     int m_nextSource = 0;
     int pickSource();
     bool m_changedOnServer = false;
+    // The saved (redirected) link stopped working, so the original address is being asked for a
+    // fresh one. Cleared when the fresh link delivers; allows one refresh per expiry.
+    bool m_linkRefreshed = false;
+    // The user gave a new address: continue only if it serves a file of the same size.
+    bool m_verifyAddress = false;
+    QString currentUrl() const { return m_effUrl.isEmpty() ? m_p.url : m_effUrl; }
     bool m_dead = false;
     bool m_dirty = false;
     int m_restarts = 0;

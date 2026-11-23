@@ -1,4 +1,5 @@
 #pragma once
+#include <QHash>
 #include <QHostAddress>
 #include <QList>
 #include <QTcpServer>
@@ -19,6 +20,9 @@ public:
     QByteArray contentType;  // e.g. "text/html" to imitate an expired file-host link
     QByteArray basicAuth;    // "user:password" required (HTTP Basic), empty = open
     QByteArray failHeaders;  // extra header lines sent with failStatus, each ending in "\r\n"
+    QHash<QByteArray, QByteArray> redirects; // path -> Location (302), e.g. a site handing out signed links
+    QHash<QByteArray, int> pathStatus;       // path -> error status for that path only (an expired link)
+    QList<QByteArray> paths;                 // the path of every request
     int unauthorized = 0;    // 401 answers sent
     int open = 0, peakOpen = 0;       // concurrent connections now / at most
     int active = 0, peakActive = 0;   // responses being sent now / at most (closing sockets don't count)
@@ -68,8 +72,16 @@ private:
                 sock->disconnectFromHost();
                 return;
             }
-            if (failStatus) {
-                sock->write("HTTP/1.1 " + QByteArray::number(failStatus) + " Error\r\n" + failHeaders
+            const QByteArray path = requestLines.last().split(' ').value(1);
+            paths.append(path);
+            if (redirects.contains(path)) {
+                sock->write("HTTP/1.1 302 Found\r\nLocation: " + redirects.value(path)
+                            + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                sock->disconnectFromHost();
+                return;
+            }
+            if (const int st = failStatus ? failStatus : pathStatus.value(path)) {
+                sock->write("HTTP/1.1 " + QByteArray::number(st) + " Error\r\n" + failHeaders
                             + "Content-Length: 0\r\nConnection: close\r\n\r\n");
                 sock->disconnectFromHost();
                 return;

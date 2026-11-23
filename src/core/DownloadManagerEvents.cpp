@@ -388,7 +388,7 @@ bool DownloadManager::isRetriable(const QString& error)
     // Permanent problems: retrying cannot help.
     static const QRegularExpression permanent(QStringLiteral(
         R"(HTTP error 4(0[0-7]|09|1\d|2[0-8]|3\d|4\d|5\d)\b|Disk write|Cannot create|Cannot allocate|Cannot rename|Unsupported|)"
-        R"(already being downloaded|Untrusted certificate|web page instead|browser check|File already exists|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open)"),
+        R"(already being downloaded|Untrusted certificate|web page instead|browser check|File already exists|Login required|Login failed|Invalid magnet|Not a valid|No engine|keeps changing|Cannot open|is a different file)"),
         QRegularExpression::CaseInsensitiveOption);
     return !error.isEmpty() && !permanent.match(error).hasMatch();
 }
