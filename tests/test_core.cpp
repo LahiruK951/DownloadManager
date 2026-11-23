@@ -2530,6 +2530,8 @@ private slots:
         const QString a = QDir(d).filePath("a.zip");
         QCOMPARE(QFileInfo(FileNamer::completionTarget(a, FileNamer::KeepBoth)).fileName(), QStringLiteral("a (1).zip"));
         QVERIFY(QFile::exists(a));
+        QCOMPARE(QFileInfo(FileNamer::completionTarget(a, FileNamer::Ask)).fileName(), QStringLiteral("a (1).zip")); // unanswered: never deletes
+        QVERIFY(QFile::exists(a));
         QCOMPARE(FileNamer::completionTarget(a, FileNamer::Overwrite), a);
         QVERIFY(!QFile::exists(a)); // removed so the finished file can take its place
     }
@@ -2595,6 +2597,9 @@ private slots:
         DownloadManager mgr(&db);
         mgr.addEngine(new WwwEngine);
         mgr.load();
+        QCOMPARE(mgr.existingFileDefault(), int(FileNamer::Ask)); // the default is "Ask me"
+        mgr.setExistingFileDefault(FileNamer::KeepBoth);
+        QCOMPARE(mgr.existingFileDefault(), int(FileNamer::KeepBoth));
         mgr.setExistingFileDefault(FileNamer::Ask);
         QCOMPARE(mgr.existingFileDefault(), int(FileNamer::Ask));
         Download* d = mgr.add(srv.url("/notes.bin"), dir.path(), {}, true);

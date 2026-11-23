@@ -363,7 +363,7 @@ QVariantMap DownloadManager::details(Download* d) const
 
 int DownloadManager::existingFileDefault() const
 {
-    return qBound(0, m_db->setting(QStringLiteral("ExistingFileReaction"), int(FileNamer::KeepBoth)).toInt(), 2);
+    return qBound(0, m_db->setting(QStringLiteral("ExistingFileReaction"), int(FileNamer::Ask)).toInt(), 2);
 }
 
 void DownloadManager::setExistingFileDefault(int reaction)

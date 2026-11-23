@@ -127,7 +127,9 @@ QString completionTarget(const QString& target, int reaction)
 {
     if (!QFile::exists(target))
         return target;
-    if (reaction != KeepBoth && QFile::remove(target)) // overwrite (an answered "Ask" is stored as Overwrite)
+    // Only an explicit "Replace" overwrites: an answered "Ask" is stored as Overwrite, and an unanswered
+    // one (the file appeared while downloading) keeps both rather than deleting it unasked.
+    if (reaction == Overwrite && QFile::remove(target))
         return target;
     const QFileInfo fi(target);
     return uniquePath(fi.absolutePath(), fi.fileName());
