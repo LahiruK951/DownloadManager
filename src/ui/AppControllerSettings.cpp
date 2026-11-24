@@ -651,12 +651,15 @@ void AppController::setDefaultFolder(const QString& f)
     emit settingsChanged();
 }
 
+// The last 5 folders downloads were saved to, newest first (just the default folder before the first).
 QStringList AppController::folderHistory() const
 {
     QStringList h = m_ui.value(QStringLiteral("folderHistory")).toStringList();
-    const QString def = defaultFolder();
-    h.removeAll(def);
-    h.prepend(def);
+    h.removeAll(QString());
+    if (h.size() > kFolderHistorySize)
+        h = h.mid(0, kFolderHistorySize);
+    if (h.isEmpty())
+        h << defaultFolder();
     return h;
 }
 
@@ -666,7 +669,7 @@ void AppController::rememberFolder(const QString& dir)
     const QString n = QDir::toNativeSeparators(dir);
     h.removeAll(n);
     h.prepend(n);
-    while (h.size() > 10)
+    while (h.size() > kFolderHistorySize)
         h.removeLast();
     m_ui.setValue(QStringLiteral("folderHistory"), h);
     emit settingsChanged();

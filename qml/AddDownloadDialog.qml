@@ -37,6 +37,7 @@ FDialog {
         schedEditor.days = s.days
         schedEditor.fromMin = s.from
         schedEditor.toMin = s.to
+        folderField.model = App.folderHistory // taken once: a later change mustn't reset the folder typed here
         open()
         folderField.editText = folder || App.folderFor(text || "")
         folderTouched = false
@@ -88,6 +89,13 @@ FDialog {
                                                           : qsTr("Video from a website — needs yt-dlp (Settings > Downloads)"))
                      : dlg.linkCount === 1 ? qsTr("1 file") : qsTr("%1 files").arg(dlg.linkCount)
             }
+            FButton {
+                kind: "ghost"
+                glyph: Theme.icons.folder
+                text: qsTr("Browse…")
+                implicitHeight: 28
+                onClicked: fileDlg.open()
+            }
         }
 
         FieldLabel { text: qsTr("Save to"); Layout.topMargin: 8 }
@@ -98,7 +106,6 @@ FDialog {
                 id: folderField
                 Layout.fillWidth: true
                 editable: true
-                model: App.folderHistory
                 onActivated: dlg.folderTouched = true
                 onAccepted: dlg.folderTouched = true
             }
@@ -221,7 +228,7 @@ FDialog {
             checked: true
             enabled: !schedBox.checked
         }
-        FCheckBox { id: schedBox; text: qsTr("Download only during a scheduled time") }
+        FCheckBox { id: schedBox; text: qsTr("Schedule download") }
         ScheduleEditor {
             id: schedEditor
             visible: schedBox.checked
@@ -257,6 +264,19 @@ FDialog {
             onClicked: dlg.submit()
         }
     ]
+
+    FileDialog { // a .torrent or Metalink file already on this computer
+        id: fileDlg
+        title: qsTr("Choose a file to download from")
+        fileMode: FileDialog.OpenFiles
+        nameFilters: [qsTr("Torrent and Metalink files (*.torrent *.metalink *.meta4)"), qsTr("All files (*)")]
+        onAccepted: {
+            const paths = selectedFiles.map(u => App.urlToLocal(u)).join("\n")
+            const cur = urlsField.text.trim()
+            urlsField.text = cur === "" ? paths : cur + "\n" + paths
+            if (!dlg.folderTouched) folderField.editText = App.folderFor(urlsField.text)
+        }
+    }
 
     FolderDialog {
         id: folderDlg

@@ -23,6 +23,9 @@ ComboBox {
     implicitWidth: cb.editable ? 200
                  : Math.min(maxWidth, Math.max(minWidth, widestText + 12 + indicator.width + 8 + leftPadding + rightPadding + 4))
     FontMetrics { id: fm; font: cb.font }
+    // An editable box's text field must stop short of the chevron: a press there has to reach the box
+    // itself, which opens the list (a text field under it would swallow the click).
+    rightPadding: cb.editable ? indicator.width + 24 : undefined
 
     background: Rectangle {
         radius: Theme.radius
@@ -34,7 +37,7 @@ ComboBox {
 
     contentItem: TextField {
         leftPadding: 12
-        rightPadding: cb.indicator.width + 8
+        rightPadding: cb.editable ? 4 : cb.indicator.width + 8
         text: cb.editable ? cb.editText : cb.displayText
         enabled: cb.editable
         autoScroll: cb.editable

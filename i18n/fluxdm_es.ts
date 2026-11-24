@@ -151,10 +151,6 @@
         <translation>Empezar a descargar ahora</translation>
     </message>
     <message>
-        <source>Download only during a scheduled time</source>
-        <translation>Descargar solo durante un horario</translation>
-    </message>
-    <message>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
@@ -193,6 +189,22 @@
     <message>
         <source>Continue it</source>
         <translation>Continuarla</translation>
+    </message>
+    <message>
+        <source>Schedule download</source>
+        <translation>Programar la descarga</translation>
+    </message>
+    <message>
+        <source>Choose a file to download from</source>
+        <translation>Elegir un archivo del que descargar</translation>
+    </message>
+    <message>
+        <source>Torrent and Metalink files (*.torrent *.metalink *.meta4)</source>
+        <translation>Archivos torrent y Metalink (*.torrent *.metalink *.meta4)</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>Todos los archivos (*)</translation>
     </message>
 </context>
 <context>
@@ -502,6 +514,10 @@
     <message>
         <source>Continuing %1 with the new link</source>
         <translation>Continuando %1 con el nuevo enlace</translation>
+    </message>
+    <message>
+        <source>None of these downloads is finished yet.</source>
+        <translation>Ninguna de estas descargas ha terminado todavía.</translation>
     </message>
 </context>
 <context>
@@ -3534,6 +3550,14 @@
     <message>
         <source>Pause all (Ctrl+Shift+P)</source>
         <translation>Pausar todo (Ctrl+Mayús+P)</translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation>Seleccionar todo</translation>
+    </message>
+    <message>
+        <source>Select finished</source>
+        <translation>Seleccionar terminadas</translation>
     </message>
 </context>
 <context>

@@ -70,6 +70,30 @@ Rectangle {
             onClicked: bar.deleteClicked()
         }
 
+        // Only while several downloads are selected: widen the selection to all, or narrow it to the finished.
+        Rectangle {
+            visible: App.selectionCount > 1
+            Layout.leftMargin: 6
+            Layout.rightMargin: 4
+            implicitWidth: 1
+            implicitHeight: 22
+            color: Theme.border
+        }
+        FButton {
+            visible: App.selectionCount > 1
+            kind: "ghost"
+            implicitHeight: 32
+            text: qsTr("Select all")
+            onClicked: App.selectAll()
+        }
+        FButton {
+            visible: App.selectionCount > 1
+            kind: "ghost"
+            implicitHeight: 32
+            text: qsTr("Select finished")
+            onClicked: App.selectFinished()
+        }
+
         Item { Layout.fillWidth: true }
 
         TextField {

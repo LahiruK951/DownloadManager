@@ -276,6 +276,7 @@ public:
     Q_INVOKABLE void toggleSelect(qint64 id);        // Ctrl+click
     Q_INVOKABLE void selectRange(qint64 id);         // Shift+click, from the current item
     Q_INVOKABLE void selectAll();
+    Q_INVOKABLE void selectFinished();               // just the finished ones in the list as shown
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE bool isSelected(qint64 id) const { return m_sel.contains(id); }
     Q_INVOKABLE QVariantList selectedIds() const;
@@ -426,6 +427,7 @@ private:
     void recount();
     void updateStats();
     void rememberFolder(const QString& dir);
+    static constexpr int kFolderHistorySize = 5; // "Save to" list in the add dialog
     void onClipboardChanged();
 
     DownloadManager* m_mgr;

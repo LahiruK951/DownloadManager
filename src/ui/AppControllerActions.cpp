@@ -298,6 +298,24 @@ void AppController::selectAll()
     selectionUpdated();
 }
 
+void AppController::selectFinished()
+{
+    QList<qint64> done;
+    for (int r = 0; r < m_proxy->rowCount(); ++r)
+        if (Download* d = byId(m_proxy->idAt(r)); d && d->completed())
+            done.append(d->id());
+    if (done.isEmpty()) {
+        emit notice(tr("None of these downloads is finished yet."));
+        return; // keep what was selected
+    }
+    m_sel = done;
+    if (!m_selected || !m_sel.contains(m_selected->id())) {
+        m_selected = byId(m_sel.first());
+        emit selectedChanged();
+    }
+    selectionUpdated();
+}
+
 void AppController::clearSelection()
 {
     m_sel.clear();
